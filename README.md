@@ -76,34 +76,81 @@ A modern, local web-based virtual tabletop designed for in-person D&D sessions w
 
 ## 📁 Folder Structure (planned)
 
-spelltable/
-├── backend/                  # FastAPI backend
-│   ├── main.py               # Entry point for the API and WebSocket server
-│   ├── routes/               # API route definitions (map handling, session control, etc.)
-│   ├── services/             # Business logic (map scaling, session state)
-│   ├── models/               # Pydantic models for data structures
-│   ├── maps/                 # Uploaded and processed map images
-│   ├── sessions/             # Saved game/session state files (e.g. JSON)
-│   └── config.py             # Config settings (paths, debug, etc.)
-│
-├── frontend/                 # Next.js frontend (Admin + Player View)
-│   ├── pages/                # React pages (e.g. /admin, /player)
-│   ├── components/           # Shared UI components (map view, toolbar, etc.)
-│   ├── styles/               # Tailwind config or custom styles
-│   ├── public/               # Static files (e.g. icons, fonts)
-│   └── utils/                # Frontend utilities (WebSocket client, helpers)
-│
-├── shared/                   # Shared code between frontend and backend
-│   └── types.ts              # Shared type definitions (TypeScript)
-│
-├── scripts/                  # Helper scripts (e.g. dev server start, image pre-processing)
-│
-├── .env                      # Environment config for local dev
-├── requirements.txt          # Python dependencies
-├── package.json              # JS/TS dependencies
-├── README.md                 # Project description
-└── spelltable.code-workspace # (Optional) VSCode workspace config
+spelltable/  
+├── backend/                  # FastAPI backend  
+│   ├── main.py               # Entry point for the API and WebSocket server  
+│   ├── routes/               # API route definitions (map handling, session control, etc.)  
+│   ├── services/             # Business logic (map scaling, session state)  
+│   ├── models/               # Pydantic models for data structures  
+│   ├── maps/                 # Uploaded and processed map images  
+│   ├── sessions/             # Saved game/session state files (e.g. JSON)  
+│   └── config.py             # Config settings (paths, debug, etc.)  
+│  
+├── frontend/                 # Next.js frontend (Admin + Player View)  
+│   ├── pages/                # React pages (e.g. /admin, /player)  
+│   ├── components/           # Shared UI components (map view, toolbar, etc.)  
+│   ├── styles/               # Tailwind config or custom styles  
+│   ├── public/               # Static files (e.g. icons, fonts)  
+│   └── utils/                # Frontend utilities (WebSocket client, helpers)  
+│  
+├── shared/                   # Shared code between frontend and backend  
+│   └── types.ts              # Shared type definitions (TypeScript)  
+│  
+├── scripts/                  # Helper scripts (e.g. dev server start, image pre-processing)  
+│  
+├── .env                      # Environment config for local dev  
+├── requirements.txt          # Python dependencies  
+├── package.json              # JS/TS dependencies  
+├── README.md                 # Project description  
+└── spelltable.code-workspace # (Optional) VSCode workspace config  
 
+
+---
+
+## 🚀 Developer - Quick Start
+
+### Prerequisites
+- Python 3.x
+- Node.js (latest LTS version recommended)
+- npm or yarn
+
+### Development Setup
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/paulpaul168/spelltable.git
+   cd spelltable
+   ```
+
+2. Run the development servers:
+   ```bash
+   chmod +x run.sh  # Only needed once
+   ./run.sh
+   ```
+
+3. Access the application:
+   - Backend API: http://localhost:8010
+   - Frontend: http://localhost:3000
+
+### Manual Setup (Alternative)
+
+If you prefer to run the servers separately:
+
+1. Backend:
+   ```bash
+   cd backend
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   uvicorn main:app --reload --host 0.0.0.0 --port 8010
+   ```
+
+2. Frontend:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
 
 ---
 
@@ -116,6 +163,131 @@ spelltable/
 ## 🧑‍💻 Contributors
 
 Built by a group of friends for their in-person D&D games. Contributions welcome!
+
+---
+
+## 👥 Contributing
+
+We welcome contributions from the community! Here's how you can help make SpellTable better:
+
+### 🛠️ Development Workflow
+
+1. **Fork the Repository**
+   - Click the "Fork" button on the top right of the repository page
+   - Clone your fork locally:
+     ```bash
+     git clone https://github.com/your-username/spelltable.git
+     cd spelltable
+     ```
+
+2. **Set Up Development Environment**
+   - Follow the [Quick Start](#-developer---quick-start) guide
+   - Make sure all tests pass before making changes
+
+3. **Create a Feature Branch**
+   ```bash
+   git checkout -b feature/your-feature-name
+   # or
+   git checkout -b fix/issue-description
+   ```
+
+4. **Make Your Changes**
+   - Follow the existing code style
+   - Write clear commit messages
+   - Add tests for new features
+   - Update documentation as needed
+
+5. **Testing**
+   - Run backend tests:
+     ```bash
+     cd backend
+     pytest
+     ```
+   - Run frontend tests:
+     ```bash
+     cd frontend
+     npm test
+     ```
+
+6. **Submit a Pull Request**
+   - Push your branch to your fork
+   - Create a PR to the main repository
+   - Fill out the PR template with:
+     - Description of changes
+     - Screenshots (if applicable)
+     - Related issues
+     - Testing performed
+
+### 📝 Code Style Guidelines
+
+- **Python (Backend)**
+  - Follow PEP 8 style guide
+  - Use type hints
+  - Document functions with docstrings
+  - Keep functions small and focused
+
+- **TypeScript/React (Frontend)**
+  - Use functional components
+  - Follow ESLint rules
+  - Use TypeScript for type safety
+  - Keep components modular
+
+### 🐛 Reporting Bugs
+
+1. Check if the issue already exists
+2. Create a new issue with:
+   - Clear title
+   - Steps to reproduce
+   - Expected vs actual behavior
+   - Environment details
+   - Screenshots (if applicable)
+
+### 💡 Suggesting Features
+
+1. Check if the feature is already requested
+2. Create a new issue with:
+   - Clear description
+   - Use case
+   - Proposed implementation
+   - Benefits
+
+### 📚 Documentation
+
+- Keep documentation up to date
+- Add comments for complex logic
+- Update README for new features
+- Document API changes
+
+### 🏷️ Commit Message Format
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer]
+```
+
+Types:
+- feat: New feature
+- fix: Bug fix
+- docs: Documentation changes
+- style: Code style changes
+- refactor: Code refactoring
+- test: Test changes
+- chore: Maintenance tasks
+
+### 🤝 Code of Conduct
+
+- Be respectful and inclusive
+- Give constructive feedback
+- Be open to suggestions
+- Help others learn
+
+### 🎯 Getting Help
+
+- Ask questions in GitHub Discussions
+- Review existing issues
 
 ---
 
