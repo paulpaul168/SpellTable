@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Scene as SceneType, MapData } from '../types/map';
 import { Map } from './Map';
 import { websocketService } from '../services/websocket';
+import { UploadDialog } from './UploadDialog';
 
 interface SceneProps {
     initialScene: SceneType;
@@ -10,6 +11,7 @@ interface SceneProps {
 export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
     const [scene, setScene] = useState<SceneType>(initialScene);
     const [connectionStatus, setConnectionStatus] = useState('connecting');
+    const [isUploadOpen, setIsUploadOpen] = useState(false);
 
     useEffect(() => {
         websocketService.connect();
@@ -48,6 +50,49 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
         });
     };
 
+    const handleUpload = async (file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('http://localhost:8010/maps/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Upload failed');
+            }
+
+            const data = await response.json();
+            const newMap: MapData = {
+                name: data.filename,
+                data: {
+                    position: { x: 0, y: 0 },
+                    scale: 1,
+                    rotation: 0,
+                    gridSize: 50,
+                    showGrid: true
+                }
+            };
+
+            const updatedScene = {
+                ...scene,
+                maps: [...scene.maps, newMap],
+                activeMapId: newMap.name
+            };
+
+            setScene(updatedScene);
+            websocketService.send({
+                type: 'scene_update',
+                scene: updatedScene
+            });
+        } catch (error) {
+            console.error('Error uploading map:', error);
+            // TODO: Add error handling UI
+        }
+    };
+
     return (
         <div className="scene-container" style={{
             position: 'relative',
@@ -67,6 +112,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                 <h2>SpellTable</h2>
                 <p>Status: {connectionStatus}</p>
                 <p>Maps: {scene.maps.length}</p>
+                <button
+                    onClick={() => setIsUploadOpen(true)}
+                    className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                    Upload Map
+                </button>
             </div>
 
             {scene.maps.length === 0 && (
@@ -79,6 +130,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                 }}>
                     <h3>No maps loaded</h3>
                     <p>Add maps to get started</p>
+                    <button
+                        onClick={() => setIsUploadOpen(true)}
+                        className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                    >
+                        Upload Your First Map
+                    </button>
                 </div>
             )}
 
@@ -116,6 +173,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                     ))}
                 </ul>
             </div>
+
+            <UploadDialog
+                isOpen={isUploadOpen}
+                onClose={() => setIsUploadOpen(false)}
+                onUpload={handleUpload}
+            />
         </div>
     );
 }; 
