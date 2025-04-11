@@ -15,6 +15,9 @@ class SceneData(BaseModel):
     name: str
     maps: List[Dict]
     activeMapId: Optional[str] = None
+    gridSettings: Dict = {"showGrid": True, "gridSize": 50}
+    initiativeOrder: List[Dict] = []
+    showCurrentPlayer: bool = True
 
 
 @router.post("/save")

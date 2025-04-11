@@ -209,7 +209,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                 gridSettings: scene.gridSettings || {
                     showGrid: true,
                     gridSize: 50
-                }
+                },
+                initiativeOrder: scene.initiativeOrder || [],
+                showCurrentPlayer: scene.showCurrentPlayer ?? true
             };
 
             const response = await fetch('http://localhost:8010/scenes/save', {
@@ -253,14 +255,16 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
             }
 
             const scenes = await response.json();
-            const scenesWithGridSettings = scenes.map((scene: Partial<SceneType>) => ({
+            const scenesWithDefaults = scenes.map((scene: Partial<SceneType>) => ({
                 ...scene,
                 gridSettings: scene.gridSettings || {
                     showGrid: true,
                     gridSize: 50
-                }
+                },
+                initiativeOrder: scene.initiativeOrder || [],
+                showCurrentPlayer: scene.showCurrentPlayer ?? true
             }));
-            setSavedScenes(scenesWithGridSettings);
+            setSavedScenes(scenesWithDefaults);
             setIsLoadSceneOpen(true);
         } catch (error) {
             console.error('Error loading scenes:', error);
@@ -284,17 +288,19 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
             }
 
             const sceneData = await response.json();
-            const sceneWithGridSettings = {
+            const sceneWithDefaults = {
                 ...sceneData,
                 gridSettings: sceneData.gridSettings || {
                     showGrid: true,
                     gridSize: 50
-                }
+                },
+                initiativeOrder: sceneData.initiativeOrder || [],
+                showCurrentPlayer: sceneData.showCurrentPlayer ?? true
             };
-            setScene(sceneWithGridSettings);
+            setScene(sceneWithDefaults);
             websocketService.send({
                 type: 'scene_update',
-                scene: sceneWithGridSettings
+                scene: sceneWithDefaults
             });
             toast({
                 title: "Scene Loaded",
