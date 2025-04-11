@@ -1,11 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.websockets import WebSocket
-import os
-
-# Create maps directory if it doesn't exist
-MAPS_DIR = "maps"
-os.makedirs(MAPS_DIR, exist_ok=True)
+from app.routes import scenes
 
 
 def create_app() -> FastAPI:
@@ -19,6 +15,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Include routes
+    app.include_router(scenes.router, prefix="/scenes")
 
     # WebSocket connection manager
     class ConnectionManager:

@@ -18,6 +18,8 @@ import {
     Eye,
     EyeOff,
     ChevronDown,
+    Save,
+    FolderOpen,
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -116,6 +118,48 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
         }
     };
 
+    const handleSaveScene = async () => {
+        try {
+            const response = await fetch('http://localhost:8010/scenes/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(scene),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to save scene');
+            }
+
+            const data = await response.json();
+            console.log('Scene saved:', data);
+        } catch (error) {
+            console.error('Error saving scene:', error);
+        }
+    };
+
+    const handleLoadScene = async () => {
+        try {
+            const response = await fetch('http://localhost:8010/scenes/load', {
+                method: 'GET',
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to load scene');
+            }
+
+            const data = await response.json();
+            setScene(data);
+            websocketService.send({
+                type: 'scene_update',
+                scene: data
+            });
+        } catch (error) {
+            console.error('Error loading scene:', error);
+        }
+    };
+
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
@@ -210,6 +254,32 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
 
                             <DropdownMenuSeparator className="bg-zinc-800" />
 
+                            {/* Scene Management */}
+                            <div className="px-2 py-1">
+                                <div className="flex items-center gap-2 px-2 py-1">
+                                    <Settings className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-xs font-medium text-zinc-300">Scene</span>
+                                </div>
+                                <div className="space-y-1 mt-1">
+                                    <DropdownMenuItem
+                                        className="text-xs cursor-pointer"
+                                        onClick={handleSaveScene}
+                                    >
+                                        <Save className="h-4 w-4 mr-2" />
+                                        Save Scene
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        className="text-xs cursor-pointer"
+                                        onClick={handleLoadScene}
+                                    >
+                                        <FolderOpen className="h-4 w-4 mr-2" />
+                                        Load Scene
+                                    </DropdownMenuItem>
+                                </div>
+                            </div>
+
+                            <DropdownMenuSeparator className="bg-zinc-800" />
+
                             {/* Players Section */}
                             <div className="px-2 py-1">
                                 <div className="flex items-center gap-2 px-2 py-1">
@@ -245,10 +315,6 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                                             <EyeOff className="h-4 w-4 mr-2" />
                                         )}
                                         {showGrid ? 'Hide Grid' : 'Show Grid'}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem className="text-xs cursor-pointer">
-                                        <Settings className="h-4 w-4 mr-2" />
-                                        Scene Settings
                                     </DropdownMenuItem>
                                 </div>
                             </div>

@@ -1,44 +1,29 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import Dict, Any
+from fastapi import APIRouter, WebSocket
+from app.core.connection_manager import connection_manager
 import json
-from ..core.config import create_app
 
 router = APIRouter()
-app = create_app()
-
-# Store connected clients
-clients: Dict[WebSocket, Any] = {}
 
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    await connection_manager.connect(websocket)
     try:
-        # Use the connection manager to handle the connection
-        await app.state.connection_manager.connect(websocket)
-
-        # Send initial connection success message
-        await websocket.send_json({"type": "connection_status", "status": "connected"})
-
         while True:
+            data = await websocket.receive_text()
             try:
-                data = await websocket.receive_text()
                 message = json.loads(data)
-                print(f"Received message: {message}")
-
+                # If it's a scene update, broadcast it to all clients
                 if message.get("type") == "scene_update":
-                    # Broadcast the scene update to all connected clients
-                    await app.state.connection_manager.broadcast(data)
+                    print(f"Received scene update: {message}")
+                    await connection_manager.broadcast(data)
+                # For other message types, just broadcast as is
                 else:
-                    # Echo other messages back to the sender
-                    await websocket.send_text(data)
-            except WebSocketDisconnect:
-                break
-            except Exception as e:
-                print(f"Error handling message: {e}")
-                break
-    except WebSocketDisconnect:
-        print("Client disconnected normally")
+                    await connection_manager.broadcast(data)
+            except json.JSONDecodeError:
+                # If it's not valid JSON, just broadcast the raw text
+                await connection_manager.broadcast(data)
     except Exception as e:
         print(f"WebSocket error: {e}")
     finally:
-        app.state.connection_manager.disconnect(websocket)
+        connection_manager.disconnect(websocket)

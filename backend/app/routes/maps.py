@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse, FileResponse
 from ..models.map import MapData
-from ..core.config import MAPS_DIR
+from ..core.constants import MAPS_DIR
 import json
 import os
 import shutil
@@ -14,36 +14,30 @@ MAPS_DIR = Path("maps")
 MAPS_DIR.mkdir(exist_ok=True)
 
 
-@router.post("/maps/upload")
+@router.post("/upload")
 async def upload_map(file: UploadFile = File(...)):
     try:
-        # Ensure file is an image
-        if not file.content_type.startswith("image/"):
-            return JSONResponse(
-                status_code=400, content={"error": "File must be an image"}
-            )
-
-        # Create a safe filename
-        filename = Path(file.filename).stem
-        extension = Path(file.filename).suffix
-        safe_filename = f"{filename}{extension}".replace(" ", "_")
-        file_path = MAPS_DIR / safe_filename
-
-        # Save the file
-        with file_path.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-
-        return {"filename": safe_filename, "content_type": file.content_type}
+        # Save the uploaded file
+        file_path = os.path.join(MAPS_DIR, file.filename)
+        with open(file_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
+        return {"filename": file.filename}
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/maps/file/{filename}")
-async def get_map_file(filename: str):
-    file_path = MAPS_DIR / filename
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="Map not found")
-    return FileResponse(file_path)
+@router.get("/file/{filename}")
+async def get_map(filename: str):
+    try:
+        file_path = os.path.join(MAPS_DIR, filename)
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Map not found")
+        return FileResponse(file_path)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/maps/data")
