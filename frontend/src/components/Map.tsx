@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MapData } from '../types/map';
 
 interface MapProps {
@@ -9,54 +9,84 @@ interface MapProps {
 
 export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
     const [isDragging, setIsDragging] = useState(false);
-    const [startPos, setStartPos] = useState({ x: 0, y: 0 });
     const [imageLoaded, setImageLoaded] = useState(false);
-    const [lastUpdateTime, setLastUpdateTime] = useState(0);
     const [localPosition, setLocalPosition] = useState(map.data.position);
+    const lastUpdateRef = useRef<number>(0);
+    const pendingUpdateRef = useRef<MapData | null>(null);
+    const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+    const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+    const throttledUpdate = useCallback((newMap: MapData) => {
+        const now = performance.now();
+        if (now - lastUpdateRef.current >= 32) { // 30fps
+            onUpdate(newMap);
+            lastUpdateRef.current = now;
+            pendingUpdateRef.current = null;
+        } else {
+            pendingUpdateRef.current = newMap;
+        }
+    }, [onUpdate]);
 
     // Update local position when map prop changes
     useEffect(() => {
         setLocalPosition(map.data.position);
     }, [map.data.position]);
 
-    // Throttle the updates to 60fps (16.67ms between updates)
-    const throttledUpdate = useCallback((newMap: MapData) => {
-        const now = performance.now();
-        if (now - lastUpdateTime >= 16.67) { // 60fps
-            onUpdate(newMap);
-            setLastUpdateTime(now);
+    // Track mouse position globally
+    useEffect(() => {
+        const handleGlobalMouseMove = (e: MouseEvent) => {
+            if (isDragging) {
+                mousePositionRef.current = { x: e.clientX, y: e.clientY };
+                const newPosition = {
+                    x: e.clientX - dragOffsetRef.current.x,
+                    y: e.clientY - dragOffsetRef.current.y
+                };
+                setLocalPosition(newPosition);
+                throttledUpdate({
+                    ...map,
+                    data: {
+                        ...map.data,
+                        position: newPosition
+                    }
+                });
+            }
+        };
+
+        if (isDragging) {
+            window.addEventListener('mousemove', handleGlobalMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
         }
-    }, [lastUpdateTime, onUpdate]);
+
+        return () => {
+            window.removeEventListener('mousemove', handleGlobalMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isDragging, map, throttledUpdate]);
+
+    // Process any pending updates
+    useEffect(() => {
+        if (!pendingUpdateRef.current) return;
+
+        const processPendingUpdate = () => {
+            if (pendingUpdateRef.current) {
+                throttledUpdate(pendingUpdateRef.current);
+            }
+        };
+
+        const interval = setInterval(processPendingUpdate, 32); // 30fps
+        return () => clearInterval(interval);
+    }, [throttledUpdate]);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (!isActive) return;
         e.preventDefault();
         setIsDragging(true);
-        setStartPos({
+
+        // Calculate the offset between mouse and image position
+        dragOffsetRef.current = {
             x: e.clientX - localPosition.x,
             y: e.clientY - localPosition.y
-        });
-    };
-
-    const handleMouseMove = (e: React.MouseEvent) => {
-        if (!isDragging || !isActive) return;
-        e.preventDefault();
-        const newPosition = {
-            x: e.clientX - startPos.x,
-            y: e.clientY - startPos.y
         };
-
-        // Update local position immediately for smooth movement
-        setLocalPosition(newPosition);
-
-        // Send update through throttled function
-        throttledUpdate({
-            ...map,
-            data: {
-                ...map.data,
-                position: newPosition
-            }
-        });
     };
 
     const handleMouseUp = () => {
@@ -69,6 +99,7 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
                     position: localPosition
                 }
             });
+            pendingUpdateRef.current = null;
         }
         setIsDragging(false);
     };
@@ -99,7 +130,7 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
                 left: `${localPosition.x}px`,
                 top: `${localPosition.y}px`,
                 transform: `scale(${map.data.scale}) rotate(${map.data.rotation}deg)`,
-                cursor: isActive ? 'move' : 'default',
+                cursor: isActive ? (isDragging ? 'grabbing' : 'grab') : 'default',
                 opacity: isActive ? 1 : 0.7,
                 transformOrigin: 'center',
                 touchAction: 'none',
@@ -111,9 +142,6 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
                 pointerEvents: isActive ? 'auto' : 'none'
             }}
             onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
             onWheel={handleWheel}
         >
             <div className="relative w-full h-full">
