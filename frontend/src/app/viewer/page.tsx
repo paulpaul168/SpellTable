@@ -9,7 +9,11 @@ const initialScene: SceneType = {
     id: 'default',
     name: 'Default Scene',
     maps: [],
-    activeMapId: null
+    activeMapId: null,
+    gridSettings: {
+        showGrid: true,
+        gridSize: 50
+    }
 };
 
 export default function ViewerPage() {
@@ -55,19 +59,19 @@ export default function ViewerPage() {
                         isActive={map.name === scene.activeMapId}
                         onUpdate={() => { }} // No updates in viewer mode
                         isViewerMode={true}
-                        isHidden={false}
+                        zIndex={0}
                     />
                 ))}
             </div>
 
             {/* Grid Overlay */}
-            {scene.maps.find(m => m.name === scene.activeMapId)?.data.showGrid && (
+            {scene.gridSettings?.showGrid && (
                 <div
                     className="fixed inset-0 pointer-events-none"
                     style={{
                         backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.3) 1px, transparent 1px),
                                         linear-gradient(to bottom, rgba(255,255,255,0.3) 1px, transparent 1px)`,
-                        backgroundSize: `${scene.maps.find(m => m.name === scene.activeMapId)?.data.gridSize || 50}px ${scene.maps.find(m => m.name === scene.activeMapId)?.data.gridSize || 50}px`,
+                        backgroundSize: `${scene.gridSettings?.gridSize || 50}px ${scene.gridSettings?.gridSize || 50}px`,
                         zIndex: 10
                     }}
                 />

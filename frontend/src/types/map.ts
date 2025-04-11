@@ -18,4 +18,8 @@ export interface Scene {
     name: string;
     maps: MapData[];
     activeMapId: string | null;
+    gridSettings: {
+        showGrid: boolean;
+        gridSize: number;
+    };
 } 

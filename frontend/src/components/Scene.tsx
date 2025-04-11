@@ -36,7 +36,7 @@ import { LoadSceneDialog } from './LoadSceneDialog';
 import { MapListSidebar } from './MapListSidebar';
 
 interface SceneProps {
-    initialScene: SceneType;
+    initialScene?: SceneType;
 }
 
 interface SceneOperationStatusDialogProps {
@@ -77,7 +77,16 @@ const SceneOperationStatusDialog: React.FC<SceneOperationStatusDialogProps> = ({
 };
 
 export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
-    const [scene, setScene] = useState<SceneType>(initialScene);
+    const [scene, setScene] = useState<SceneType>({
+        id: initialScene?.id || 'default',
+        name: initialScene?.name || 'Default Scene',
+        maps: initialScene?.maps || [],
+        activeMapId: initialScene?.activeMapId || null,
+        gridSettings: {
+            showGrid: initialScene?.gridSettings?.showGrid ?? true,
+            gridSize: initialScene?.gridSettings?.gridSize ?? 50
+        }
+    });
     const [connectionStatus, setConnectionStatus] = useState('connecting');
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [isSaveSceneOpen, setIsSaveSceneOpen] = useState(false);
@@ -96,7 +105,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
         const unsubscribe = websocketService.addListener((data) => {
             console.log('Received data:', data);
             if (data.type === 'scene_update' && data.scene) {
-                setScene(data.scene);
+                setScene({
+                    ...data.scene,
+                    gridSettings: {
+                        showGrid: data.scene.gridSettings?.showGrid ?? true,
+                        gridSize: data.scene.gridSettings?.gridSize ?? 50
+                    }
+                });
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
             }
@@ -261,17 +276,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
     };
 
     const handleGridToggle = () => {
-        if (!scene.activeMapId) return;
-
         const updatedScene = {
             ...scene,
-            maps: scene.maps.map(m =>
-                m.name === scene.activeMapId
-                    ? { ...m, data: { ...m.data, showGrid: !m.data.showGrid } }
-                    : m
-            )
+            gridSettings: {
+                ...scene.gridSettings,
+                showGrid: !scene.gridSettings.showGrid
+            }
         };
-
         setScene(updatedScene);
         websocketService.send({
             type: 'scene_update',
@@ -343,21 +354,40 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                         </Button>
                     </div>
                 )}
-                {scene.maps.map((map, index) => (
-                    <Map
-                        key={map.name}
-                        map={map}
-                        isActive={map.name === scene.activeMapId}
-                        onUpdate={handleMapUpdate}
-                        isViewerMode={isViewerMode}
-                        zIndex={scene.maps.length - index}
+                {/* Maps Container */}
+                <div className="absolute inset-0">
+                    {scene.maps.map((map, index) => (
+                        <Map
+                            key={map.name}
+                            map={map}
+                            isActive={map.name === scene.activeMapId}
+                            onUpdate={handleMapUpdate}
+                            isViewerMode={isViewerMode}
+                            zIndex={index}
+                        />
+                    ))}
+                </div>
+
+                {/* Grid Overlay - Always on top */}
+                {scene.gridSettings.showGrid && (
+                    <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                            backgroundImage: `
+                                linear-gradient(to right, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+                                linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 1px, transparent 1px)
+                            `,
+                            backgroundSize: `${scene.gridSettings.gridSize}px ${scene.gridSettings.gridSize}px`,
+                            opacity: 0.5,
+                            zIndex: 999
+                        }}
                     />
-                ))}
+                )}
             </div>
 
             {/* Map List Sidebar */}
             {!isViewerMode && showMapList && (
-                <div className="w-64 h-full bg-zinc-900/95 border-l border-zinc-800 flex flex-col">
+                <div className="w-64 h-full bg-zinc-900/50 backdrop-blur-sm border-l border-zinc-800/50 flex flex-col">
                     <MapListSidebar
                         scene={scene}
                         onMapSelect={handleMapSelect}
@@ -367,19 +397,6 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                         onMapDelete={handleDeleteMap}
                     />
                 </div>
-            )}
-
-            {/* Grid Overlay */}
-            {!isViewerMode && scene.maps.find(m => m.name === scene.activeMapId)?.data.showGrid && (
-                <div
-                    className="fixed inset-0 pointer-events-none"
-                    style={{
-                        backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.3) 1px, transparent 1px),
-                                        linear-gradient(to bottom, rgba(255,255,255,0.3) 1px, transparent 1px)`,
-                        backgroundSize: `${scene.maps.find(m => m.name === scene.activeMapId)?.data.gridSize || 50}px ${scene.maps.find(m => m.name === scene.activeMapId)?.data.gridSize || 50}px`,
-                        zIndex: 10
-                    }}
-                />
             )}
 
             {/* Floating Menu Button - Only show in non-viewer mode */}
@@ -486,12 +503,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                                         className="text-xs cursor-pointer"
                                         onClick={handleGridToggle}
                                     >
-                                        {scene.maps.find(m => m.name === scene.activeMapId)?.data.showGrid ? (
+                                        {scene.gridSettings.showGrid ? (
                                             <Eye className="h-4 w-4 mr-2" />
                                         ) : (
                                             <EyeOff className="h-4 w-4 mr-2" />
                                         )}
-                                        {scene.maps.find(m => m.name === scene.activeMapId)?.data.showGrid ? 'Hide Grid' : 'Show Grid'}
+                                        {scene.gridSettings.showGrid ? 'Hide Grid' : 'Show Grid'}
                                     </DropdownMenuItem>
                                 </div>
                             </div>

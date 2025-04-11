@@ -12,8 +12,10 @@ interface MapProps {
 
 export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode, zIndex }) => {
     const [isDragging, setIsDragging] = useState(false);
+    const [currentPos, setCurrentPos] = useState(map.data.position);
+    const [currentRotation, setCurrentRotation] = useState(map.data.rotation);
     const [imageLoaded, setImageLoaded] = useState(false);
-    const [localPosition, setLocalPosition] = useState(map.data.position);
+
     const lastUpdateRef = useRef<number>(0);
     const pendingUpdateRef = useRef<MapData | null>(null);
     const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -30,10 +32,10 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode,
         }
     }, [onUpdate]);
 
-    // Update local position when map prop changes
     useEffect(() => {
-        setLocalPosition(map.data.position);
-    }, [map.data.position]);
+        setCurrentPos(map.data.position);
+        setCurrentRotation(map.data.rotation);
+    }, [map.data.position, map.data.rotation, zIndex]);
 
     // Track mouse position globally
     useEffect(() => {
@@ -44,7 +46,7 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode,
                     x: e.clientX - dragOffsetRef.current.x,
                     y: e.clientY - dragOffsetRef.current.y
                 };
-                setLocalPosition(newPosition);
+                setCurrentPos(newPosition);
                 throttledUpdate({
                     ...map,
                     data: {
@@ -87,8 +89,8 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode,
 
         // Calculate the offset between mouse and image position
         dragOffsetRef.current = {
-            x: e.clientX - localPosition.x,
-            y: e.clientY - localPosition.y
+            x: e.clientX - currentPos.x,
+            y: e.clientY - currentPos.y
         };
     };
 
@@ -99,7 +101,7 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode,
                 ...map,
                 data: {
                     ...map.data,
-                    position: localPosition
+                    position: currentPos
                 }
             });
             pendingUpdateRef.current = null;
@@ -132,8 +134,8 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode,
                 className="absolute select-none"
                 style={{
                     position: 'absolute',
-                    left: `${localPosition.x}px`,
-                    top: `${localPosition.y}px`,
+                    left: `${currentPos.x}px`,
+                    top: `${currentPos.y}px`,
                     transform: `scale(${map.data.scale}) rotate(${map.data.rotation}deg)`,
                     opacity: 0.5,
                     transformOrigin: 'center',
@@ -176,14 +178,14 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode,
 
     return (
         <div
-            className={`absolute select-none ${isActive ? 'z-10' : 'z-0'} ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+            className={`absolute select-none ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
             style={{
                 position: 'absolute',
-                left: `${localPosition.x}px`,
-                top: `${localPosition.y}px`,
+                left: `${currentPos.x}px`,
+                top: `${currentPos.y}px`,
                 transform: `scale(${map.data.scale}) rotate(${map.data.rotation}deg)`,
                 cursor: isActive && !isViewerMode ? (isDragging ? 'grabbing' : 'grab') : 'default',
-                opacity: isActive ? 1 : 0.7,
+                opacity: isViewerMode ? 1 : 1,
                 transformOrigin: 'center',
                 touchAction: 'none',
                 willChange: 'transform',
