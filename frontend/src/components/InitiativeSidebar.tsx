@@ -85,6 +85,33 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
     };
 
     const killEntry = (id: string) => {
+        const killedEntry = entries.find(e => e.id === id);
+        if (!killedEntry) return;
+
+        // If the entry was the current turn, move to the next alive entry first
+        if (killedEntry.isCurrentTurn) {
+            const aliveEntries = entries.filter(entry => !entry.isKilled);
+            if (aliveEntries.length > 0) {
+                const currentIndex = aliveEntries.findIndex(entry => entry.id === id);
+                const nextIndex = (currentIndex + 1) % aliveEntries.length;
+
+                // First update the current turn
+                const updatedEntries = entries.map((entry) => ({
+                    ...entry,
+                    isCurrentTurn: !entry.isKilled && entry.id === aliveEntries[nextIndex].id
+                }));
+
+                // Then mark as killed
+                const finalEntries = updatedEntries.map(entry =>
+                    entry.id === id ? { ...entry, isKilled: true, isCurrentTurn: false } : entry
+                );
+
+                onUpdate(finalEntries);
+                return;
+            }
+        }
+
+        // If not current turn, just mark as killed
         const newEntries = entries.map(entry =>
             entry.id === id ? { ...entry, isKilled: true, isCurrentTurn: false } : entry
         );
@@ -103,12 +130,6 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
         onUpdate(newEntries);
     };
 
-    const updateHP = (id: string, hp: number) => {
-        const newEntries = entries.map(entry =>
-            entry.id === id ? { ...entry, hp } : entry
-        );
-        onUpdate(newEntries);
-    };
 
     const adjustHP = (id: string, adjustment: string) => {
         const entry = entries.find(e => e.id === id);
@@ -125,15 +146,41 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
         const newEntries = entries.map(entry =>
             entry.id === id ? { ...entry, hp: finalHP } : entry
         );
-        onUpdate(newEntries);
 
         // Then kill if needed
         if (newHP <= 0) {
+            // If the entry was the current turn, move to the next alive entry first
+            if (entry.isCurrentTurn) {
+                const aliveEntries = entries.filter(entry => !entry.isKilled);
+                if (aliveEntries.length > 0) {
+                    const currentIndex = aliveEntries.findIndex(e => e.id === id);
+                    const nextIndex = (currentIndex + 1) % aliveEntries.length;
+
+                    // First update the current turn
+                    const updatedEntries = newEntries.map((entry) => ({
+                        ...entry,
+                        isCurrentTurn: !entry.isKilled && entry.id === aliveEntries[nextIndex].id
+                    }));
+
+                    // Then mark as killed
+                    const finalEntries = updatedEntries.map(entry =>
+                        entry.id === id ? { ...entry, isKilled: true, isCurrentTurn: false } : entry
+                    );
+
+                    onUpdate(finalEntries);
+                    return;
+                }
+            }
+
+            // If not current turn, just mark as killed
             const killedEntries = newEntries.map(entry =>
                 entry.id === id ? { ...entry, isKilled: true, isCurrentTurn: false } : entry
             );
             onUpdate(killedEntries);
+            return;
         }
+
+        onUpdate(newEntries);
     };
 
     const moveToNextTurn = () => {
