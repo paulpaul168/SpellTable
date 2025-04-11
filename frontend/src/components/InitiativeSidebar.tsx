@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useToast } from './ui/use-toast';
@@ -43,6 +43,8 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
     const [enemyInitiative, setEnemyInitiative] = useState('');
     const [enemyHP, setEnemyHP] = useState('');
     const [playerNames, setPlayerNames] = useState<string[]>([]);
+    const playerNameRef = useRef<HTMLInputElement>(null);
+    const enemyNameRef = useRef<HTMLInputElement>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -59,6 +61,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
             isPlayer,
             isCurrentTurn: false,
             hp: hp,
+            initialHP: hp,
             isKilled: false
         };
 
@@ -115,8 +118,22 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
         const adjustmentValue = parseInt(adjustment);
         if (isNaN(adjustmentValue)) return;
 
-        const newHP = Math.max(0, currentHP + adjustmentValue);
-        updateHP(id, newHP);
+        const newHP = currentHP + adjustmentValue;
+        const finalHP = newHP <= 0 ? newHP : Math.max(0, newHP);
+
+        // Update HP first
+        const newEntries = entries.map(entry =>
+            entry.id === id ? { ...entry, hp: finalHP } : entry
+        );
+        onUpdate(newEntries);
+
+        // Then kill if needed
+        if (newHP <= 0) {
+            const killedEntries = newEntries.map(entry =>
+                entry.id === id ? { ...entry, isKilled: true, isCurrentTurn: false } : entry
+            );
+            onUpdate(killedEntries);
+        }
     };
 
     const moveToNextTurn = () => {
@@ -165,6 +182,37 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
         }
     };
 
+    const addPlayerEntry = () => {
+        if (!playerName || !playerInitiative) {
+            toast({
+                title: "Error",
+                description: "Please enter both name and initiative",
+                variant: "destructive",
+            });
+            return;
+        }
+        addEntry(playerName, parseInt(playerInitiative), true);
+        setPlayerName('');
+        setPlayerInitiative('');
+        playerNameRef.current?.focus();
+    };
+
+    const addEnemyEntry = () => {
+        if (!enemyName || !enemyInitiative) {
+            toast({
+                title: "Error",
+                description: "Please enter both name and initiative",
+                variant: "destructive",
+            });
+            return;
+        }
+        addEntry(enemyName, parseInt(enemyInitiative), false, enemyHP ? parseInt(enemyHP) : undefined);
+        setEnemyName('');
+        setEnemyInitiative('');
+        setEnemyHP('');
+        enemyNameRef.current?.focus();
+    };
+
     return (
         <div className="fixed bottom-0 left-0 w-[320px] h-[80%] bg-zinc-900/50 backdrop-blur-sm border-t border-zinc-800/50 flex flex-col">
             <div className="p-4 border-b border-zinc-800/50">
@@ -192,8 +240,9 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                     <div className="space-y-4">
                         <div className="flex flex-col gap-2">
                             <div className="flex gap-2">
-                                <div className="flex-1">
+                                <div className="flex-1 flex flex-col gap-1">
                                     <Input
+                                        ref={playerNameRef}
                                         type="text"
                                         placeholder="Player name"
                                         value={playerName}
@@ -205,72 +254,70 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                             <option key={name} value={name} />
                                         ))}
                                     </datalist>
+                                    <div className="flex gap-1">
+                                        <Input
+                                            type="number"
+                                            placeholder="Init"
+                                            value={playerInitiative}
+                                            onChange={(e) => setPlayerInitiative(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    addPlayerEntry();
+                                                }
+                                            }}
+                                            className="w-20"
+                                        />
+                                        <Button
+                                            onClick={addPlayerEntry}
+                                            size="sm"
+                                            className="h-8 w-8 p-0"
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </div>
-                                <div className="w-20">
-                                    <Input
-                                        type="number"
-                                        placeholder="Init"
-                                        value={playerInitiative}
-                                        onChange={(e) => setPlayerInitiative(e.target.value)}
-                                    />
-                                </div>
-                                <Button
-                                    onClick={() => {
-                                        if (!playerName || !playerInitiative) {
-                                            toast({
-                                                title: "Error",
-                                                description: "Please enter both name and initiative",
-                                                variant: "destructive",
-                                            });
-                                            return;
-                                        }
-                                        addEntry(playerName, parseInt(playerInitiative), true);
-                                    }}
-                                >
-                                    <Plus className="h-4 w-4" />
-                                </Button>
                             </div>
 
+                            <div className="h-px bg-zinc-800/50 my-2" />
+
                             <div className="flex gap-2">
-                                <div className="flex-1">
+                                <div className="flex-1 flex flex-col gap-1">
                                     <Input
+                                        ref={enemyNameRef}
                                         type="text"
                                         placeholder="Enemy name"
                                         value={enemyName}
                                         onChange={(e) => setEnemyName(e.target.value)}
                                     />
+                                    <div className="flex gap-1">
+                                        <Input
+                                            type="number"
+                                            placeholder="HP"
+                                            value={enemyHP}
+                                            onChange={(e) => setEnemyHP(e.target.value)}
+                                            className="w-20"
+                                        />
+                                        <Input
+                                            type="number"
+                                            placeholder="Init"
+                                            value={enemyInitiative}
+                                            onChange={(e) => setEnemyInitiative(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    addEnemyEntry();
+                                                }
+                                            }}
+                                            className="w-20"
+                                        />
+                                        <Button
+                                            onClick={addEnemyEntry}
+                                            size="sm"
+                                            className="h-8 w-8 p-0"
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </div>
-                                <div className="w-20">
-                                    <Input
-                                        type="number"
-                                        placeholder="Init"
-                                        value={enemyInitiative}
-                                        onChange={(e) => setEnemyInitiative(e.target.value)}
-                                    />
-                                </div>
-                                <div className="w-20">
-                                    <Input
-                                        type="number"
-                                        placeholder="HP"
-                                        value={enemyHP}
-                                        onChange={(e) => setEnemyHP(e.target.value)}
-                                    />
-                                </div>
-                                <Button
-                                    onClick={() => {
-                                        if (!enemyName || !enemyInitiative) {
-                                            toast({
-                                                title: "Error",
-                                                description: "Please enter both name and initiative",
-                                                variant: "destructive",
-                                            });
-                                            return;
-                                        }
-                                        addEntry(enemyName, parseInt(enemyInitiative), false, enemyHP ? parseInt(enemyHP) : undefined);
-                                    }}
-                                >
-                                    <Plus className="h-4 w-4" />
-                                </Button>
                             </div>
                         </div>
                     </div>
@@ -293,7 +340,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                 className={cn(
                                     "flex items-center justify-between p-2 rounded-md",
                                     entry.isCurrentTurn ? "bg-emerald-500/20" : "hover:bg-zinc-800/50",
-                                    entry.isPlayer ? "text-zinc-300" : "text-zinc-400",
+                                    entry.isPlayer ? "text-zinc-300" : "text-red-400",
                                     entry.isKilled ? "opacity-50" : ""
                                 )}
                             >
@@ -308,11 +355,13 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                 <div className="flex items-center gap-2">
                                     {!entry.isPlayer && entry.hp !== undefined && (
                                         <div className="flex items-center gap-1">
-                                            <span className="text-sm font-mono w-8 text-right">{entry.hp}</span>
+                                            <span className="text-sm font-mono w-16 text-right">
+                                                {entry.isKilled && entry.hp < 0 ? entry.hp : entry.hp}/{entry.initialHP}
+                                            </span>
                                             <Input
                                                 type="text"
                                                 placeholder="±HP"
-                                                className="w-16 h-6 text-sm"
+                                                className="w-12 h-6 text-[10px]"
                                                 onKeyDown={(e) => {
                                                     if (e.key === 'Enter') {
                                                         adjustHP(entry.id, e.currentTarget.value);
@@ -322,7 +371,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                             />
                                         </div>
                                     )}
-                                    <span className="text-sm font-mono">{entry.initiative}</span>
+                                    <span className="text-xs font-mono text-zinc-500">{entry.initiative}</span>
                                     {isAdmin && (
                                         <div className="flex gap-1">
                                             {entry.isKilled ? (

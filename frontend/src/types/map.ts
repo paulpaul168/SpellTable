@@ -18,6 +18,7 @@ export interface InitiativeEntry {
     isPlayer: boolean;
     isCurrentTurn: boolean;
     hp?: number;
+    initialHP?: number;
     isKilled: boolean;
 }
 
