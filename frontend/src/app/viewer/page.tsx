@@ -27,7 +27,14 @@ export default function ViewerPage() {
 
         const unsubscribe = websocketService.addListener((data) => {
             if (data.type === 'scene_update' && data.scene) {
-                setScene(data.scene);
+                setScene({
+                    ...data.scene,
+                    initiativeOrder: data.scene.initiativeOrder || [],
+                    gridSettings: data.scene.gridSettings || {
+                        showGrid: true,
+                        gridSize: 50
+                    }
+                });
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
             }
@@ -39,7 +46,7 @@ export default function ViewerPage() {
         };
     }, []);
 
-    const currentPlayer = scene.initiativeOrder.find(entry => entry.isCurrentTurn);
+    const currentPlayer = scene.initiativeOrder?.find(entry => entry.isCurrentTurn);
 
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
