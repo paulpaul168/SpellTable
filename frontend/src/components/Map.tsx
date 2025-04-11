@@ -14,6 +14,7 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (!isActive) return;
+        e.preventDefault(); // Prevent text selection
         setIsDragging(true);
         setStartPos({
             x: e.clientX - map.data.position.x,
@@ -23,6 +24,7 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
 
     const handleMouseMove = (e: React.MouseEvent) => {
         if (!isDragging || !isActive) return;
+        e.preventDefault(); // Prevent text selection
         onUpdate({
             ...map,
             data: {
@@ -39,9 +41,41 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
         setIsDragging(false);
     };
 
+    const handleWheel = (e: React.WheelEvent) => {
+        if (!isActive) return;
+        e.preventDefault();
+
+        // Calculate the new scale
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        const newScale = Math.max(0.1, Math.min(5, map.data.scale + delta));
+
+        // Calculate the mouse position relative to the map
+        const rect = e.currentTarget.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Calculate the scale change ratio
+        const scaleRatio = newScale / map.data.scale;
+
+        // Adjust the position to zoom towards the mouse pointer
+        const newPosition = {
+            x: map.data.position.x - (mouseX * (scaleRatio - 1)),
+            y: map.data.position.y - (mouseY * (scaleRatio - 1))
+        };
+
+        onUpdate({
+            ...map,
+            data: {
+                ...map.data,
+                scale: newScale,
+                position: newPosition
+            }
+        });
+    };
+
     return (
         <div
-            className={`absolute transition-all duration-200 ${isActive ? 'z-10' : 'z-0'} ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+            className={`absolute select-none ${isActive ? 'z-10' : 'z-0'} ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
             style={{
                 position: 'absolute',
                 left: `${map.data.position.x}px`,
@@ -51,12 +85,18 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
                 opacity: isActive ? 1 : 0.7,
                 transformOrigin: 'center',
                 touchAction: 'none',
-                willChange: 'transform'
+                willChange: 'transform',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                MozUserSelect: 'none',
+                msUserSelect: 'none',
+                pointerEvents: isActive ? 'auto' : 'none'
             }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
+            onWheel={handleWheel}
         >
             <div className="relative w-full h-full">
                 <img
@@ -69,7 +109,11 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
                         height: 'auto',
                         maxWidth: 'none',
                         maxHeight: 'none',
-                        objectFit: 'contain'
+                        objectFit: 'contain',
+                        userSelect: 'none',
+                        WebkitUserSelect: 'none',
+                        MozUserSelect: 'none',
+                        msUserSelect: 'none'
                     }}
                     onLoad={() => setImageLoaded(true)}
                     draggable={false}

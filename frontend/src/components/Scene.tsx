@@ -117,9 +117,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
     };
 
     return (
-        <div className="flex h-screen bg-zinc-950">
+        <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
-            <div className="flex-1 relative">
+            <div className="flex-1 relative w-full h-full overflow-hidden" style={{ height: '100%', width: '100%', margin: 0, padding: 0 }}>
                 {scene.maps.length === 0 && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-4">
                         <div className="p-4 rounded-xl bg-zinc-900/30">
