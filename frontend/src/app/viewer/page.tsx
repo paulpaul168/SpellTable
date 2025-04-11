@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Scene as SceneType, MapData } from '../../types/map';
+import { Scene as SceneType } from '../../types/map';
 import { Map } from '../../components/Map';
 import { websocketService } from '../../services/websocket';
 
@@ -13,7 +13,9 @@ const initialScene: SceneType = {
     gridSettings: {
         showGrid: true,
         gridSize: 50
-    }
+    },
+    initiativeOrder: [],
+    showCurrentPlayer: false
 };
 
 export default function ViewerPage() {
@@ -36,6 +38,8 @@ export default function ViewerPage() {
             websocketService.disconnect();
         };
     }, []);
+
+    const currentPlayer = scene.initiativeOrder.find(entry => entry.isCurrentTurn);
 
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
@@ -63,6 +67,20 @@ export default function ViewerPage() {
                     />
                 ))}
             </div>
+
+            {/* Current Player Indicator */}
+            {currentPlayer && scene.showCurrentPlayer && (
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+                    <div className="px-4 py-2 rounded-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800">
+                        <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-sm font-medium text-zinc-300">
+                                Current Turn: {currentPlayer.isPlayer ? currentPlayer.name : "DM"}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Grid Overlay */}
             {scene.gridSettings?.showGrid && (

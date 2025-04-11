@@ -8,21 +8,18 @@ import { UploadDialog } from './UploadDialog';
 import { Button } from '@/components/ui/button';
 import {
     LayoutGrid,
-    Upload,
+    Users,
     Wifi,
-    WifiOff,
+    ChevronDown,
+    Upload,
+    Save,
     Image as ImageIcon,
     Settings,
-    Users,
-    Grid,
-    Eye,
-    EyeOff,
-    ChevronDown,
-    Save,
     FolderOpen,
     ExternalLink,
-    PanelRight,
-    PanelRightClose,
+    Grid,
+    Eye,
+    EyeOff
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -35,9 +32,12 @@ import { SaveSceneDialog } from './SaveSceneDialog';
 import { LoadSceneDialog } from './LoadSceneDialog';
 import { MapListSidebar } from './MapListSidebar';
 import { useToast } from "@/components/ui/use-toast";
+import { InitiativeSidebar } from './InitiativeSidebar';
+import { InitiativeEntry } from '../types/map';
 
 interface SceneProps {
     initialScene?: SceneType;
+    isAdmin?: boolean;
 }
 
 interface SceneOperationStatusDialogProps {
@@ -77,17 +77,19 @@ const SceneOperationStatusDialog: React.FC<SceneOperationStatusDialogProps> = ({
     );
 };
 
-export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
+export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) => {
     const { toast } = useToast();
     const [scene, setScene] = useState<SceneType>({
         id: initialScene?.id || 'default',
         name: initialScene?.name || 'Default Scene',
         maps: initialScene?.maps || [],
         activeMapId: initialScene?.activeMapId || null,
-        gridSettings: {
-            showGrid: initialScene?.gridSettings?.showGrid ?? true,
-            gridSize: initialScene?.gridSettings?.gridSize ?? 50
-        }
+        gridSettings: initialScene?.gridSettings || {
+            showGrid: true,
+            gridSize: 50
+        },
+        initiativeOrder: initialScene?.initiativeOrder || [],
+        showCurrentPlayer: true
     });
     const [connectionStatus, setConnectionStatus] = useState('connecting');
     const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -99,7 +101,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
         message: string;
     } | null>(null);
     const [isViewerMode] = useState(false);
-    const [showMapList, setShowMapList] = useState(true);
+    const [showMapList, setShowMapList] = useState(false);
+    const [showInitiative, setShowInitiative] = useState(true);
 
     useEffect(() => {
         websocketService.connect();
@@ -366,6 +369,30 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
         });
     };
 
+    const handleInitiativeUpdate = (entries: InitiativeEntry[]) => {
+        const updatedScene = {
+            ...scene,
+            initiativeOrder: entries
+        };
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
+        });
+    };
+
+    const handleToggleCurrentPlayer = () => {
+        const updatedScene = {
+            ...scene,
+            showCurrentPlayer: !scene.showCurrentPlayer
+        };
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
+        });
+    };
+
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
@@ -434,9 +461,49 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                 </div>
             )}
 
+            {/* Current Player Indicator - Only show in viewer mode */}
+            {!isAdmin && scene.showCurrentPlayer && scene.initiativeOrder.length > 0 && (
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+                    <div className="px-4 py-2 rounded-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800">
+                        <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-sm font-medium text-zinc-300">
+                                Current Turn: {scene.initiativeOrder[0].name}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Initiative Sidebar */}
+            {showInitiative && (
+                <InitiativeSidebar
+                    isAdmin={isAdmin}
+                    entries={scene.initiativeOrder}
+                    onUpdate={handleInitiativeUpdate}
+                    showCurrentPlayer={scene.showCurrentPlayer}
+                    onToggleCurrentPlayer={handleToggleCurrentPlayer}
+                />
+            )}
+
+            {/* Show Initiative Button - Only show when hidden */}
+            {!showInitiative && (
+                <div className="absolute left-4 bottom-4 z-50">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
+                        onClick={() => setShowInitiative(true)}
+                    >
+                        <Users className="h-4 w-4" />
+                        Show Initiative
+                    </Button>
+                </div>
+            )}
+
             {/* Floating Menu Button - Only show in non-viewer mode */}
             {!isViewerMode && (
-                <div className="absolute top-4 left-4" style={{ zIndex: 9999 }}>
+                <div className="absolute top-4 left-4 z-50">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" size="sm" className="gap-2 bg-zinc-900/80 backdrop-blur-sm">
@@ -447,19 +514,25 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-64 bg-zinc-900/95 backdrop-blur-sm border-zinc-800">
                             {/* Connection Status */}
-                            <div className="px-2 py-1.5">
-                                <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-zinc-800/50">
-                                    {connectionStatus === 'connected' ? (
-                                        <>
-                                            <Wifi className="h-3 w-3 text-emerald-500" />
-                                            <span className="text-[10px] text-emerald-500">Connected</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <WifiOff className="h-3 w-3 text-zinc-600" />
-                                            <span className="text-[10px] text-zinc-600 capitalize">{connectionStatus}</span>
-                                        </>
-                                    )}
+                            <div className="px-2 py-1">
+                                <div className="flex items-center gap-2 px-2 py-1">
+                                    <Wifi className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-xs font-medium text-zinc-300">Connection</span>
+                                </div>
+                                <div className="mt-2">
+                                    <div className="flex items-center gap-2">
+                                        {connectionStatus === 'connected' ? (
+                                            <>
+                                                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                                                <span className="text-xs text-emerald-500">Connected</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="h-2 w-2 rounded-full bg-zinc-600" />
+                                                <span className="text-xs text-zinc-600 capitalize">{connectionStatus}</span>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
@@ -467,15 +540,20 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
 
                             {/* Map List Toggle */}
                             <DropdownMenuItem
-                                className="text-xs cursor-pointer"
                                 onClick={() => setShowMapList(!showMapList)}
+                                className="flex items-center gap-2"
                             >
-                                {showMapList ? (
-                                    <PanelRightClose className="h-4 w-4 mr-2" />
-                                ) : (
-                                    <PanelRight className="h-4 w-4 mr-2" />
-                                )}
+                                <LayoutGrid className="h-4 w-4" />
                                 {showMapList ? 'Hide Map List' : 'Show Map List'}
+                            </DropdownMenuItem>
+
+                            {/* Initiative Toggle */}
+                            <DropdownMenuItem
+                                onClick={() => setShowInitiative(!showInitiative)}
+                                className="flex items-center gap-2"
+                            >
+                                <Users className="h-4 w-4" />
+                                {showInitiative ? 'Hide Initiative' : 'Show Initiative'}
                             </DropdownMenuItem>
 
                             <DropdownMenuSeparator className="bg-zinc-800" />

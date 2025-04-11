@@ -11,6 +11,16 @@ export interface MapData {
     };
 }
 
+export interface InitiativeEntry {
+    id: string;
+    name: string;
+    initiative: number;
+    isPlayer: boolean;
+    isCurrentTurn: boolean;
+    hp?: number;
+    isKilled: boolean;
+}
+
 export interface Scene {
     id: string;
     name: string;
@@ -20,4 +30,6 @@ export interface Scene {
         showGrid: boolean;
         gridSize: number;
     };
+    initiativeOrder: InitiativeEntry[];
+    showCurrentPlayer: boolean;
 } 

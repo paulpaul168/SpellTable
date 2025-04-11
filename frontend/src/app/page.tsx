@@ -12,9 +12,11 @@ const initialScene: SceneType = {
     gridSettings: {
         showGrid: false,
         gridSize: 50
-    }
+    },
+    initiativeOrder: [],
+    showCurrentPlayer: true
 };
 
 export default function Home() {
-    return <Scene initialScene={initialScene} />;
+    return <Scene initialScene={initialScene} isAdmin={true} />;
 }
