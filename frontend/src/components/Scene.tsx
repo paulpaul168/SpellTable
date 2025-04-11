@@ -6,13 +6,11 @@ import { Map } from './Map';
 import { websocketService } from '../services/websocket';
 import { UploadDialog } from './UploadDialog';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import {
     LayoutGrid,
     Upload,
     Wifi,
     WifiOff,
-    Plus,
     Image as ImageIcon,
     Settings,
     Users,
@@ -122,7 +120,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
         });
     };
 
-    const handleMapSelect = (mapName: string) => {
+    const handleMapSelect = (mapName: string | null) => {
         const updatedScene = {
             ...scene,
             activeMapId: mapName
@@ -309,6 +307,19 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
         });
     };
 
+    const handleDeleteMap = (mapName: string) => {
+        const updatedScene = {
+            ...scene,
+            maps: scene.maps.filter(m => m.name !== mapName),
+            activeMapId: scene.activeMapId === mapName ? null : scene.activeMapId
+        };
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
+        });
+    };
+
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
@@ -339,7 +350,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                         isActive={map.name === scene.activeMapId}
                         onUpdate={handleMapUpdate}
                         isViewerMode={isViewerMode}
-                        zIndex={index}
+                        zIndex={scene.maps.length - index}
                     />
                 ))}
             </div>
@@ -353,6 +364,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                         onMapVisibilityToggle={handleMapVisibilityToggle}
                         onMapAdd={() => setIsUploadOpen(true)}
                         onMapsReorder={handleMapsReorder}
+                        onMapDelete={handleDeleteMap}
                     />
                 </div>
             )}
