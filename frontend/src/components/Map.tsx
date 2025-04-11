@@ -81,27 +81,12 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
         const delta = e.deltaY > 0 ? -0.1 : 0.1;
         const newScale = Math.max(0.1, Math.min(5, map.data.scale + delta));
 
-        // Calculate the mouse position relative to the map
-        const rect = e.currentTarget.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-
-        // Calculate the scale change ratio
-        const scaleRatio = newScale / map.data.scale;
-
-        // Adjust the position to zoom towards the mouse pointer
-        const newPosition = {
-            x: map.data.position.x - (mouseX * (scaleRatio - 1)),
-            y: map.data.position.y - (mouseY * (scaleRatio - 1))
-        };
-
-        // Update both scale and position in one update
+        // Update only the scale
         onUpdate({
             ...map,
             data: {
                 ...map.data,
-                scale: newScale,
-                position: newPosition
+                scale: newScale
             }
         });
     };
