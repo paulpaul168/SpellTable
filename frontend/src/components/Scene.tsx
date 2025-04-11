@@ -23,6 +23,8 @@ import {
     Save,
     FolderOpen,
     ExternalLink,
+    PanelRight,
+    PanelRightClose,
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -33,6 +35,7 @@ import {
 } from "../components/ui/dropdown-menu";
 import { SaveSceneDialog } from './SaveSceneDialog';
 import { LoadSceneDialog } from './LoadSceneDialog';
+import { MapListSidebar } from './MapListSidebar';
 
 interface SceneProps {
     initialScene: SceneType;
@@ -87,7 +90,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
         message: string;
     } | null>(null);
     const [isViewerMode] = useState(false);
-    const [isMapHidden] = useState(false);
+    const [showMapList, setShowMapList] = useState(true);
 
     useEffect(() => {
         websocketService.connect();
@@ -278,6 +281,34 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
         });
     };
 
+    const handleMapVisibilityToggle = (mapName: string) => {
+        const updatedScene = {
+            ...scene,
+            maps: scene.maps.map(m =>
+                m.name === mapName
+                    ? { ...m, data: { ...m.data, isHidden: !m.data.isHidden } }
+                    : m
+            )
+        };
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
+        });
+    };
+
+    const handleMapsReorder = (newMaps: MapData[]) => {
+        const updatedScene = {
+            ...scene,
+            maps: newMaps
+        };
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
+        });
+    };
+
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
@@ -301,19 +332,33 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                         </Button>
                     </div>
                 )}
-                {scene.maps.map(map => (
+                {scene.maps.map((map, index) => (
                     <Map
                         key={map.name}
                         map={map}
                         isActive={map.name === scene.activeMapId}
                         onUpdate={handleMapUpdate}
                         isViewerMode={isViewerMode}
+                        zIndex={index}
                     />
                 ))}
             </div>
 
+            {/* Map List Sidebar */}
+            {!isViewerMode && showMapList && (
+                <div className="w-64 h-full bg-zinc-900/95 border-l border-zinc-800 flex flex-col">
+                    <MapListSidebar
+                        scene={scene}
+                        onMapSelect={handleMapSelect}
+                        onMapVisibilityToggle={handleMapVisibilityToggle}
+                        onMapAdd={() => setIsUploadOpen(true)}
+                        onMapsReorder={handleMapsReorder}
+                    />
+                </div>
+            )}
+
             {/* Grid Overlay */}
-            {!isMapHidden && scene.maps.find(m => m.name === scene.activeMapId)?.data.showGrid && (
+            {!isViewerMode && scene.maps.find(m => m.name === scene.activeMapId)?.data.showGrid && (
                 <div
                     className="fixed inset-0 pointer-events-none"
                     style={{
@@ -356,66 +401,18 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
 
                             <DropdownMenuSeparator className="bg-zinc-800" />
 
-                            {/* Maps Section */}
-                            <div className="px-2 py-1">
-                                <div className="flex items-center gap-2 px-2 py-1">
-                                    <ImageIcon className="h-4 w-4 text-zinc-400" />
-                                    <span className="text-xs font-medium text-zinc-300">Maps</span>
-                                </div>
-                                <div className="space-y-1 mt-1">
-                                    {scene.maps.map(map => (
-                                        <DropdownMenuItem
-                                            key={map.name}
-                                            className={cn(
-                                                "text-xs cursor-pointer",
-                                                map.name === scene.activeMapId && "bg-zinc-800"
-                                            )}
-                                            onClick={() => handleMapSelect(map.name)}
-                                        >
-                                            <div className="flex items-center justify-between w-full">
-                                                <div className="flex items-center">
-                                                    <ImageIcon className="h-4 w-4 mr-2" />
-                                                    {map.name}
-                                                </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-6 w-6 p-0"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        const updatedScene = {
-                                                            ...scene,
-                                                            maps: scene.maps.map(m =>
-                                                                m.name === map.name
-                                                                    ? { ...m, data: { ...m.data, isHidden: !m.data.isHidden } }
-                                                                    : m
-                                                            )
-                                                        };
-                                                        setScene(updatedScene);
-                                                        websocketService.send({
-                                                            type: 'scene_update',
-                                                            scene: updatedScene
-                                                        });
-                                                    }}
-                                                >
-                                                    {map.data.isHidden ? (
-                                                        <EyeOff className="h-4 w-4 text-zinc-400" />
-                                                    ) : (
-                                                        <Eye className="h-4 w-4 text-zinc-400" />
-                                                    )}
-                                                </Button>
-                                            </div>
-                                        </DropdownMenuItem>
-                                    ))}
-                                    <DropdownMenuItem
-                                        className="text-xs cursor-pointer"
-                                        onClick={() => setIsUploadOpen(true)}
-                                    >
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add New Map
-                                    </DropdownMenuItem>
-                                </div>
-                            </div>
+                            {/* Map List Toggle */}
+                            <DropdownMenuItem
+                                className="text-xs cursor-pointer"
+                                onClick={() => setShowMapList(!showMapList)}
+                            >
+                                {showMapList ? (
+                                    <PanelRightClose className="h-4 w-4 mr-2" />
+                                ) : (
+                                    <PanelRight className="h-4 w-4 mr-2" />
+                                )}
+                                {showMapList ? 'Hide Map List' : 'Show Map List'}
+                            </DropdownMenuItem>
 
                             <DropdownMenuSeparator className="bg-zinc-800" />
 
@@ -517,6 +514,6 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                 type={operationStatus?.type || 'info'}
                 message={operationStatus?.message || ''}
             />
-        </div >
+        </div>
     );
 }; 

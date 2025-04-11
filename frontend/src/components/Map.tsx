@@ -5,11 +5,12 @@ import { EyeOff } from 'lucide-react';
 interface MapProps {
     map: MapData;
     isActive: boolean;
-    onUpdate: (map: MapData) => void;
+    onUpdate: (updatedMap: MapData) => void;
     isViewerMode: boolean;
+    zIndex: number;
 }
 
-export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode }) => {
+export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode, zIndex }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [imageLoaded, setImageLoaded] = useState(false);
     const [localPosition, setLocalPosition] = useState(map.data.position);
@@ -190,7 +191,8 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode 
                 WebkitUserSelect: 'none',
                 MozUserSelect: 'none',
                 msUserSelect: 'none',
-                pointerEvents: isActive ? 'auto' : 'none'
+                pointerEvents: isActive ? 'auto' : 'none',
+                zIndex: zIndex
             }}
             onMouseDown={handleMouseDown}
             onWheel={handleWheel}
