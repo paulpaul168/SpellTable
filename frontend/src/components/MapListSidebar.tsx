@@ -1,7 +1,8 @@
-import { Scene, MapData } from '../types/map';
+import React from 'react';
+import { MapData } from '../types/map';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
-import { Eye, Plus, Trash2, GripVertical } from 'lucide-react';
+import { Eye, EyeOff, Trash2, Plus, GripVertical } from 'lucide-react';
 import {
     DndContext,
     closestCenter,
@@ -20,17 +21,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-interface MapListSidebarProps {
-    scene: Scene;
-    onMapSelect: (mapName: string | null) => void;
-    onMapVisibilityToggle: (mapName: string) => void;
-    onMapAdd: () => void;
-    onMapsReorder: (newMaps: MapData[]) => void;
-    onMapDelete: (mapName: string) => void;
-}
-
-interface SortableItemProps {
-    id: string;
+interface MapListItemProps {
     map: MapData;
     isActive: boolean;
     onSelect: () => void;
@@ -38,14 +29,20 @@ interface SortableItemProps {
     onDelete: () => void;
 }
 
-const SortableItem: React.FC<SortableItemProps> = ({ id, map, isActive, onSelect, onVisibilityToggle, onDelete }) => {
+const MapListItem: React.FC<MapListItemProps> = ({
+    map,
+    isActive,
+    onSelect,
+    onVisibilityToggle,
+    onDelete,
+}) => {
     const {
         attributes,
         listeners,
         setNodeRef,
         transform,
         transition,
-    } = useSortable({ id });
+    } = useSortable({ id: map.name });
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -56,48 +53,63 @@ const SortableItem: React.FC<SortableItemProps> = ({ id, map, isActive, onSelect
         <div
             ref={setNodeRef}
             style={style}
+            onClick={onSelect}
             className={cn(
-                "group flex items-center gap-2 p-2 rounded-lg transition-colors",
+                "group flex items-center gap-2 p-2 rounded-md cursor-pointer",
                 isActive ? "bg-zinc-800" : "hover:bg-zinc-800/50"
             )}
         >
             <div
-                className="p-1 rounded hover:bg-zinc-700 cursor-grab"
+                className="p-1 rounded hover:bg-zinc-800 cursor-grab"
                 {...attributes}
                 {...listeners}
             >
                 <GripVertical className="h-3 w-3 text-zinc-500" />
             </div>
-            <button
-                className="flex-1 flex items-center gap-2"
-                onClick={onSelect}
-            >
-                <Eye
-                    className={cn(
-                        "h-4 w-4 transition-colors",
-                        map.data.isHidden ? "text-zinc-600" : "text-zinc-400"
-                    )}
+            <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onVisibilityToggle();
+                        }}
+                        className="p-1 rounded hover:bg-zinc-800 shrink-0"
+                    >
+                        {map.data.isHidden ? (
+                            <EyeOff className="h-4 w-4 text-zinc-400" />
+                        ) : (
+                            <Eye className="h-4 w-4 text-zinc-400" />
+                        )}
+                    </button>
+                    <span className="text-xs text-zinc-300 truncate max-w-[120px]" title={map.name}>
+                        {map.name}
+                    </span>
+                </div>
+                <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        onVisibilityToggle();
+                        onDelete();
                     }}
-                />
-                <span className="text-sm text-zinc-300 truncate">
-                    {map.name}
-                </span>
-            </button>
-            <button
-                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-zinc-700"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete();
-                }}
-            >
-                <Trash2 className="h-4 w-4 text-zinc-400" />
-            </button>
+                    className="p-1 rounded hover:bg-zinc-800 shrink-0"
+                >
+                    <Trash2 className="h-4 w-4 text-zinc-400" />
+                </button>
+            </div>
         </div>
     );
 };
+
+interface MapListSidebarProps {
+    scene: {
+        maps: MapData[];
+        activeMapId: string | null;
+    };
+    onMapSelect: (mapName: string | null) => void;
+    onMapVisibilityToggle: (mapName: string) => void;
+    onMapAdd: () => void;
+    onMapsReorder: (newMaps: MapData[]) => void;
+    onMapDelete: (mapName: string) => void;
+}
 
 export const MapListSidebar: React.FC<MapListSidebarProps> = ({
     scene,
@@ -129,26 +141,15 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
             <div className="p-4 border-b border-zinc-800">
                 <Button
                     variant="outline"
+                    size="sm"
                     className="w-full gap-2"
                     onClick={onMapAdd}
                 >
                     <Plus className="h-4 w-4" />
-                    <span>Add Map</span>
+                    Add Map
                 </Button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                <div
-                    className={cn(
-                        "group flex items-center gap-2 p-2 rounded-lg transition-colors cursor-pointer",
-                        scene.activeMapId === null
-                            ? "bg-zinc-800"
-                            : "hover:bg-zinc-800/50"
-                    )}
-                    onClick={() => onMapSelect(null)}
-                >
-                    <Eye className="h-4 w-4 text-zinc-400" />
-                    <span className="text-sm text-zinc-300">No Map Selected</span>
-                </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
                 <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -158,10 +159,9 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
                         items={scene.maps.map((map: MapData) => map.name)}
                         strategy={verticalListSortingStrategy}
                     >
-                        {scene.maps.map((map: MapData) => (
-                            <SortableItem
+                        {scene.maps.map((map) => (
+                            <MapListItem
                                 key={map.name}
-                                id={map.name}
                                 map={map}
                                 isActive={map.name === scene.activeMapId}
                                 onSelect={() => onMapSelect(map.name)}

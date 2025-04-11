@@ -13,7 +13,6 @@ interface MapProps {
 export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode, zIndex }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [currentPos, setCurrentPos] = useState(map.data.position);
-    const [currentRotation, setCurrentRotation] = useState(map.data.rotation);
     const [imageLoaded, setImageLoaded] = useState(false);
 
     const lastUpdateRef = useRef<number>(0);
@@ -34,7 +33,6 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode,
 
     useEffect(() => {
         setCurrentPos(map.data.position);
-        setCurrentRotation(map.data.rotation);
     }, [map.data.position, map.data.rotation, zIndex]);
 
     // Track mouse position globally

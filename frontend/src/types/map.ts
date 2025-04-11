@@ -7,8 +7,6 @@ export interface MapData {
         };
         scale: number;
         rotation: number;
-        gridSize: number;
-        showGrid: boolean;
         isHidden: boolean;
     };
 }

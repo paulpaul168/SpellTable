@@ -8,7 +8,11 @@ const initialScene: SceneType = {
     id: 'default',
     name: 'Default Scene',
     maps: [],
-    activeMapId: null
+    activeMapId: null,
+    gridSettings: {
+        showGrid: false,
+        gridSize: 50
+    }
 };
 
 export default function Home() {

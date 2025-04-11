@@ -34,6 +34,7 @@ import {
 import { SaveSceneDialog } from './SaveSceneDialog';
 import { LoadSceneDialog } from './LoadSceneDialog';
 import { MapListSidebar } from './MapListSidebar';
+import { useToast } from "@/components/ui/use-toast";
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -77,6 +78,7 @@ const SceneOperationStatusDialog: React.FC<SceneOperationStatusDialogProps> = ({
 };
 
 export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
+    const { toast } = useToast();
     const [scene, setScene] = useState<SceneType>({
         id: initialScene?.id || 'default',
         name: initialScene?.name || 'Default Scene',
@@ -107,9 +109,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
             if (data.type === 'scene_update' && data.scene) {
                 setScene({
                     ...data.scene,
-                    gridSettings: {
-                        showGrid: data.scene.gridSettings?.showGrid ?? true,
-                        gridSize: data.scene.gridSettings?.gridSize ?? 50
+                    gridSettings: data.scene.gridSettings || {
+                        showGrid: true,
+                        gridSize: 50
                     }
                 });
             } else if (data.type === 'connection_status') {
@@ -168,8 +170,6 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                     position: { x: 0, y: 0 },
                     scale: 1,
                     rotation: 0,
-                    gridSize: 50,
-                    showGrid: true,
                     isHidden: true
                 }
             };
@@ -187,15 +187,26 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
             });
         } catch (error) {
             console.error('Error uploading map:', error);
+            toast({
+                title: "Error",
+                description: "Failed to upload map. Please try again.",
+                variant: "destructive",
+                duration: 3000,
+            });
         }
     };
 
     const handleSaveScene = async (name: string) => {
         try {
+            const timestamp = new Date().toLocaleString();
             const sceneToSave = {
                 ...scene,
-                name,
+                name: `${name} (${timestamp})`,
                 id: scene.id || Date.now().toString(),
+                gridSettings: scene.gridSettings || {
+                    showGrid: true,
+                    gridSize: 50
+                }
             };
 
             const response = await fetch('http://localhost:8010/scenes/save', {
@@ -211,15 +222,19 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
             }
 
             setScene(sceneToSave);
-            setOperationStatus({
-                type: 'success',
-                message: 'Scene saved successfully',
+            toast({
+                title: "Scene Saved",
+                description: `Scene "${name}" saved at ${timestamp}`,
+                duration: 3000,
             });
+            setIsSaveSceneOpen(false);
         } catch (error) {
             console.error('Error saving scene:', error);
-            setOperationStatus({
-                type: 'error',
-                message: 'Failed to save scene. Please try again.',
+            toast({
+                title: "Error",
+                description: "Failed to save scene. Please try again.",
+                variant: "destructive",
+                duration: 3000,
             });
         }
     };
@@ -235,13 +250,22 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
             }
 
             const scenes = await response.json();
-            setSavedScenes(scenes);
+            const scenesWithGridSettings = scenes.map((scene: Partial<SceneType>) => ({
+                ...scene,
+                gridSettings: scene.gridSettings || {
+                    showGrid: true,
+                    gridSize: 50
+                }
+            }));
+            setSavedScenes(scenesWithGridSettings);
             setIsLoadSceneOpen(true);
         } catch (error) {
             console.error('Error loading scenes:', error);
-            setOperationStatus({
-                type: 'error',
-                message: 'Failed to load scenes. Please try again.',
+            toast({
+                title: "Error",
+                description: "Failed to load scenes. Please try again.",
+                variant: "destructive",
+                duration: 3000,
             });
         }
     };
@@ -257,20 +281,31 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
             }
 
             const sceneData = await response.json();
-            setScene(sceneData);
+            const sceneWithGridSettings = {
+                ...sceneData,
+                gridSettings: sceneData.gridSettings || {
+                    showGrid: true,
+                    gridSize: 50
+                }
+            };
+            setScene(sceneWithGridSettings);
             websocketService.send({
                 type: 'scene_update',
-                scene: sceneData
+                scene: sceneWithGridSettings
             });
-            setOperationStatus({
-                type: 'success',
-                message: 'Scene loaded successfully',
+            toast({
+                title: "Scene Loaded",
+                description: "Scene loaded successfully",
+                duration: 3000,
             });
+            setIsLoadSceneOpen(false);
         } catch (error) {
             console.error('Error loading scene:', error);
-            setOperationStatus({
-                type: 'error',
-                message: 'Failed to load scene. Please try again.',
+            toast({
+                title: "Error",
+                description: "Failed to load scene. Please try again.",
+                variant: "destructive",
+                duration: 3000,
             });
         }
     };
