@@ -1,4 +1,14 @@
 import React, { useState } from 'react';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 interface UploadDialogProps {
     isOpen: boolean;
@@ -9,6 +19,7 @@ interface UploadDialogProps {
 export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onUpload }) => {
     const [dragActive, setDragActive] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     const handleDrag = (e: React.DragEvent) => {
         e.preventDefault();
@@ -26,7 +37,10 @@ export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onU
         setDragActive(false);
 
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            setSelectedFile(e.dataTransfer.files[0]);
+            const file = e.dataTransfer.files[0];
+            if (file.type.startsWith('image/')) {
+                setSelectedFile(file);
+            }
         }
     };
 
@@ -36,25 +50,34 @@ export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onU
         }
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (selectedFile) {
-            onUpload(selectedFile);
-            setSelectedFile(null);
-            onClose();
+            try {
+                setIsUploading(true);
+                await onUpload(selectedFile);
+                setSelectedFile(null);
+                onClose();
+            } catch (error) {
+                console.error('Error uploading file:', error);
+            } finally {
+                setIsUploading(false);
+            }
         }
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full">
-                <h2 className="text-xl font-bold mb-4">Upload Map</h2>
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Upload Map</DialogTitle>
+                </DialogHeader>
 
-                <div
-                    className={`border-2 border-dashed rounded-lg p-8 mb-4 text-center cursor-pointer
-                        ${dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}
-                        ${selectedFile ? 'bg-green-50' : ''}`}
+                <Card
+                    className={cn(
+                        "relative border-2 border-dashed p-8 text-center cursor-pointer transition-all duration-200",
+                        dragActive ? "border-primary bg-primary/10" : "border-muted hover:border-primary/50",
+                        selectedFile ? "bg-primary/5 border-primary/50" : ""
+                    )}
                     onDragEnter={handleDrag}
                     onDragLeave={handleDrag}
                     onDragOver={handleDrag}
@@ -67,37 +90,34 @@ export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onU
                         accept="image/*"
                         id="map-upload"
                     />
-                    <label htmlFor="map-upload" className="cursor-pointer">
+                    <label htmlFor="map-upload" className="cursor-pointer block">
                         {selectedFile ? (
-                            <p className="text-green-600">{selectedFile.name}</p>
+                            <div className="space-y-2">
+                                <p className="text-primary font-medium">{selectedFile.name}</p>
+                                <p className="text-sm text-muted-foreground">Click to change file</p>
+                            </div>
                         ) : (
-                            <div>
-                                <p>Drag and drop your map here</p>
-                                <p className="text-sm text-gray-500">or click to select</p>
+                            <div className="space-y-2">
+                                <p className="text-foreground font-medium">Drag and drop your map here</p>
+                                <p className="text-sm text-muted-foreground">or click to select</p>
+                                <p className="text-xs text-muted-foreground mt-2">Supported formats: PNG, JPG, JPEG</p>
                             </div>
                         )}
                     </label>
-                </div>
+                </Card>
 
-                <div className="flex justify-end space-x-2">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
-                    >
+                <DialogFooter className="gap-2 sm:gap-0">
+                    <Button variant="outline" onClick={onClose}>
                         Cancel
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         onClick={handleSubmit}
-                        disabled={!selectedFile}
-                        className={`px-4 py-2 rounded text-white
-                            ${selectedFile
-                                ? 'bg-blue-500 hover:bg-blue-600'
-                                : 'bg-gray-300 cursor-not-allowed'}`}
+                        disabled={!selectedFile || isUploading}
                     >
-                        Upload
-                    </button>
-                </div>
-            </div>
-        </div>
+                        {isUploading ? 'Uploading...' : 'Upload'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }; 

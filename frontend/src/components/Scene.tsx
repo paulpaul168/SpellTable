@@ -3,6 +3,29 @@ import { Scene as SceneType, MapData } from '../types/map';
 import { Map } from './Map';
 import { websocketService } from '../services/websocket';
 import { UploadDialog } from './UploadDialog';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import {
+    LayoutGrid,
+    Upload,
+    Wifi,
+    WifiOff,
+    Plus,
+    Image as ImageIcon,
+    Settings,
+    Users,
+    Grid,
+    Eye,
+    EyeOff,
+    ChevronDown,
+} from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+    DropdownMenuSeparator,
+} from "../components/ui/dropdown-menu";
 
 interface SceneProps {
     initialScene: SceneType;
@@ -12,6 +35,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
     const [scene, setScene] = useState<SceneType>(initialScene);
     const [connectionStatus, setConnectionStatus] = useState('connecting');
     const [isUploadOpen, setIsUploadOpen] = useState(false);
+    const [showGrid, setShowGrid] = useState(true);
 
     useEffect(() => {
         websocketService.connect();
@@ -89,89 +113,148 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
             });
         } catch (error) {
             console.error('Error uploading map:', error);
-            // TODO: Add error handling UI
         }
     };
 
     return (
-        <div className="scene-container" style={{
-            position: 'relative',
-            width: '100%',
-            height: '100vh',
-            backgroundColor: '#f0f0f0',
-            padding: '20px'
-        }}>
-            <div style={{
-                position: 'absolute',
-                top: '10px',
-                left: '10px',
-                background: 'rgba(255, 255, 255, 0.8)',
-                padding: '10px',
-                borderRadius: '5px'
-            }}>
-                <h2>SpellTable</h2>
-                <p>Status: {connectionStatus}</p>
-                <p>Maps: {scene.maps.length}</p>
-                <button
-                    onClick={() => setIsUploadOpen(true)}
-                    className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                >
-                    Upload Map
-                </button>
-            </div>
-
-            {scene.maps.length === 0 && (
-                <div style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    textAlign: 'center'
-                }}>
-                    <h3>No maps loaded</h3>
-                    <p>Add maps to get started</p>
-                    <button
-                        onClick={() => setIsUploadOpen(true)}
-                        className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                    >
-                        Upload Your First Map
-                    </button>
-                </div>
-            )}
-
-            {scene.maps.map(map => (
-                <Map
-                    key={map.name}
-                    map={map}
-                    isActive={map.name === scene.activeMapId}
-                    onUpdate={handleMapUpdate}
-                />
-            ))}
-
-            <div className="map-list" style={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                background: 'rgba(255, 255, 255, 0.8)',
-                padding: '10px',
-                borderRadius: '5px'
-            }}>
-                <h3>Maps</h3>
-                <ul style={{ listStyle: 'none', padding: 0 }}>
-                    {scene.maps.map(map => (
-                        <li
-                            key={map.name}
-                            onClick={() => handleMapSelect(map.name)}
-                            style={{
-                                cursor: 'pointer',
-                                padding: '5px',
-                                background: map.name === scene.activeMapId ? '#e0e0e0' : 'transparent'
-                            }}
+        <div className="flex h-screen bg-zinc-950">
+            {/* Main Content */}
+            <div className="flex-1 relative">
+                {scene.maps.length === 0 && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-4">
+                        <div className="p-4 rounded-xl bg-zinc-900/30">
+                            <ImageIcon className="h-8 w-8 text-zinc-700" />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-medium text-zinc-300">Welcome to SpellTable</h3>
+                            <p className="text-xs text-zinc-600">Upload your first map to get started</p>
+                        </div>
+                        <Button
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() => setIsUploadOpen(true)}
                         >
-                            {map.name}
-                        </li>
-                    ))}
-                </ul>
+                            <Upload className="h-4 w-4" />
+                            <span className="text-xs">Upload Map</span>
+                        </Button>
+                    </div>
+                )}
+                {scene.maps.map(map => (
+                    <Map
+                        key={map.name}
+                        map={map}
+                        isActive={map.name === scene.activeMapId}
+                        onUpdate={handleMapUpdate}
+                    />
+                ))}
+
+                {/* Floating Menu Button */}
+                <div className="absolute top-4 left-4 z-50">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-2 bg-zinc-900/80 backdrop-blur-sm">
+                                <LayoutGrid className="h-4 w-4" />
+                                <span>Menu</span>
+                                <ChevronDown className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-64 bg-zinc-900/95 backdrop-blur-sm border-zinc-800">
+                            {/* Connection Status */}
+                            <div className="px-2 py-1.5">
+                                <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-zinc-800/50">
+                                    {connectionStatus === 'connected' ? (
+                                        <>
+                                            <Wifi className="h-3 w-3 text-emerald-500" />
+                                            <span className="text-[10px] text-emerald-500">Connected</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <WifiOff className="h-3 w-3 text-zinc-600" />
+                                            <span className="text-[10px] text-zinc-600 capitalize">{connectionStatus}</span>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            <DropdownMenuSeparator className="bg-zinc-800" />
+
+                            {/* Maps Section */}
+                            <div className="px-2 py-1">
+                                <div className="flex items-center gap-2 px-2 py-1">
+                                    <ImageIcon className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-xs font-medium text-zinc-300">Maps</span>
+                                </div>
+                                <div className="space-y-1 mt-1">
+                                    {scene.maps.map(map => (
+                                        <DropdownMenuItem
+                                            key={map.name}
+                                            className={cn(
+                                                "text-xs cursor-pointer",
+                                                map.name === scene.activeMapId && "bg-zinc-800"
+                                            )}
+                                            onClick={() => handleMapSelect(map.name)}
+                                        >
+                                            <ImageIcon className="h-4 w-4 mr-2" />
+                                            {map.name}
+                                        </DropdownMenuItem>
+                                    ))}
+                                    <DropdownMenuItem
+                                        className="text-xs cursor-pointer"
+                                        onClick={() => setIsUploadOpen(true)}
+                                    >
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Add New Map
+                                    </DropdownMenuItem>
+                                </div>
+                            </div>
+
+                            <DropdownMenuSeparator className="bg-zinc-800" />
+
+                            {/* Players Section */}
+                            <div className="px-2 py-1">
+                                <div className="flex items-center gap-2 px-2 py-1">
+                                    <Users className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-xs font-medium text-zinc-300">Players</span>
+                                </div>
+                                <DropdownMenuItem className="text-xs cursor-pointer">
+                                    <Users className="h-4 w-4 mr-2" />
+                                    Connected Players (1)
+                                </DropdownMenuItem>
+                            </div>
+
+                            <DropdownMenuSeparator className="bg-zinc-800" />
+
+                            {/* Settings Section */}
+                            <div className="px-2 py-1">
+                                <div className="flex items-center gap-2 px-2 py-1">
+                                    <Settings className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-xs font-medium text-zinc-300">Settings</span>
+                                </div>
+                                <div className="space-y-1 mt-1">
+                                    <DropdownMenuItem className="text-xs cursor-pointer">
+                                        <Grid className="h-4 w-4 mr-2" />
+                                        Grid Size (50px)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        className="text-xs cursor-pointer"
+                                        onClick={() => setShowGrid(!showGrid)}
+                                    >
+                                        {showGrid ? (
+                                            <Eye className="h-4 w-4 mr-2" />
+                                        ) : (
+                                            <EyeOff className="h-4 w-4 mr-2" />
+                                        )}
+                                        {showGrid ? 'Hide Grid' : 'Show Grid'}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem className="text-xs cursor-pointer">
+                                        <Settings className="h-4 w-4 mr-2" />
+                                        Scene Settings
+                                    </DropdownMenuItem>
+                                </div>
+                            </div>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
             </div>
 
             <UploadDialog

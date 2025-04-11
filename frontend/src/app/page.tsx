@@ -12,9 +12,5 @@ const initialScene: SceneType = {
 };
 
 export default function Home() {
-    return (
-        <div>
-            <Scene initialScene={initialScene} />
-        </div>
-    );
+    return <Scene initialScene={initialScene} />;
 }

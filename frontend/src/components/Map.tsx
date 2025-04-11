@@ -10,6 +10,7 @@ interface MapProps {
 export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+    const [imageLoaded, setImageLoaded] = useState(false);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (!isActive) return;
@@ -40,41 +41,45 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
 
     return (
         <div
-            className={`map-container ${isActive ? 'active' : ''}`}
+            className={`absolute transition-all duration-200 ${isActive ? 'z-10' : 'z-0'} ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
             style={{
                 position: 'absolute',
-                left: map.data.position.x,
-                top: map.data.position.y,
+                left: `${map.data.position.x}px`,
+                top: `${map.data.position.y}px`,
                 transform: `scale(${map.data.scale}) rotate(${map.data.rotation}deg)`,
                 cursor: isActive ? 'move' : 'default',
-                opacity: isActive ? 1 : 0.7
+                opacity: isActive ? 1 : 0.7,
+                transformOrigin: 'center',
+                touchAction: 'none',
+                willChange: 'transform'
             }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
         >
-            <div className="map-content">
+            <div className="relative w-full h-full">
                 <img
-                    src={`/maps/${map.name}.png`}
+                    src={`http://localhost:8010/maps/file/${map.name}`}
                     alt={map.name}
+                    className="block max-w-none"
                     style={{
-                        width: '100%',
-                        height: '100%',
+                        display: 'block',
+                        width: 'auto',
+                        height: 'auto',
+                        maxWidth: 'none',
+                        maxHeight: 'none',
                         objectFit: 'contain'
                     }}
+                    onLoad={() => setImageLoaded(true)}
+                    draggable={false}
                 />
-                {map.data.showGrid && (
+                {map.data.showGrid && imageLoaded && (
                     <div
-                        className="grid-overlay"
+                        className="absolute inset-0 pointer-events-none"
                         style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            backgroundImage: `linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px),
-                                            linear-gradient(to bottom, rgba(0,0,0,0.1) 1px, transparent 1px)`,
+                            backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px),
+                                            linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px)`,
                             backgroundSize: `${map.data.gridSize}px ${map.data.gridSize}px`
                         }}
                     />
