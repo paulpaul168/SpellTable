@@ -45,7 +45,6 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
     const [isSaveSceneOpen, setIsSaveSceneOpen] = useState(false);
     const [isLoadSceneOpen, setIsLoadSceneOpen] = useState(false);
     const [savedScenes, setSavedScenes] = useState<SceneType[]>([]);
-    const [showGrid, setShowGrid] = useState(true);
     const [operationStatus, setOperationStatus] = useState<{
         isOpen: boolean;
         status: 'success' | 'error';
@@ -230,6 +229,25 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
         }
     };
 
+    const handleGridToggle = () => {
+        if (!scene.activeMapId) return;
+
+        const updatedScene = {
+            ...scene,
+            maps: scene.maps.map(m =>
+                m.name === scene.activeMapId
+                    ? { ...m, data: { ...m.data, showGrid: !m.data.showGrid } }
+                    : m
+            )
+        };
+
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
+        });
+    };
+
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
@@ -261,136 +279,145 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                         onUpdate={handleMapUpdate}
                     />
                 ))}
+            </div>
 
-                {/* Floating Menu Button */}
-                <div className="absolute top-4 left-4 z-50">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="gap-2 bg-zinc-900/80 backdrop-blur-sm">
-                                <LayoutGrid className="h-4 w-4" />
-                                <span>Menu</span>
-                                <ChevronDown className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-64 bg-zinc-900/95 backdrop-blur-sm border-zinc-800">
-                            {/* Connection Status */}
-                            <div className="px-2 py-1.5">
-                                <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-zinc-800/50">
-                                    {connectionStatus === 'connected' ? (
-                                        <>
-                                            <Wifi className="h-3 w-3 text-emerald-500" />
-                                            <span className="text-[10px] text-emerald-500">Connected</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <WifiOff className="h-3 w-3 text-zinc-600" />
-                                            <span className="text-[10px] text-zinc-600 capitalize">{connectionStatus}</span>
-                                        </>
-                                    )}
-                                </div>
+            {/* Grid Overlay */}
+            {scene.maps.find(m => m.name === scene.activeMapId)?.data.showGrid && (
+                <div
+                    className="fixed inset-0 pointer-events-none"
+                    style={{
+                        backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.3) 1px, transparent 1px),
+                                        linear-gradient(to bottom, rgba(255,255,255,0.3) 1px, transparent 1px)`,
+                        backgroundSize: `${scene.maps.find(m => m.name === scene.activeMapId)?.data.gridSize || 50}px ${scene.maps.find(m => m.name === scene.activeMapId)?.data.gridSize || 50}px`,
+                        zIndex: 10
+                    }}
+                />
+            )}
+
+            {/* Floating Menu Button */}
+            <div className="absolute top-4 left-4" style={{ zIndex: 9999 }}>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="gap-2 bg-zinc-900/80 backdrop-blur-sm">
+                            <LayoutGrid className="h-4 w-4" />
+                            <span>Menu</span>
+                            <ChevronDown className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-64 bg-zinc-900/95 backdrop-blur-sm border-zinc-800">
+                        {/* Connection Status */}
+                        <div className="px-2 py-1.5" style={{ zIndex: 9999 }}>
+                            <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-zinc-800/50">
+                                {connectionStatus === 'connected' ? (
+                                    <>
+                                        <Wifi className="h-3 w-3 text-emerald-500" />
+                                        <span className="text-[10px] text-emerald-500">Connected</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <WifiOff className="h-3 w-3 text-zinc-600" />
+                                        <span className="text-[10px] text-zinc-600 capitalize">{connectionStatus}</span>
+                                    </>
+                                )}
                             </div>
+                        </div>
 
-                            <DropdownMenuSeparator className="bg-zinc-800" />
+                        <DropdownMenuSeparator className="bg-zinc-800" />
 
-                            {/* Maps Section */}
-                            <div className="px-2 py-1">
-                                <div className="flex items-center gap-2 px-2 py-1">
-                                    <ImageIcon className="h-4 w-4 text-zinc-400" />
-                                    <span className="text-xs font-medium text-zinc-300">Maps</span>
-                                </div>
-                                <div className="space-y-1 mt-1">
-                                    {scene.maps.map(map => (
-                                        <DropdownMenuItem
-                                            key={map.name}
-                                            className={cn(
-                                                "text-xs cursor-pointer",
-                                                map.name === scene.activeMapId && "bg-zinc-800"
-                                            )}
-                                            onClick={() => handleMapSelect(map.name)}
-                                        >
-                                            <ImageIcon className="h-4 w-4 mr-2" />
-                                            {map.name}
-                                        </DropdownMenuItem>
-                                    ))}
-                                    <DropdownMenuItem
-                                        className="text-xs cursor-pointer"
-                                        onClick={() => setIsUploadOpen(true)}
-                                    >
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add New Map
-                                    </DropdownMenuItem>
-                                </div>
+                        {/* Maps Section */}
+                        <div className="px-2 py-1" style={{ zIndex: 9999 }}>
+                            <div className="flex items-center gap-2 px-2 py-1">
+                                <ImageIcon className="h-4 w-4 text-zinc-400" />
+                                <span className="text-xs font-medium text-zinc-300">Maps</span>
                             </div>
-
-                            <DropdownMenuSeparator className="bg-zinc-800" />
-
-                            {/* Scene Management */}
-                            <div className="px-2 py-1">
-                                <div className="flex items-center gap-2 px-2 py-1">
-                                    <Settings className="h-4 w-4 text-zinc-400" />
-                                    <span className="text-xs font-medium text-zinc-300">Scene</span>
-                                </div>
-                                <div className="space-y-1 mt-1">
+                            <div className="space-y-1 mt-1">
+                                {scene.maps.map(map => (
                                     <DropdownMenuItem
-                                        className="text-xs cursor-pointer"
-                                        onClick={() => setIsSaveSceneOpen(true)}
+                                        key={map.name}
+                                        className={cn(
+                                            "text-xs cursor-pointer",
+                                            map.name === scene.activeMapId && "bg-zinc-800"
+                                        )}
+                                        onClick={() => handleMapSelect(map.name)}
                                     >
-                                        <Save className="h-4 w-4 mr-2" />
-                                        Save Scene
+                                        <ImageIcon className="h-4 w-4 mr-2" />
+                                        {map.name}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        className="text-xs cursor-pointer"
-                                        onClick={handleLoadScene}
-                                    >
-                                        <FolderOpen className="h-4 w-4 mr-2" />
-                                        Load Scene
-                                    </DropdownMenuItem>
-                                </div>
-                            </div>
-
-                            <DropdownMenuSeparator className="bg-zinc-800" />
-
-                            {/* Players Section */}
-                            <div className="px-2 py-1">
-                                <div className="flex items-center gap-2 px-2 py-1">
-                                    <Users className="h-4 w-4 text-zinc-400" />
-                                    <span className="text-xs font-medium text-zinc-300">Players</span>
-                                </div>
-                                <DropdownMenuItem className="text-xs cursor-pointer">
-                                    <Users className="h-4 w-4 mr-2" />
-                                    Connected Players (1)
+                                ))}
+                                <DropdownMenuItem
+                                    className="text-xs cursor-pointer"
+                                    onClick={() => setIsUploadOpen(true)}
+                                >
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add New Map
                                 </DropdownMenuItem>
                             </div>
+                        </div>
 
-                            <DropdownMenuSeparator className="bg-zinc-800" />
+                        <DropdownMenuSeparator className="bg-zinc-800" />
 
-                            {/* Settings Section */}
-                            <div className="px-2 py-1">
-                                <div className="flex items-center gap-2 px-2 py-1">
-                                    <Settings className="h-4 w-4 text-zinc-400" />
-                                    <span className="text-xs font-medium text-zinc-300">Settings</span>
-                                </div>
-                                <div className="space-y-1 mt-1">
-                                    <DropdownMenuItem className="text-xs cursor-pointer">
-                                        <Grid className="h-4 w-4 mr-2" />
-                                        Grid Size (50px)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        className="text-xs cursor-pointer"
-                                        onClick={() => setShowGrid(!showGrid)}
-                                    >
-                                        {showGrid ? (
-                                            <Eye className="h-4 w-4 mr-2" />
-                                        ) : (
-                                            <EyeOff className="h-4 w-4 mr-2" />
-                                        )}
-                                        {showGrid ? 'Hide Grid' : 'Show Grid'}
-                                    </DropdownMenuItem>
-                                </div>
+                        {/* Scene Management */}
+                        <div className="px-2 py-1">
+                            <div className="flex items-center gap-2 px-2 py-1">
+                                <Settings className="h-4 w-4 text-zinc-400" />
+                                <span className="text-xs font-medium text-zinc-300">Scene</span>
                             </div>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
+                            <div className="space-y-1 mt-1">
+                                <DropdownMenuItem
+                                    className="text-xs cursor-pointer"
+                                    onClick={() => setIsSaveSceneOpen(true)}
+                                >
+                                    <Save className="h-4 w-4 mr-2" />
+                                    Save Scene
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className="text-xs cursor-pointer"
+                                    onClick={handleLoadScene}
+                                >
+                                    <FolderOpen className="h-4 w-4 mr-2" />
+                                    Load Scene
+                                </DropdownMenuItem>
+                            </div>
+                        </div>
+
+                        <DropdownMenuSeparator className="bg-zinc-800" />
+
+                        {/* Players Section */}
+                        <div className="px-2 py-1">
+                            <div className="flex items-center gap-2 px-2 py-1">
+                                <Users className="h-4 w-4 text-zinc-400" />
+                                <span className="text-xs font-medium text-zinc-300">Players</span>
+                            </div>
+                            <DropdownMenuItem className="text-xs cursor-pointer">
+                                <Users className="h-4 w-4 mr-2" />
+                                Connected Players (1)
+                            </DropdownMenuItem>
+                        </div>
+
+                        <DropdownMenuSeparator className="bg-zinc-800" />
+
+                        {/* Grid Settings */}
+                        <div className="px-2 py-1">
+                            <div className="flex items-center gap-2 px-2 py-1">
+                                <Grid className="h-4 w-4 text-zinc-400" />
+                                <span className="text-xs font-medium text-zinc-300">Grid</span>
+                            </div>
+                            <div className="space-y-1 mt-1">
+                                <DropdownMenuItem
+                                    className="text-xs cursor-pointer"
+                                    onClick={handleGridToggle}
+                                >
+                                    {scene.maps.find(m => m.name === scene.activeMapId)?.data.showGrid ? (
+                                        <Eye className="h-4 w-4 mr-2" />
+                                    ) : (
+                                        <EyeOff className="h-4 w-4 mr-2" />
+                                    )}
+                                    {scene.maps.find(m => m.name === scene.activeMapId)?.data.showGrid ? 'Hide Grid' : 'Show Grid'}
+                                </DropdownMenuItem>
+                            </div>
+                        </div>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
 
             <UploadDialog
@@ -419,6 +446,6 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                 status={operationStatus.status}
                 message={operationStatus.message}
             />
-        </div>
+        </div >
     );
 }; 
