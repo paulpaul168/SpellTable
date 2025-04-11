@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { MapData } from '../types/map';
 
 interface MapProps {
@@ -11,10 +11,23 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [startPos, setStartPos] = useState({ x: 0, y: 0 });
     const [imageLoaded, setImageLoaded] = useState(false);
+    const [lastUpdateTime, setLastUpdateTime] = useState(0);
+    const [localPosition, setLocalPosition] = useState(map.data.position);
+
+    // Throttle the updates to 60fps (16.67ms between updates)
+    const throttledUpdate = useCallback((newMap: MapData) => {
+        const now = performance.now();
+        if (now - lastUpdateTime >= 16.67) { // 60fps
+            onUpdate(newMap);
+            setLastUpdateTime(now);
+        }
+        // Always update local state for smooth movement
+        setLocalPosition(newMap.data.position);
+    }, [lastUpdateTime, onUpdate]);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (!isActive) return;
-        e.preventDefault(); // Prevent text selection
+        e.preventDefault();
         setIsDragging(true);
         setStartPos({
             x: e.clientX - map.data.position.x,
@@ -24,20 +37,32 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
 
     const handleMouseMove = (e: React.MouseEvent) => {
         if (!isDragging || !isActive) return;
-        e.preventDefault(); // Prevent text selection
-        onUpdate({
+        e.preventDefault();
+        const newPosition = {
+            x: e.clientX - startPos.x,
+            y: e.clientY - startPos.y
+        };
+
+        throttledUpdate({
             ...map,
             data: {
                 ...map.data,
-                position: {
-                    x: e.clientX - startPos.x,
-                    y: e.clientY - startPos.y
-                }
+                position: newPosition
             }
         });
     };
 
     const handleMouseUp = () => {
+        if (isDragging) {
+            // Send final position update when dragging ends
+            onUpdate({
+                ...map,
+                data: {
+                    ...map.data,
+                    position: localPosition
+                }
+            });
+        }
         setIsDragging(false);
     };
 
@@ -78,8 +103,8 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
             className={`absolute select-none ${isActive ? 'z-10' : 'z-0'} ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
             style={{
                 position: 'absolute',
-                left: `${map.data.position.x}px`,
-                top: `${map.data.position.y}px`,
+                left: `${localPosition.x}px`,
+                top: `${localPosition.y}px`,
                 transform: `scale(${map.data.scale}) rotate(${map.data.rotation}deg)`,
                 cursor: isActive ? 'move' : 'default',
                 opacity: isActive ? 1 : 0.7,
