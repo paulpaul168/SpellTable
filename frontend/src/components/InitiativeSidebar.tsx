@@ -83,7 +83,14 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
 
     const killEntry = (id: string) => {
         const newEntries = entries.map(entry =>
-            entry.id === id ? { ...entry, isKilled: true } : entry
+            entry.id === id ? { ...entry, isKilled: true, isCurrentTurn: false } : entry
+        );
+        onUpdate(newEntries);
+    };
+
+    const reviveEntry = (id: string) => {
+        const newEntries = entries.map(entry =>
+            entry.id === id ? { ...entry, isKilled: false } : entry
         );
         onUpdate(newEntries);
     };
@@ -100,15 +107,30 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
         onUpdate(newEntries);
     };
 
+    const adjustHP = (id: string, adjustment: string) => {
+        const entry = entries.find(e => e.id === id);
+        if (!entry || entry.hp === undefined) return;
+
+        const currentHP = entry.hp;
+        const adjustmentValue = parseInt(adjustment);
+        if (isNaN(adjustmentValue)) return;
+
+        const newHP = Math.max(0, currentHP + adjustmentValue);
+        updateHP(id, newHP);
+    };
+
     const moveToNextTurn = () => {
         if (entries.length === 0) return;
 
-        const currentIndex = entries.findIndex(entry => entry.isCurrentTurn);
-        const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % entries.length;
+        const aliveEntries = entries.filter(entry => !entry.isKilled);
+        if (aliveEntries.length === 0) return;
 
-        const newEntries = entries.map((entry, index) => ({
+        const currentIndex = aliveEntries.findIndex(entry => entry.isCurrentTurn);
+        const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % aliveEntries.length;
+
+        const newEntries = entries.map((entry) => ({
             ...entry,
-            isCurrentTurn: index === nextIndex
+            isCurrentTurn: !entry.isKilled && entry.id === aliveEntries[nextIndex].id
         }));
 
         onUpdate(newEntries);
@@ -117,12 +139,15 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
     const moveToPreviousTurn = () => {
         if (entries.length === 0) return;
 
-        const currentIndex = entries.findIndex(entry => entry.isCurrentTurn);
-        const prevIndex = currentIndex === -1 ? entries.length - 1 : (currentIndex - 1 + entries.length) % entries.length;
+        const aliveEntries = entries.filter(entry => !entry.isKilled);
+        if (aliveEntries.length === 0) return;
 
-        const newEntries = entries.map((entry, index) => ({
+        const currentIndex = aliveEntries.findIndex(entry => entry.isCurrentTurn);
+        const prevIndex = currentIndex === -1 ? aliveEntries.length - 1 : (currentIndex - 1 + aliveEntries.length) % aliveEntries.length;
+
+        const newEntries = entries.map((entry) => ({
             ...entry,
-            isCurrentTurn: index === prevIndex
+            isCurrentTurn: !entry.isKilled && entry.id === aliveEntries[prevIndex].id
         }));
 
         onUpdate(newEntries);
@@ -282,17 +307,34 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {!entry.isPlayer && entry.hp !== undefined && (
-                                        <Input
-                                            type="number"
-                                            value={entry.hp}
-                                            onChange={(e) => updateHP(entry.id, parseInt(e.target.value))}
-                                            className="w-16 h-6 text-sm"
-                                        />
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-sm font-mono w-8 text-right">{entry.hp}</span>
+                                            <Input
+                                                type="text"
+                                                placeholder="±HP"
+                                                className="w-16 h-6 text-sm"
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        adjustHP(entry.id, e.currentTarget.value);
+                                                        e.currentTarget.value = '';
+                                                    }
+                                                }}
+                                            />
+                                        </div>
                                     )}
                                     <span className="text-sm font-mono">{entry.initiative}</span>
                                     {isAdmin && (
                                         <div className="flex gap-1">
-                                            {!entry.isKilled && (
+                                            {entry.isKilled ? (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => reviveEntry(entry.id)}
+                                                    className="text-emerald-500 hover:text-emerald-400"
+                                                >
+                                                    <Plus className="h-4 w-4" />
+                                                </Button>
+                                            ) : (
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
