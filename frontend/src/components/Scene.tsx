@@ -31,6 +31,8 @@ import {
     DropdownMenuTrigger,
     DropdownMenuSeparator,
 } from "../components/ui/dropdown-menu";
+import { SaveSceneDialog } from './SaveSceneDialog';
+import { LoadSceneDialog } from './LoadSceneDialog';
 
 interface SceneProps {
     initialScene: SceneType;
@@ -40,6 +42,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
     const [scene, setScene] = useState<SceneType>(initialScene);
     const [connectionStatus, setConnectionStatus] = useState('connecting');
     const [isUploadOpen, setIsUploadOpen] = useState(false);
+    const [isSaveSceneOpen, setIsSaveSceneOpen] = useState(false);
+    const [isLoadSceneOpen, setIsLoadSceneOpen] = useState(false);
+    const [savedScenes, setSavedScenes] = useState<SceneType[]>([]);
     const [showGrid, setShowGrid] = useState(true);
     const [operationStatus, setOperationStatus] = useState<{
         isOpen: boolean;
@@ -130,21 +135,27 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
         }
     };
 
-    const handleSaveScene = async () => {
+    const handleSaveScene = async (name: string) => {
         try {
+            const sceneToSave = {
+                ...scene,
+                name,
+                id: scene.id || Date.now().toString(),
+            };
+
             const response = await fetch('http://localhost:8010/scenes/save', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(scene),
+                body: JSON.stringify(sceneToSave),
             });
 
             if (!response.ok) {
                 throw new Error('Failed to save scene');
             }
 
-            await response.json();
+            setScene(sceneToSave);
             setOperationStatus({
                 isOpen: true,
                 status: 'success',
@@ -162,7 +173,30 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
 
     const handleLoadScene = async () => {
         try {
-            const response = await fetch('http://localhost:8010/scenes/load', {
+            const response = await fetch('http://localhost:8010/scenes/list', {
+                method: 'GET',
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to load scenes');
+            }
+
+            const scenes = await response.json();
+            setSavedScenes(scenes);
+            setIsLoadSceneOpen(true);
+        } catch (error) {
+            console.error('Error loading scenes:', error);
+            setOperationStatus({
+                isOpen: true,
+                status: 'error',
+                message: 'Failed to load scenes. Please try again.',
+            });
+        }
+    };
+
+    const handleSceneLoad = async (loadedScene: SceneType) => {
+        try {
+            const response = await fetch(`http://localhost:8010/scenes/load/${loadedScene.id}`, {
                 method: 'GET',
             });
 
@@ -170,11 +204,11 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                 throw new Error('Failed to load scene');
             }
 
-            const data = await response.json();
-            setScene(data);
+            const sceneData = await response.json();
+            setScene(sceneData);
             websocketService.send({
                 type: 'scene_update',
-                scene: data
+                scene: sceneData
             });
             setOperationStatus({
                 isOpen: true,
@@ -294,7 +328,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                                 <div className="space-y-1 mt-1">
                                     <DropdownMenuItem
                                         className="text-xs cursor-pointer"
-                                        onClick={handleSaveScene}
+                                        onClick={() => setIsSaveSceneOpen(true)}
                                     >
                                         <Save className="h-4 w-4 mr-2" />
                                         Save Scene
@@ -358,6 +392,20 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                 isOpen={isUploadOpen}
                 onClose={() => setIsUploadOpen(false)}
                 onUpload={handleUpload}
+            />
+
+            <SaveSceneDialog
+                isOpen={isSaveSceneOpen}
+                onClose={() => setIsSaveSceneOpen(false)}
+                onSave={handleSaveScene}
+                currentName={scene.name}
+            />
+
+            <LoadSceneDialog
+                isOpen={isLoadSceneOpen}
+                onClose={() => setIsLoadSceneOpen(false)}
+                onLoad={handleSceneLoad}
+                savedScenes={savedScenes}
             />
 
             <OperationStatusDialog
