@@ -1,8 +1,11 @@
+"use client"
+
 import React, { useState, useEffect } from 'react';
 import { Scene as SceneType, MapData } from '../types/map';
 import { Map } from './Map';
 import { websocketService } from '../services/websocket';
 import { UploadDialog } from './UploadDialog';
+import { OperationStatusDialog } from './OperationStatusDialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -38,6 +41,15 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
     const [connectionStatus, setConnectionStatus] = useState('connecting');
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [showGrid, setShowGrid] = useState(true);
+    const [operationStatus, setOperationStatus] = useState<{
+        isOpen: boolean;
+        status: 'success' | 'error';
+        message: string;
+    }>({
+        isOpen: false,
+        status: 'success',
+        message: '',
+    });
 
     useEffect(() => {
         websocketService.connect();
@@ -132,10 +144,19 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                 throw new Error('Failed to save scene');
             }
 
-            const data = await response.json();
-            console.log('Scene saved:', data);
+            await response.json();
+            setOperationStatus({
+                isOpen: true,
+                status: 'success',
+                message: 'Scene saved successfully',
+            });
         } catch (error) {
             console.error('Error saving scene:', error);
+            setOperationStatus({
+                isOpen: true,
+                status: 'error',
+                message: 'Failed to save scene. Please try again.',
+            });
         }
     };
 
@@ -155,8 +176,18 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                 type: 'scene_update',
                 scene: data
             });
+            setOperationStatus({
+                isOpen: true,
+                status: 'success',
+                message: 'Scene loaded successfully',
+            });
         } catch (error) {
             console.error('Error loading scene:', error);
+            setOperationStatus({
+                isOpen: true,
+                status: 'error',
+                message: 'Failed to load scene. Please try again.',
+            });
         }
     };
 
@@ -327,6 +358,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                 isOpen={isUploadOpen}
                 onClose={() => setIsUploadOpen(false)}
                 onUpload={handleUpload}
+            />
+
+            <OperationStatusDialog
+                isOpen={operationStatus.isOpen}
+                onClose={() => setOperationStatus(prev => ({ ...prev, isOpen: false }))}
+                status={operationStatus.status}
+                message={operationStatus.message}
             />
         </div>
     );
