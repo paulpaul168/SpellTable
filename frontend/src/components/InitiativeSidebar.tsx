@@ -120,7 +120,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
 
     const reviveEntry = (id: string) => {
         const newEntries = entries.map(entry =>
-            entry.id === id ? { ...entry, isKilled: false } : entry
+            entry.id === id ? { ...entry, isKilled: false, hp: 1 } : entry
         );
         onUpdate(newEntries);
     };
