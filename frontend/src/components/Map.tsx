@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { MapData } from '../types/map';
 
 interface MapProps {
@@ -14,6 +14,11 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
     const [lastUpdateTime, setLastUpdateTime] = useState(0);
     const [localPosition, setLocalPosition] = useState(map.data.position);
 
+    // Update local position when map prop changes
+    useEffect(() => {
+        setLocalPosition(map.data.position);
+    }, [map.data.position]);
+
     // Throttle the updates to 60fps (16.67ms between updates)
     const throttledUpdate = useCallback((newMap: MapData) => {
         const now = performance.now();
@@ -21,8 +26,6 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
             onUpdate(newMap);
             setLastUpdateTime(now);
         }
-        // Always update local state for smooth movement
-        setLocalPosition(newMap.data.position);
     }, [lastUpdateTime, onUpdate]);
 
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -30,8 +33,8 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
         e.preventDefault();
         setIsDragging(true);
         setStartPos({
-            x: e.clientX - map.data.position.x,
-            y: e.clientY - map.data.position.y
+            x: e.clientX - localPosition.x,
+            y: e.clientY - localPosition.y
         });
     };
 
@@ -43,6 +46,10 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
             y: e.clientY - startPos.y
         };
 
+        // Update local position immediately for smooth movement
+        setLocalPosition(newPosition);
+
+        // Send update through throttled function
         throttledUpdate({
             ...map,
             data: {
@@ -88,6 +95,7 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
             y: map.data.position.y - (mouseY * (scaleRatio - 1))
         };
 
+        // Update both scale and position in one update
         onUpdate({
             ...map,
             data: {

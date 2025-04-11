@@ -87,9 +87,14 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
     };
 
     const handleMapSelect = (mapName: string) => {
-        setScene({
+        const updatedScene = {
             ...scene,
             activeMapId: mapName
+        };
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
         });
     };
 

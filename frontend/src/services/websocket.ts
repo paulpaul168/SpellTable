@@ -13,18 +13,30 @@ class WebSocketService {
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
     private reconnectTimeout: NodeJS.Timeout | null = null;
+    private isConnecting = false;
+    private messageQueue: string[] = [];
 
     connect() {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) {
             return;
         }
 
+        this.isConnecting = true;
         this.ws = new WebSocket('ws://localhost:8010/ws');
 
         this.ws.onopen = () => {
             console.log('WebSocket connected');
             this.reconnectAttempts = 0;
+            this.isConnecting = false;
             this.notifyListeners({ type: 'connection_status', status: 'connected' });
+
+            // Send any queued messages
+            while (this.messageQueue.length > 0) {
+                const message = this.messageQueue.shift();
+                if (message) {
+                    this.ws?.send(message);
+                }
+            }
         };
 
         this.ws.onmessage = (event) => {
@@ -38,12 +50,14 @@ class WebSocketService {
 
         this.ws.onclose = () => {
             console.log('WebSocket disconnected');
+            this.isConnecting = false;
             this.notifyListeners({ type: 'connection_status', status: 'disconnected' });
             this.handleReconnect();
         };
 
         this.ws.onerror = (error) => {
             console.error('WebSocket error:', error);
+            this.isConnecting = false;
             this.notifyListeners({ type: 'connection_status', status: 'error' });
         };
     }
@@ -61,25 +75,24 @@ class WebSocketService {
                 console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
                 this.connect();
             }, delay);
-        }
-    }
-
-    disconnect() {
-        if (this.ws) {
-            this.ws.close();
-            this.ws = null;
-        }
-        if (this.reconnectTimeout) {
-            clearTimeout(this.reconnectTimeout);
-            this.reconnectTimeout = null;
+        } else {
+            console.log('Max reconnection attempts reached');
+            this.notifyListeners({ type: 'connection_status', status: 'failed' });
         }
     }
 
     send(data: WebSocketMessage) {
+        const message = JSON.stringify(data);
+
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify(data));
+            this.ws.send(message);
         } else {
-            console.error('WebSocket is not connected');
+            // Queue the message if the connection is not ready
+            this.messageQueue.push(message);
+            // Try to reconnect if not already connecting
+            if (!this.isConnecting) {
+                this.connect();
+            }
         }
     }
 
@@ -92,6 +105,19 @@ class WebSocketService {
 
     private notifyListeners(data: WebSocketMessage) {
         this.listeners.forEach(listener => listener(data));
+    }
+
+    disconnect() {
+        if (this.ws) {
+            this.ws.close();
+            this.ws = null;
+        }
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+        this.isConnecting = false;
+        this.reconnectAttempts = 0;
     }
 }
 
