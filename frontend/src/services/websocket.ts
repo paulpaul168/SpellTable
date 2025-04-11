@@ -19,7 +19,7 @@ class WebSocketService {
             return;
         }
 
-        this.ws = new WebSocket('ws://localhost:8010/api/ws');
+        this.ws = new WebSocket('ws://localhost:8010/ws');
 
         this.ws.onopen = () => {
             console.log('WebSocket connected');

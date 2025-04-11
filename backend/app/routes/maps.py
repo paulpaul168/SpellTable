@@ -9,12 +9,8 @@ from pathlib import Path
 
 router = APIRouter()
 
-# Create maps directory if it doesn't exist
-MAPS_DIR = Path("maps")
-MAPS_DIR.mkdir(exist_ok=True)
 
-
-@router.post("/upload")
+@router.post("/maps/upload")
 async def upload_map(file: UploadFile = File(...)):
     try:
         # Save the uploaded file
@@ -27,7 +23,7 @@ async def upload_map(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/file/{filename}")
+@router.get("/maps/file/{filename}")
 async def get_map(filename: str):
     try:
         file_path = os.path.join(MAPS_DIR, filename)

@@ -1,29 +1,43 @@
-from fastapi import APIRouter, WebSocket
-from app.core.connection_manager import connection_manager
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from typing import Dict, Any
 import json
 
 router = APIRouter()
 
+# Store connected clients
+clients: Dict[WebSocket, Any] = {}
+
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await connection_manager.connect(websocket)
     try:
+        # Accept the WebSocket connection
+        await websocket.accept()
+        clients[websocket] = None
+
+        # Send initial connection success message
+        await websocket.send_json({"type": "connection_status", "status": "connected"})
+
         while True:
-            data = await websocket.receive_text()
             try:
+                data = await websocket.receive_text()
                 message = json.loads(data)
-                # If it's a scene update, broadcast it to all clients
+                print(f"Received message: {message}")
+
                 if message.get("type") == "scene_update":
-                    print(f"Received scene update: {message}")
-                    await connection_manager.broadcast(data)
-                # For other message types, just broadcast as is
-                else:
-                    await connection_manager.broadcast(data)
-            except json.JSONDecodeError:
-                # If it's not valid JSON, just broadcast the raw text
-                await connection_manager.broadcast(data)
+                    # Broadcast the scene update to all connected clients
+                    for client in clients:
+                        if client != websocket:  # Don't send back to sender
+                            await client.send_json(message)
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                print(f"Error handling message: {e}")
+                break
+
     except Exception as e:
         print(f"WebSocket error: {e}")
     finally:
-        connection_manager.disconnect(websocket)
+        if websocket in clients:
+            del clients[websocket]
+        await websocket.close()

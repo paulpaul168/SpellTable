@@ -5,6 +5,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogFooter,
+    DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -70,6 +71,9 @@ export const UploadDialog: React.FC<UploadDialogProps> = ({ isOpen, onClose, onU
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Upload Map</DialogTitle>
+                    <DialogDescription>
+                        Upload an image file to use as a map. Supported formats include PNG, JPG, and JPEG.
+                    </DialogDescription>
                 </DialogHeader>
 
                 <Card
