@@ -134,7 +134,7 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode 
                     left: `${localPosition.x}px`,
                     top: `${localPosition.y}px`,
                     transform: `scale(${map.data.scale}) rotate(${map.data.rotation}deg)`,
-                    opacity: 0.3,
+                    opacity: 0.5,
                     transformOrigin: 'center',
                     pointerEvents: isViewerMode ? 'none' : 'auto'
                 }}
@@ -162,7 +162,11 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode 
                         draggable={false}
                     />
                     <div className="absolute inset-0 flex items-center justify-center">
-                        <EyeOff className="h-12 w-12 text-zinc-400" />
+                        <div className="absolute inset-0 bg-zinc-900/30" />
+                        <div className="absolute inset-0" style={{
+                            backgroundImage: `repeating-linear-gradient(45deg, rgba(255,255,255,0.1) 0px, rgba(255,255,255,0.1) 2px, transparent 2px, transparent 4px)`,
+                        }} />
+                        <EyeOff className="h-12 w-12 text-zinc-400 relative z-10" />
                     </div>
                 </div>
             </div>

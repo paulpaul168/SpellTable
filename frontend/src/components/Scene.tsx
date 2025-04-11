@@ -154,7 +154,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                     rotation: 0,
                     gridSize: 50,
                     showGrid: true,
-                    isHidden: false
+                    isHidden: true
                 }
             };
 
