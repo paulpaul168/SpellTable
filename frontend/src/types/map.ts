@@ -9,6 +9,7 @@ export interface MapData {
         rotation: number;
         gridSize: number;
         showGrid: boolean;
+        isHidden: boolean;
     };
 }
 

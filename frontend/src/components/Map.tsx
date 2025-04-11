@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MapData } from '../types/map';
+import { EyeOff } from 'lucide-react';
 
 interface MapProps {
     map: MapData;
     isActive: boolean;
     onUpdate: (map: MapData) => void;
+    isViewerMode: boolean;
 }
 
-export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
+export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [imageLoaded, setImageLoaded] = useState(false);
     const [localPosition, setLocalPosition] = useState(map.data.position);
@@ -78,7 +80,7 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
     }, [throttledUpdate]);
 
     const handleMouseDown = (e: React.MouseEvent) => {
-        if (!isActive) return;
+        if (!isActive || isViewerMode) return;
         e.preventDefault();
         setIsDragging(true);
 
@@ -105,7 +107,7 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
     };
 
     const handleWheel = (e: React.WheelEvent) => {
-        if (!isActive) return;
+        if (!isActive || isViewerMode) return;
         e.preventDefault();
 
         // Calculate the new scale
@@ -122,6 +124,51 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
         });
     };
 
+    if (map.data.isHidden) {
+        if (isViewerMode) return null;
+        return (
+            <div
+                className="absolute select-none"
+                style={{
+                    position: 'absolute',
+                    left: `${localPosition.x}px`,
+                    top: `${localPosition.y}px`,
+                    transform: `scale(${map.data.scale}) rotate(${map.data.rotation}deg)`,
+                    opacity: 0.3,
+                    transformOrigin: 'center',
+                    pointerEvents: isViewerMode ? 'none' : 'auto'
+                }}
+                onMouseDown={handleMouseDown}
+                onWheel={handleWheel}
+            >
+                <div className="relative w-full h-full">
+                    <img
+                        src={`http://localhost:8010/maps/file/${map.name}`}
+                        alt={map.name}
+                        className="block max-w-none"
+                        style={{
+                            display: 'block',
+                            width: 'auto',
+                            height: 'auto',
+                            maxWidth: 'none',
+                            maxHeight: 'none',
+                            objectFit: 'contain',
+                            userSelect: 'none',
+                            WebkitUserSelect: 'none',
+                            MozUserSelect: 'none',
+                            msUserSelect: 'none'
+                        }}
+                        onLoad={() => setImageLoaded(true)}
+                        draggable={false}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <EyeOff className="h-12 w-12 text-zinc-400" />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div
             className={`absolute select-none ${isActive ? 'z-10' : 'z-0'} ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
@@ -130,7 +177,7 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate }) => {
                 left: `${localPosition.x}px`,
                 top: `${localPosition.y}px`,
                 transform: `scale(${map.data.scale}) rotate(${map.data.rotation}deg)`,
-                cursor: isActive ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                cursor: isActive && !isViewerMode ? (isDragging ? 'grabbing' : 'grab') : 'default',
                 opacity: isActive ? 1 : 0.7,
                 transformOrigin: 'center',
                 touchAction: 'none',

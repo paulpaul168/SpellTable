@@ -5,7 +5,6 @@ import { Scene as SceneType, MapData } from '../types/map';
 import { Map } from './Map';
 import { websocketService } from '../services/websocket';
 import { UploadDialog } from './UploadDialog';
-import { OperationStatusDialog } from './OperationStatusDialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -23,6 +22,7 @@ import {
     ChevronDown,
     Save,
     FolderOpen,
+    ExternalLink,
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -38,6 +38,43 @@ interface SceneProps {
     initialScene: SceneType;
 }
 
+interface SceneOperationStatusDialogProps {
+    isOpen: boolean;
+    onClose: () => void;
+    type: 'success' | 'error' | 'info';
+    message: string;
+}
+
+const SceneOperationStatusDialog: React.FC<SceneOperationStatusDialogProps> = ({
+    isOpen,
+    onClose,
+    type,
+    message,
+}) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">
+                        {type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info'}
+                    </h3>
+                    <button
+                        onClick={onClose}
+                        className="text-gray-500 hover:text-gray-700"
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <p className="text-gray-700">{message}</p>
+            </div>
+        </div>
+    );
+};
+
 export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
     const [scene, setScene] = useState<SceneType>(initialScene);
     const [connectionStatus, setConnectionStatus] = useState('connecting');
@@ -46,14 +83,11 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
     const [isLoadSceneOpen, setIsLoadSceneOpen] = useState(false);
     const [savedScenes, setSavedScenes] = useState<SceneType[]>([]);
     const [operationStatus, setOperationStatus] = useState<{
-        isOpen: boolean;
-        status: 'success' | 'error';
+        type: 'success' | 'error' | 'info';
         message: string;
-    }>({
-        isOpen: false,
-        status: 'success',
-        message: '',
-    });
+    } | null>(null);
+    const [isViewerMode] = useState(false);
+    const [isMapHidden] = useState(false);
 
     useEffect(() => {
         websocketService.connect();
@@ -119,7 +153,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                     scale: 1,
                     rotation: 0,
                     gridSize: 50,
-                    showGrid: true
+                    showGrid: true,
+                    isHidden: false
                 }
             };
 
@@ -161,15 +196,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
 
             setScene(sceneToSave);
             setOperationStatus({
-                isOpen: true,
-                status: 'success',
+                type: 'success',
                 message: 'Scene saved successfully',
             });
         } catch (error) {
             console.error('Error saving scene:', error);
             setOperationStatus({
-                isOpen: true,
-                status: 'error',
+                type: 'error',
                 message: 'Failed to save scene. Please try again.',
             });
         }
@@ -191,8 +224,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
         } catch (error) {
             console.error('Error loading scenes:', error);
             setOperationStatus({
-                isOpen: true,
-                status: 'error',
+                type: 'error',
                 message: 'Failed to load scenes. Please try again.',
             });
         }
@@ -215,15 +247,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                 scene: sceneData
             });
             setOperationStatus({
-                isOpen: true,
-                status: 'success',
+                type: 'success',
                 message: 'Scene loaded successfully',
             });
         } catch (error) {
             console.error('Error loading scene:', error);
             setOperationStatus({
-                isOpen: true,
-                status: 'error',
+                type: 'error',
                 message: 'Failed to load scene. Please try again.',
             });
         }
@@ -277,12 +307,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                         map={map}
                         isActive={map.name === scene.activeMapId}
                         onUpdate={handleMapUpdate}
+                        isViewerMode={isViewerMode}
                     />
                 ))}
             </div>
 
             {/* Grid Overlay */}
-            {scene.maps.find(m => m.name === scene.activeMapId)?.data.showGrid && (
+            {!isMapHidden && scene.maps.find(m => m.name === scene.activeMapId)?.data.showGrid && (
                 <div
                     className="fixed inset-0 pointer-events-none"
                     style={{
@@ -294,131 +325,171 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                 />
             )}
 
-            {/* Floating Menu Button */}
-            <div className="absolute top-4 left-4" style={{ zIndex: 9999 }}>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="gap-2 bg-zinc-900/80 backdrop-blur-sm">
-                            <LayoutGrid className="h-4 w-4" />
-                            <span>Menu</span>
-                            <ChevronDown className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-64 bg-zinc-900/95 backdrop-blur-sm border-zinc-800">
-                        {/* Connection Status */}
-                        <div className="px-2 py-1.5" style={{ zIndex: 9999 }}>
-                            <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-zinc-800/50">
-                                {connectionStatus === 'connected' ? (
-                                    <>
-                                        <Wifi className="h-3 w-3 text-emerald-500" />
-                                        <span className="text-[10px] text-emerald-500">Connected</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <WifiOff className="h-3 w-3 text-zinc-600" />
-                                        <span className="text-[10px] text-zinc-600 capitalize">{connectionStatus}</span>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-
-                        <DropdownMenuSeparator className="bg-zinc-800" />
-
-                        {/* Maps Section */}
-                        <div className="px-2 py-1" style={{ zIndex: 9999 }}>
-                            <div className="flex items-center gap-2 px-2 py-1">
-                                <ImageIcon className="h-4 w-4 text-zinc-400" />
-                                <span className="text-xs font-medium text-zinc-300">Maps</span>
-                            </div>
-                            <div className="space-y-1 mt-1">
-                                {scene.maps.map(map => (
-                                    <DropdownMenuItem
-                                        key={map.name}
-                                        className={cn(
-                                            "text-xs cursor-pointer",
-                                            map.name === scene.activeMapId && "bg-zinc-800"
-                                        )}
-                                        onClick={() => handleMapSelect(map.name)}
-                                    >
-                                        <ImageIcon className="h-4 w-4 mr-2" />
-                                        {map.name}
-                                    </DropdownMenuItem>
-                                ))}
-                                <DropdownMenuItem
-                                    className="text-xs cursor-pointer"
-                                    onClick={() => setIsUploadOpen(true)}
-                                >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Add New Map
-                                </DropdownMenuItem>
-                            </div>
-                        </div>
-
-                        <DropdownMenuSeparator className="bg-zinc-800" />
-
-                        {/* Scene Management */}
-                        <div className="px-2 py-1">
-                            <div className="flex items-center gap-2 px-2 py-1">
-                                <Settings className="h-4 w-4 text-zinc-400" />
-                                <span className="text-xs font-medium text-zinc-300">Scene</span>
-                            </div>
-                            <div className="space-y-1 mt-1">
-                                <DropdownMenuItem
-                                    className="text-xs cursor-pointer"
-                                    onClick={() => setIsSaveSceneOpen(true)}
-                                >
-                                    <Save className="h-4 w-4 mr-2" />
-                                    Save Scene
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    className="text-xs cursor-pointer"
-                                    onClick={handleLoadScene}
-                                >
-                                    <FolderOpen className="h-4 w-4 mr-2" />
-                                    Load Scene
-                                </DropdownMenuItem>
-                            </div>
-                        </div>
-
-                        <DropdownMenuSeparator className="bg-zinc-800" />
-
-                        {/* Players Section */}
-                        <div className="px-2 py-1">
-                            <div className="flex items-center gap-2 px-2 py-1">
-                                <Users className="h-4 w-4 text-zinc-400" />
-                                <span className="text-xs font-medium text-zinc-300">Players</span>
-                            </div>
-                            <DropdownMenuItem className="text-xs cursor-pointer">
-                                <Users className="h-4 w-4 mr-2" />
-                                Connected Players (1)
-                            </DropdownMenuItem>
-                        </div>
-
-                        <DropdownMenuSeparator className="bg-zinc-800" />
-
-                        {/* Grid Settings */}
-                        <div className="px-2 py-1">
-                            <div className="flex items-center gap-2 px-2 py-1">
-                                <Grid className="h-4 w-4 text-zinc-400" />
-                                <span className="text-xs font-medium text-zinc-300">Grid</span>
-                            </div>
-                            <div className="space-y-1 mt-1">
-                                <DropdownMenuItem
-                                    className="text-xs cursor-pointer"
-                                    onClick={handleGridToggle}
-                                >
-                                    {scene.maps.find(m => m.name === scene.activeMapId)?.data.showGrid ? (
-                                        <Eye className="h-4 w-4 mr-2" />
+            {/* Floating Menu Button - Only show in non-viewer mode */}
+            {!isViewerMode && (
+                <div className="absolute top-4 left-4" style={{ zIndex: 9999 }}>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-2 bg-zinc-900/80 backdrop-blur-sm">
+                                <LayoutGrid className="h-4 w-4" />
+                                <span>Menu</span>
+                                <ChevronDown className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-64 bg-zinc-900/95 backdrop-blur-sm border-zinc-800">
+                            {/* Connection Status */}
+                            <div className="px-2 py-1.5">
+                                <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-zinc-800/50">
+                                    {connectionStatus === 'connected' ? (
+                                        <>
+                                            <Wifi className="h-3 w-3 text-emerald-500" />
+                                            <span className="text-[10px] text-emerald-500">Connected</span>
+                                        </>
                                     ) : (
-                                        <EyeOff className="h-4 w-4 mr-2" />
+                                        <>
+                                            <WifiOff className="h-3 w-3 text-zinc-600" />
+                                            <span className="text-[10px] text-zinc-600 capitalize">{connectionStatus}</span>
+                                        </>
                                     )}
-                                    {scene.maps.find(m => m.name === scene.activeMapId)?.data.showGrid ? 'Hide Grid' : 'Show Grid'}
+                                </div>
+                            </div>
+
+                            <DropdownMenuSeparator className="bg-zinc-800" />
+
+                            {/* Maps Section */}
+                            <div className="px-2 py-1">
+                                <div className="flex items-center gap-2 px-2 py-1">
+                                    <ImageIcon className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-xs font-medium text-zinc-300">Maps</span>
+                                </div>
+                                <div className="space-y-1 mt-1">
+                                    {scene.maps.map(map => (
+                                        <DropdownMenuItem
+                                            key={map.name}
+                                            className={cn(
+                                                "text-xs cursor-pointer",
+                                                map.name === scene.activeMapId && "bg-zinc-800"
+                                            )}
+                                            onClick={() => handleMapSelect(map.name)}
+                                        >
+                                            <div className="flex items-center justify-between w-full">
+                                                <div className="flex items-center">
+                                                    <ImageIcon className="h-4 w-4 mr-2" />
+                                                    {map.name}
+                                                </div>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 w-6 p-0"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const updatedScene = {
+                                                            ...scene,
+                                                            maps: scene.maps.map(m =>
+                                                                m.name === map.name
+                                                                    ? { ...m, data: { ...m.data, isHidden: !m.data.isHidden } }
+                                                                    : m
+                                                            )
+                                                        };
+                                                        setScene(updatedScene);
+                                                        websocketService.send({
+                                                            type: 'scene_update',
+                                                            scene: updatedScene
+                                                        });
+                                                    }}
+                                                >
+                                                    {map.data.isHidden ? (
+                                                        <EyeOff className="h-4 w-4 text-zinc-400" />
+                                                    ) : (
+                                                        <Eye className="h-4 w-4 text-zinc-400" />
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        </DropdownMenuItem>
+                                    ))}
+                                    <DropdownMenuItem
+                                        className="text-xs cursor-pointer"
+                                        onClick={() => setIsUploadOpen(true)}
+                                    >
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Add New Map
+                                    </DropdownMenuItem>
+                                </div>
+                            </div>
+
+                            <DropdownMenuSeparator className="bg-zinc-800" />
+
+                            {/* Scene Management */}
+                            <div className="px-2 py-1">
+                                <div className="flex items-center gap-2 px-2 py-1">
+                                    <Settings className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-xs font-medium text-zinc-300">Scene</span>
+                                </div>
+                                <div className="space-y-1 mt-1">
+                                    <DropdownMenuItem
+                                        className="text-xs cursor-pointer"
+                                        onClick={() => setIsSaveSceneOpen(true)}
+                                    >
+                                        <Save className="h-4 w-4 mr-2" />
+                                        Save Scene
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        className="text-xs cursor-pointer"
+                                        onClick={handleLoadScene}
+                                    >
+                                        <FolderOpen className="h-4 w-4 mr-2" />
+                                        Load Scene
+                                    </DropdownMenuItem>
+                                </div>
+                            </div>
+
+                            <DropdownMenuSeparator className="bg-zinc-800" />
+
+                            {/* Players Section */}
+                            <div className="px-2 py-1">
+                                <div className="flex items-center gap-2 px-2 py-1">
+                                    <Users className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-xs font-medium text-zinc-300">Players</span>
+                                </div>
+                                <DropdownMenuItem className="text-xs cursor-pointer">
+                                    <Users className="h-4 w-4 mr-2" />
+                                    Connected Players (1)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className="text-xs cursor-pointer"
+                                    onClick={() => window.open('/viewer', '_blank')}
+                                >
+                                    <ExternalLink className="h-4 w-4 mr-2" />
+                                    Open Viewer Page
                                 </DropdownMenuItem>
                             </div>
-                        </div>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
+
+                            <DropdownMenuSeparator className="bg-zinc-800" />
+
+                            {/* Grid Settings */}
+                            <div className="px-2 py-1">
+                                <div className="flex items-center gap-2 px-2 py-1">
+                                    <Grid className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-xs font-medium text-zinc-300">Grid</span>
+                                </div>
+                                <div className="space-y-1 mt-1">
+                                    <DropdownMenuItem
+                                        className="text-xs cursor-pointer"
+                                        onClick={handleGridToggle}
+                                    >
+                                        {scene.maps.find(m => m.name === scene.activeMapId)?.data.showGrid ? (
+                                            <Eye className="h-4 w-4 mr-2" />
+                                        ) : (
+                                            <EyeOff className="h-4 w-4 mr-2" />
+                                        )}
+                                        {scene.maps.find(m => m.name === scene.activeMapId)?.data.showGrid ? 'Hide Grid' : 'Show Grid'}
+                                    </DropdownMenuItem>
+                                </div>
+                            </div>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            )}
 
             <UploadDialog
                 isOpen={isUploadOpen}
@@ -440,11 +511,11 @@ export const Scene: React.FC<SceneProps> = ({ initialScene }) => {
                 savedScenes={savedScenes}
             />
 
-            <OperationStatusDialog
-                isOpen={operationStatus.isOpen}
-                onClose={() => setOperationStatus(prev => ({ ...prev, isOpen: false }))}
-                status={operationStatus.status}
-                message={operationStatus.message}
+            <SceneOperationStatusDialog
+                isOpen={operationStatus !== null}
+                onClose={() => setOperationStatus(null)}
+                type={operationStatus?.type || 'info'}
+                message={operationStatus?.message || ''}
             />
         </div >
     );
