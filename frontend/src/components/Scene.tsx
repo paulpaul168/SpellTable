@@ -199,13 +199,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
         }
     };
 
-    const handleSaveScene = async (name: string) => {
+    const handleSaveScene = async (name: string, isSaveAs: boolean = false) => {
         try {
             const timestamp = new Date().toLocaleString();
             const sceneToSave = {
                 ...scene,
-                name: `${name} (${timestamp})`,
-                id: scene.id || Date.now().toString(),
+                name: isSaveAs ? `${name} (${timestamp})` : scene.name,
+                id: isSaveAs ? Date.now().toString() : scene.id,
                 gridSettings: scene.gridSettings || {
                     showGrid: true,
                     gridSize: 50
@@ -214,8 +214,11 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                 showCurrentPlayer: scene.showCurrentPlayer ?? true
             };
 
-            const response = await fetch('http://localhost:8010/scenes/save', {
-                method: 'POST',
+            const endpoint = isSaveAs ? 'http://localhost:8010/scenes/save' : `http://localhost:8010/scenes/${scene.id}`;
+            const method = isSaveAs ? 'POST' : 'PUT';
+
+            const response = await fetch(endpoint, {
+                method,
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -229,7 +232,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
             setScene(sceneToSave);
             toast({
                 title: "Scene Saved",
-                description: `Scene "${name}" saved at ${timestamp}`,
+                description: `Scene "${sceneToSave.name}" ${isSaveAs ? 'saved' : 'updated'} at ${timestamp}`,
                 duration: 3000,
             });
             setIsSaveSceneOpen(false);
@@ -573,10 +576,17 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                                 <div className="space-y-1 mt-1">
                                     <DropdownMenuItem
                                         className="text-xs cursor-pointer"
+                                        onClick={() => handleSaveScene(scene.name, false)}
+                                    >
+                                        <Save className="h-4 w-4 mr-2" />
+                                        Save
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        className="text-xs cursor-pointer"
                                         onClick={() => setIsSaveSceneOpen(true)}
                                     >
                                         <Save className="h-4 w-4 mr-2" />
-                                        Save Scene
+                                        Save As...
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                         className="text-xs cursor-pointer"

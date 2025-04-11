@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 interface SaveSceneDialogProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (name: string) => void;
+    onSave: (name: string, isSaveAs: boolean) => void;
     currentName?: string;
 }
 
@@ -28,7 +28,7 @@ export const SaveSceneDialog: React.FC<SaveSceneDialogProps> = ({
 
     const handleSave = () => {
         if (sceneName.trim()) {
-            onSave(sceneName.trim());
+            onSave(sceneName.trim(), true);
             onClose();
         }
     };
@@ -37,7 +37,7 @@ export const SaveSceneDialog: React.FC<SaveSceneDialogProps> = ({
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Save Scene</DialogTitle>
+                    <DialogTitle>Save Scene As</DialogTitle>
                     <DialogDescription>
                         Enter a name for your scene. This will be used to identify it later.
                     </DialogDescription>

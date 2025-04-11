@@ -79,3 +79,20 @@ async def delete_scene(scene_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/{scene_id}")
+async def update_scene(scene_id: str, scene: SceneData):
+    try:
+        # Update the scene file
+        scene_file = os.path.join(SCENES_DIR, f"{scene_id}.json")
+        if not os.path.exists(scene_file):
+            raise HTTPException(status_code=404, detail="Scene not found")
+
+        with open(scene_file, "w") as f:
+            json.dump(scene.dict(), f)
+        return {"message": "Scene updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
