@@ -38,7 +38,7 @@ async def list_scenes():
     try:
         scenes = []
         for filename in os.listdir(SCENES_DIR):
-            if filename.endswith(".json"):
+            if filename.endswith(".json") and filename != "current_scene.json":
                 file_path = os.path.join(SCENES_DIR, filename)
                 with open(file_path, "r") as f:
                     scene_data = json.load(f)
