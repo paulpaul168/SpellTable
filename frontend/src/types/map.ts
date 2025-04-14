@@ -22,6 +22,12 @@ export interface InitiativeEntry {
     isKilled: boolean;
 }
 
+export interface SceneImage {
+    id: string;
+    name: string;
+    path: string;
+}
+
 export interface Scene {
     id: string;
     name: string;
@@ -34,4 +40,5 @@ export interface Scene {
     };
     initiativeOrder: InitiativeEntry[];
     showCurrentPlayer: boolean;
+    images: SceneImage[];
 } 

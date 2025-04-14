@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { useToast } from './ui/use-toast';
-import { Folder, FolderPlus, FolderOpen, FolderMinus, ChevronRight, ChevronDown, Map, Move } from 'lucide-react';
+import { Folder, FolderPlus, FolderMinus, ChevronRight, ChevronDown, Map, Move } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -16,6 +16,7 @@ interface FolderItem {
     name: string;
     type: 'folder';
     path: string;
+    parent: string;
 }
 
 interface SceneManagementProps {
@@ -36,6 +37,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
     const [folders, setFolders] = useState<FolderItem[]>([]);
     const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
     const [newFolderName, setNewFolderName] = useState('');
+    const [parentFolder, setParentFolder] = useState<string | null>(null);
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
     const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
     const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
@@ -71,7 +73,10 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ folder_name: newFolderName }),
+                body: JSON.stringify({
+                    folder_name: newFolderName,
+                    parent_folder: parentFolder || undefined
+                }),
             });
 
             if (!response.ok) throw new Error('Failed to create folder');
@@ -82,6 +87,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
             });
 
             setNewFolderName('');
+            setParentFolder(null);
             setIsCreateFolderOpen(false);
             loadScenes();
         } catch (error) {
@@ -163,10 +169,65 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
         }
     };
 
-    const renderSceneItem = (scene: Scene, folder: string | null = null) => (
+    const renderFolderTree = (parent: string | null = null, level: number = 0) => {
+        const childFolders = folders.filter(f => f.parent === (parent || ""));
+        return childFolders.map(folder => (
+            <div key={folder.path} style={{ marginLeft: `${level * 20}px` }}>
+                <div
+                    className="flex items-center justify-between p-2 hover:bg-zinc-800/50 rounded-md cursor-pointer"
+                    onClick={() => toggleFolder(folder.path)}
+                >
+                    <div className="flex items-center gap-2">
+                        {expandedFolders.has(folder.path) ? (
+                            <ChevronDown className="h-4 w-4" />
+                        ) : (
+                            <ChevronRight className="h-4 w-4" />
+                        )}
+                        <Folder className="h-4 w-4 text-zinc-400" />
+                        <span>{folder.name}</span>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setParentFolder(folder.path);
+                                setIsCreateFolderOpen(true);
+                            }}
+                        >
+                            <FolderPlus className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteFolder(folder.name);
+                            }}
+                        >
+                            <FolderMinus className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+
+                {expandedFolders.has(folder.path) && (
+                    <>
+                        {renderFolderTree(folder.path, level + 1)}
+                        {scenes
+                            .filter(scene => scene.folder === folder.path)
+                            .map(scene => renderSceneItem(scene, folder.path, level + 1))}
+                    </>
+                )}
+            </div>
+        ));
+    };
+
+    const renderSceneItem = (scene: Scene, folder: string | null = null, level: number = 0) => (
         <div
             key={scene.id}
             className="flex items-center justify-between p-2 hover:bg-zinc-800/50 rounded-md"
+            style={{ marginLeft: `${level * 20}px` }}
         >
             <div className="flex items-center gap-2">
                 <Map className="h-4 w-4 text-zinc-400" />
@@ -195,9 +256,9 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                         </DropdownMenuItem>
                         {folders.map(f => (
                             <DropdownMenuItem
-                                key={f.name}
-                                onClick={() => handleMoveScene(scene, f.name)}
-                                className={scene.folder === f.name ? "bg-zinc-800" : ""}
+                                key={f.path}
+                                onClick={() => handleMoveScene(scene, f.path)}
+                                className={scene.folder === f.path ? "bg-zinc-800" : ""}
                             >
                                 {f.name}
                             </DropdownMenuItem>
@@ -223,7 +284,10 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setIsCreateFolderOpen(true)}
+                            onClick={() => {
+                                setParentFolder(null);
+                                setIsCreateFolderOpen(true);
+                            }}
                             className="gap-2"
                         >
                             <FolderPlus className="h-4 w-4" />
@@ -237,43 +301,8 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                             .filter(scene => !scene.folder)
                             .map(scene => renderSceneItem(scene))}
 
-                        {/* Folders */}
-                        {folders.map(folder => (
-                            <div key={folder.name}>
-                                <div
-                                    className="flex items-center justify-between p-2 hover:bg-zinc-800/50 rounded-md cursor-pointer"
-                                    onClick={() => toggleFolder(folder.name)}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        {expandedFolders.has(folder.name) ? (
-                                            <ChevronDown className="h-4 w-4" />
-                                        ) : (
-                                            <ChevronRight className="h-4 w-4" />
-                                        )}
-                                        <Folder className="h-4 w-4 text-zinc-400" />
-                                        <span>{folder.name}</span>
-                                    </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteFolder(folder.name);
-                                        }}
-                                    >
-                                        <FolderMinus className="h-4 w-4" />
-                                    </Button>
-                                </div>
-
-                                {expandedFolders.has(folder.name) && (
-                                    <div className="pl-6">
-                                        {scenes
-                                            .filter(scene => scene.folder === folder.name)
-                                            .map(scene => renderSceneItem(scene, folder.name))}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                        {/* Folder Tree */}
+                        {renderFolderTree()}
                     </div>
                 </div>
 
