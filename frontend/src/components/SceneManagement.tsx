@@ -4,13 +4,26 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { useToast } from './ui/use-toast';
-import { Folder, FolderPlus, FolderMinus, ChevronRight, ChevronDown, Map, Move } from 'lucide-react';
+import { Folder, FolderPlus, FolderMinus, ChevronRight, ChevronDown, Map } from 'lucide-react';
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from './ui/dropdown-menu';
+    DndContext,
+    DragEndEvent,
+    DragOverlay,
+    DragStartEvent,
+    MouseSensor,
+    TouchSensor,
+    useSensor,
+    useSensors,
+    useDroppable,
+} from '@dnd-kit/core';
+import {
+    SortableContext,
+    verticalListSortingStrategy,
+    sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { cn } from '../lib/utils';
 
 interface FolderItem {
     name: string;
@@ -26,6 +39,123 @@ interface SceneManagementProps {
     currentScene: Scene;
 }
 
+interface SortableSceneItemProps {
+    scene: Scene;
+    folder: string | null;
+    level: number;
+    onLoad: (scene: Scene) => void;
+}
+
+interface DroppableFolderProps {
+    folder: FolderItem;
+    level: number;
+    isExpanded: boolean;
+    onToggle: () => void;
+    onAddSubfolder: () => void;
+    onDelete: () => void;
+}
+
+const DroppableFolder: React.FC<DroppableFolderProps> = ({
+    folder,
+    level,
+    isExpanded,
+    onToggle,
+    onAddSubfolder,
+    onDelete,
+}) => {
+    const { setNodeRef, isOver } = useDroppable({
+        id: folder.path,
+    });
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={{ marginLeft: `${level * 20}px` }}
+            className={cn(
+                "flex items-center justify-between p-2 rounded-md cursor-pointer",
+                isOver ? "bg-zinc-800/80" : "hover:bg-zinc-800/50"
+            )}
+            onClick={onToggle}
+        >
+            <div className="flex items-center gap-2">
+                {isExpanded ? (
+                    <ChevronDown className="h-4 w-4" />
+                ) : (
+                    <ChevronRight className="h-4 w-4" />
+                )}
+                <Folder className="h-4 w-4 text-zinc-400" />
+                <span>{folder.name}</span>
+            </div>
+            <div className="flex gap-2">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onAddSubfolder();
+                    }}
+                >
+                    <FolderPlus className="h-4 w-4" />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete();
+                    }}
+                >
+                    <FolderMinus className="h-4 w-4" />
+                </Button>
+            </div>
+        </div>
+    );
+};
+
+const SortableSceneItem: React.FC<SortableSceneItemProps> = ({ scene, folder, level, onLoad }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: scene.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className="flex items-center justify-between p-2 hover:bg-zinc-800/50 rounded-md cursor-move"
+            {...attributes}
+            {...listeners}
+        >
+            <div className="flex items-center gap-2" style={{ marginLeft: `${level * 20}px` }}>
+                <Map className="h-4 w-4 text-zinc-400" />
+                <span>{scene.name}</span>
+            </div>
+            <div className="flex gap-2">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onLoad(scene);
+                    }}
+                >
+                    Load
+                </Button>
+            </div>
+        </div>
+    );
+};
+
 export const SceneManagement: React.FC<SceneManagementProps> = ({
     isOpen,
     onClose,
@@ -39,9 +169,22 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
     const [newFolderName, setNewFolderName] = useState('');
     const [parentFolder, setParentFolder] = useState<string | null>(null);
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-    const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
-    const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
-    const [sceneToMove, setSceneToMove] = useState<Scene | null>(null);
+    const [activeId, setActiveId] = useState<string | null>(null);
+
+    const sensors = useSensors(
+        useSensor(MouseSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+            coordinateGetter: sortableKeyboardCoordinates,
+        }),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                delay: 300,
+                tolerance: 5,
+            },
+        })
+    );
 
     const loadScenes = async () => {
         try {
@@ -169,105 +312,69 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
         }
     };
 
+    const handleDragStart = (event: DragStartEvent) => {
+        setActiveId(event.active.id as string);
+    };
+
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+        setActiveId(null);
+
+        if (over) {
+            const activeScene = scenes.find(s => s.id === active.id);
+            if (activeScene) {
+                const targetFolder = over.id === 'root' ? null : over.id as string;
+                await handleMoveScene(activeScene, targetFolder);
+            }
+        }
+    };
+
     const renderFolderTree = (parent: string | null = null, level: number = 0) => {
         const childFolders = folders.filter(f => f.parent === (parent || ""));
         return childFolders.map(folder => (
-            <div key={folder.path} style={{ marginLeft: `${level * 20}px` }}>
-                <div
-                    className="flex items-center justify-between p-2 hover:bg-zinc-800/50 rounded-md cursor-pointer"
-                    onClick={() => toggleFolder(folder.path)}
-                >
-                    <div className="flex items-center gap-2">
-                        {expandedFolders.has(folder.path) ? (
-                            <ChevronDown className="h-4 w-4" />
-                        ) : (
-                            <ChevronRight className="h-4 w-4" />
-                        )}
-                        <Folder className="h-4 w-4 text-zinc-400" />
-                        <span>{folder.name}</span>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setParentFolder(folder.path);
-                                setIsCreateFolderOpen(true);
-                            }}
-                        >
-                            <FolderPlus className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteFolder(folder.name);
-                            }}
-                        >
-                            <FolderMinus className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </div>
+            <div key={folder.path}>
+                <DroppableFolder
+                    folder={folder}
+                    level={level}
+                    isExpanded={expandedFolders.has(folder.path)}
+                    onToggle={() => toggleFolder(folder.path)}
+                    onAddSubfolder={() => {
+                        setParentFolder(folder.path);
+                        setIsCreateFolderOpen(true);
+                    }}
+                    onDelete={() => handleDeleteFolder(folder.name)}
+                />
 
                 {expandedFolders.has(folder.path) && (
                     <>
                         {renderFolderTree(folder.path, level + 1)}
-                        {scenes
-                            .filter(scene => scene.folder === folder.path)
-                            .map(scene => renderSceneItem(scene, folder.path, level + 1))}
+                        <SortableContext
+                            items={scenes
+                                .filter(scene => scene.folder === folder.path)
+                                .map(scene => scene.id)}
+                            strategy={verticalListSortingStrategy}
+                        >
+                            {scenes
+                                .filter(scene => scene.folder === folder.path)
+                                .map(scene => (
+                                    <SortableSceneItem
+                                        key={scene.id}
+                                        scene={scene}
+                                        folder={folder.path}
+                                        level={level + 1}
+                                        onLoad={onLoad}
+                                    />
+                                ))}
+                        </SortableContext>
                     </>
                 )}
             </div>
         ));
     };
 
-    const renderSceneItem = (scene: Scene, folder: string | null = null, level: number = 0) => (
-        <div
-            key={scene.id}
-            className="flex items-center justify-between p-2 hover:bg-zinc-800/50 rounded-md"
-            style={{ marginLeft: `${level * 20}px` }}
-        >
-            <div className="flex items-center gap-2">
-                <Map className="h-4 w-4 text-zinc-400" />
-                <span>{scene.name}</span>
-            </div>
-            <div className="flex gap-2">
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onLoad(scene)}
-                >
-                    Load
-                </Button>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                            <Move className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <DropdownMenuItem
-                            onClick={() => handleMoveScene(scene, null)}
-                            className={!scene.folder ? "bg-zinc-800" : ""}
-                        >
-                            Root
-                        </DropdownMenuItem>
-                        {folders.map(f => (
-                            <DropdownMenuItem
-                                key={f.path}
-                                onClick={() => handleMoveScene(scene, f.path)}
-                                className={scene.folder === f.path ? "bg-zinc-800" : ""}
-                            >
-                                {f.name}
-                            </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
-        </div>
-    );
+    const { setNodeRef: setRootNodeRef, isOver: isRootOver } = useDroppable({
+        id: 'root',
+    });
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -295,15 +402,71 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                         </Button>
                     </div>
 
-                    <div className="border rounded-md p-2 max-h-[400px] overflow-y-auto">
-                        {/* Root level scenes */}
-                        {scenes
-                            .filter(scene => !scene.folder)
-                            .map(scene => renderSceneItem(scene))}
+                    <DndContext
+                        sensors={sensors}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <div
+                            ref={setRootNodeRef}
+                            className={cn(
+                                "border rounded-md p-2 max-h-[400px] overflow-y-auto",
+                                isRootOver ? "bg-zinc-800/80" : ""
+                            )}
+                        >
+                            {/* Root level scenes */}
+                            <SortableContext
+                                items={scenes
+                                    .filter(scene => !scene.folder)
+                                    .map(scene => scene.id)}
+                                strategy={verticalListSortingStrategy}
+                            >
+                                {scenes
+                                    .filter(scene => !scene.folder)
+                                    .map(scene => (
+                                        <SortableSceneItem
+                                            key={scene.id}
+                                            scene={scene}
+                                            folder={null}
+                                            level={0}
+                                            onLoad={onLoad}
+                                        />
+                                    ))}
+                            </SortableContext>
 
-                        {/* Folder Tree */}
-                        {renderFolderTree()}
-                    </div>
+                            {/* Folder Tree */}
+                            {renderFolderTree()}
+                        </div>
+
+                        <DragOverlay
+                            dropAnimation={null}
+                            adjustScale={true}
+                            style={{
+                                position: 'fixed',
+                                pointerEvents: 'none',
+                                zIndex: 9999,
+                            }}
+                        >
+                            {activeId ? (
+                                <div
+                                    className="flex items-center justify-between p-2 bg-zinc-800/50 rounded-md"
+                                    style={{
+                                        transform: 'translate3d(-100%, -100%, 0)',
+                                        willChange: 'transform',
+                                        pointerEvents: 'none',
+                                        transformOrigin: 'center center',
+                                    }}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Map className="h-4 w-4 text-zinc-400" />
+                                        <span>
+                                            {scenes.find(s => s.id === activeId)?.name}
+                                        </span>
+                                    </div>
+                                </div>
+                            ) : null}
+                        </DragOverlay>
+                    </DndContext>
                 </div>
 
                 <DialogFooter>

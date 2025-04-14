@@ -40,5 +40,4 @@ export interface Scene {
     };
     initiativeOrder: InitiativeEntry[];
     showCurrentPlayer: boolean;
-    images: SceneImage[];
 } 

@@ -173,18 +173,22 @@ async def delete_scene(scene_id: str):
 @router.put("/{scene_id}")
 async def update_scene(scene_id: str, scene: SceneData):
     try:
-        # First check in root directory
-        scene_file = os.path.join(SCENES_DIR, f"{scene_id}.json")
-        if not os.path.exists(scene_file):
-            # If not found, search in all folders
-            for folder in os.listdir(SCENES_DIR):
-                folder_path = os.path.join(SCENES_DIR, folder)
-                if os.path.isdir(folder_path):
-                    scene_file = os.path.join(folder_path, f"{scene_id}.json")
-                    if os.path.exists(scene_file):
-                        break
-            else:
-                raise HTTPException(status_code=404, detail="Scene not found")
+        # Search through all directories to find the scene file
+        scene_file = None
+        for root, _, files in os.walk(SCENES_DIR):
+            for file in files:
+                if file.endswith(".json") and file != "current_scene.json":
+                    file_path = os.path.join(root, file)
+                    with open(file_path, "r") as f:
+                        data = json.load(f)
+                        if data["id"] == scene_id:
+                            scene_file = file_path
+                            break
+            if scene_file:
+                break
+
+        if not scene_file:
+            raise HTTPException(status_code=404, detail="Scene not found")
 
         # If scene is being moved to a different folder
         if scene.folder:

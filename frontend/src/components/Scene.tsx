@@ -90,7 +90,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
             gridSize: 50
         },
         initiativeOrder: initialScene?.initiativeOrder || [],
-        showCurrentPlayer: true
+        showCurrentPlayer: true,
     });
     const [connectionStatus, setConnectionStatus] = useState('connecting');
     const [isUploadOpen, setIsUploadOpen] = useState(false);
