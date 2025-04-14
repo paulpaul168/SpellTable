@@ -139,7 +139,7 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
     };
 
     return (
-        <div className="fixed top-0 right-0 w-[320px] h-[80%] bg-zinc-900/50 backdrop-blur-sm border-t border-zinc-800/50 flex flex-col">
+        <div className="fixed top-0 right-0 w-[320px] min-h-[200px] max-h-[80%] bg-zinc-900/50 backdrop-blur-sm border-t border-zinc-800/50 flex flex-col rounded-tl-lg">
             <div className="p-4 border-b border-zinc-800/50">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-medium text-zinc-300">Maps</h3>
