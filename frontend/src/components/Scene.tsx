@@ -38,6 +38,7 @@ import { InitiativeEntry } from '../types/map';
 import { SceneManagement } from './SceneManagement';
 import { Soundboard } from './Soundboard';
 import { cn } from '@/lib/utils';
+import { InitiativeIndicator } from './InitiativeIndicator';
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -511,17 +512,11 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
             )}
 
             {/* Current Player Indicator - Only show in viewer mode */}
-            {!isAdmin && scene.showCurrentPlayer && scene.initiativeOrder.length > 0 && (
-                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
-                    <div className="px-4 py-2 rounded-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800">
-                        <div className="flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-sm font-medium text-zinc-300">
-                                Current Turn: {scene.initiativeOrder[0].name}
-                            </span>
-                        </div>
-                    </div>
-                </div>
+            {!isAdmin && (
+                <InitiativeIndicator
+                    initiativeOrder={scene.initiativeOrder}
+                    showCurrentPlayer={scene.showCurrentPlayer}
+                />
             )}
 
             {/* Initiative Sidebar */}

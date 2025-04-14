@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Scene as SceneType } from '../../types/map';
 import { Map } from '../../components/Map';
 import { websocketService } from '../../services/websocket';
+import { InitiativeIndicator } from '../../components/InitiativeIndicator';
 
 const initialScene: SceneType = {
     id: 'default',
@@ -76,18 +77,10 @@ export default function ViewerPage() {
             </div>
 
             {/* Current Player Indicator */}
-            {currentPlayer && scene.showCurrentPlayer && (
-                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
-                    <div className="px-4 py-2 rounded-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800">
-                        <div className="flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-sm font-medium text-zinc-300">
-                                Current Turn: {currentPlayer.isPlayer ? currentPlayer.name : "DM"}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <InitiativeIndicator
+                initiativeOrder={scene.initiativeOrder}
+                showCurrentPlayer={scene.showCurrentPlayer}
+            />
 
             {/* Grid Overlay */}
             {scene.gridSettings?.showGrid && (
