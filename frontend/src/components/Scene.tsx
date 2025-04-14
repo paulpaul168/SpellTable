@@ -34,6 +34,7 @@ import { MapListSidebar } from './MapListSidebar';
 import { useToast } from "@/components/ui/use-toast";
 import { InitiativeSidebar } from './InitiativeSidebar';
 import { InitiativeEntry } from '../types/map';
+import { SceneManagement } from './SceneManagement';
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -103,6 +104,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
     const [isViewerMode] = useState(false);
     const [showMapList, setShowMapList] = useState(false);
     const [showInitiative, setShowInitiative] = useState(true);
+    const [isSceneManagementOpen, setIsSceneManagementOpen] = useState(false);
 
     useEffect(() => {
         websocketService.connect();
@@ -590,10 +592,10 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                         className="text-xs cursor-pointer"
-                                        onClick={handleLoadScene}
+                                        onClick={() => setIsSceneManagementOpen(true)}
                                     >
                                         <FolderOpen className="h-4 w-4 mr-2" />
-                                        Load Scene
+                                        Manage Scenes
                                     </DropdownMenuItem>
                                 </div>
                             </div>
@@ -671,6 +673,14 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                 onClose={() => setOperationStatus(null)}
                 type={operationStatus?.type || 'info'}
                 message={operationStatus?.message || ''}
+            />
+
+            {/* Scene Management Dialog */}
+            <SceneManagement
+                isOpen={isSceneManagementOpen}
+                onClose={() => setIsSceneManagementOpen(false)}
+                onLoad={handleSceneLoad}
+                currentScene={scene}
             />
         </div>
     );

@@ -25,6 +25,7 @@ export interface InitiativeEntry {
 export interface Scene {
     id: string;
     name: string;
+    folder?: string;
     maps: MapData[];
     activeMapId: string | null;
     gridSettings: {
