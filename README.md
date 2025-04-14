@@ -142,10 +142,8 @@ spelltable/
 │   ├── public/              # Static files
 │   └── utils/               # Utilities
 │
-├── shared/                  # Shared code
-│   └── types.ts             # Type definitions
 │
-└── scripts/                 # Helper scripts
+└── runs.sh                  # Start script
 ```
 
 ### Code Style Guidelines
