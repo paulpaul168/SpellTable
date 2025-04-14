@@ -19,7 +19,8 @@ import {
     ExternalLink,
     Grid,
     Eye,
-    EyeOff
+    EyeOff,
+    Music
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -35,6 +36,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { InitiativeSidebar } from './InitiativeSidebar';
 import { InitiativeEntry } from '../types/map';
 import { SceneManagement } from './SceneManagement';
+import { Soundboard } from './Soundboard';
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -105,6 +107,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
     const [showMapList, setShowMapList] = useState(false);
     const [showInitiative, setShowInitiative] = useState(true);
     const [isSceneManagementOpen, setIsSceneManagementOpen] = useState(false);
+    const [isSoundboardOpen, setIsSoundboardOpen] = useState(false);
 
     useEffect(() => {
         websocketService.connect();
@@ -681,6 +684,27 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                 onClose={() => setIsSceneManagementOpen(false)}
                 onLoad={handleSceneLoad}
                 currentScene={scene}
+            />
+
+            {/* Soundboard Toggle Button */}
+            {!isViewerMode && (
+                <div className="absolute bottom-4 right-4 z-50">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
+                        onClick={() => setIsSoundboardOpen(!isSoundboardOpen)}
+                    >
+                        <Music className="h-4 w-4" />
+                        {isSoundboardOpen ? 'Hide Soundboard' : 'Show Soundboard'}
+                    </Button>
+                </div>
+            )}
+
+            {/* Soundboard Component */}
+            <Soundboard
+                isOpen={isSoundboardOpen}
+                onClose={() => setIsSoundboardOpen(false)}
             />
         </div>
     );
