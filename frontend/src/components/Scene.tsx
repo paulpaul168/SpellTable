@@ -37,6 +37,7 @@ import { InitiativeSidebar } from './InitiativeSidebar';
 import { InitiativeEntry } from '../types/map';
 import { SceneManagement } from './SceneManagement';
 import { Soundboard } from './Soundboard';
+import { cn } from '@/lib/utils';
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -108,6 +109,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
     const [showInitiative, setShowInitiative] = useState(true);
     const [isSceneManagementOpen, setIsSceneManagementOpen] = useState(false);
     const [isSoundboardOpen, setIsSoundboardOpen] = useState(false);
+    const [isCleanLayout, setIsCleanLayout] = useState(false);
 
     useEffect(() => {
         websocketService.connect();
@@ -463,15 +465,48 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
 
             {/* Map List Sidebar */}
             {!isViewerMode && showMapList && (
-                <div className="w-64 h-full bg-zinc-900/50 backdrop-blur-sm border-l border-zinc-800/50 flex flex-col">
-                    <MapListSidebar
-                        scene={scene}
-                        onMapSelect={handleMapSelect}
-                        onMapVisibilityToggle={handleMapVisibilityToggle}
-                        onMapAdd={() => setIsUploadOpen(true)}
-                        onMapsReorder={handleMapsReorder}
-                        onMapDelete={handleDeleteMap}
-                    />
+                <MapListSidebar
+                    scene={scene}
+                    onMapSelect={handleMapSelect}
+                    onMapVisibilityToggle={handleMapVisibilityToggle}
+                    onMapAdd={() => setIsUploadOpen(true)}
+                    onMapsReorder={handleMapsReorder}
+                    onMapDelete={handleDeleteMap}
+                    onClose={() => setShowMapList(false)}
+                />
+            )}
+
+            {/* Show Map List Button - Only show when hidden and not in clean layout */}
+            {!isViewerMode && !showMapList && !isCleanLayout && (
+                <div className="absolute top-4 right-4 z-50">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
+                        onClick={() => setShowMapList(true)}
+                    >
+                        <LayoutGrid className="h-4 w-4" />
+                        Show Maps
+                    </Button>
+                </div>
+            )}
+
+            {/* Connection Status Indicator - Only show in normal layout */}
+            {!isCleanLayout && (
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800">
+                        {connectionStatus === 'connected' ? (
+                            <>
+                                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                                <span className="text-xs text-emerald-500">Connected</span>
+                            </>
+                        ) : (
+                            <>
+                                <div className="h-2 w-2 rounded-full bg-zinc-600" />
+                                <span className="text-xs text-zinc-600 capitalize">{connectionStatus}</span>
+                            </>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -497,11 +532,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                     onUpdate={handleInitiativeUpdate}
                     showCurrentPlayer={scene.showCurrentPlayer}
                     onToggleCurrentPlayer={handleToggleCurrentPlayer}
+                    onClose={() => setShowInitiative(false)}
                 />
             )}
 
-            {/* Show Initiative Button - Only show when hidden */}
-            {!showInitiative && (
+            {/* Show Initiative Button - Only show when hidden and not in clean layout */}
+            {!showInitiative && !isCleanLayout && (
                 <div className="absolute left-4 bottom-4 z-50">
                     <Button
                         variant="outline"
@@ -520,10 +556,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                 <div className="absolute top-4 left-4 z-50">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="gap-2 bg-zinc-900/80 backdrop-blur-sm">
+                            <Button variant="outline" size="sm" className={cn(
+                                "gap-2 bg-zinc-900/80 backdrop-blur-sm",
+                                isCleanLayout && "h-6 w-6 p-0"
+                            )}>
                                 <LayoutGrid className="h-4 w-4" />
-                                <span>Menu</span>
-                                <ChevronDown className="h-4 w-4" />
+                                {!isCleanLayout && <span>Menu</span>}
+                                {!isCleanLayout && <ChevronDown className="h-4 w-4" />}
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-64 bg-zinc-900/95 backdrop-blur-sm border-zinc-800">
@@ -552,6 +591,15 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
 
                             <DropdownMenuSeparator className="bg-zinc-800" />
 
+                            {/* Layout Toggle */}
+                            <DropdownMenuItem
+                                onClick={() => setIsCleanLayout(!isCleanLayout)}
+                                className="flex items-center gap-2"
+                            >
+                                <LayoutGrid className="h-4 w-4" />
+                                {isCleanLayout ? 'Show Full Menu' : 'Clean Layout'}
+                            </DropdownMenuItem>
+
                             {/* Map List Toggle */}
                             <DropdownMenuItem
                                 onClick={() => setShowMapList(!showMapList)}
@@ -568,6 +616,15 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                             >
                                 <Users className="h-4 w-4" />
                                 {showInitiative ? 'Hide Initiative' : 'Show Initiative'}
+                            </DropdownMenuItem>
+
+                            {/* Soundboard Toggle */}
+                            <DropdownMenuItem
+                                onClick={() => setIsSoundboardOpen(!isSoundboardOpen)}
+                                className="flex items-center gap-2"
+                            >
+                                <Music className="h-4 w-4" />
+                                {isSoundboardOpen ? 'Hide Soundboard' : 'Show Soundboard'}
                             </DropdownMenuItem>
 
                             <DropdownMenuSeparator className="bg-zinc-800" />
@@ -686,8 +743,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                 currentScene={scene}
             />
 
-            {/* Soundboard Toggle Button */}
-            {!isViewerMode && (
+            {/* Soundboard Toggle Button - Only show when not in clean layout */}
+            {!isViewerMode && !isCleanLayout && (
                 <div className="absolute bottom-4 right-4 z-50">
                     <Button
                         variant="outline"

@@ -2,7 +2,7 @@ import React from 'react';
 import { MapData } from '../types/map';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
-import { Eye, EyeOff, Trash2, Plus, GripVertical } from 'lucide-react';
+import { Eye, EyeOff, Trash2, Plus, GripVertical, X } from 'lucide-react';
 import {
     DndContext,
     closestCenter,
@@ -109,6 +109,7 @@ interface MapListSidebarProps {
     onMapAdd: () => void;
     onMapsReorder: (newMaps: MapData[]) => void;
     onMapDelete: (mapName: string) => void;
+    onClose: () => void;
 }
 
 export const MapListSidebar: React.FC<MapListSidebarProps> = ({
@@ -118,6 +119,7 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
     onMapAdd,
     onMapsReorder,
     onMapDelete,
+    onClose,
 }) => {
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -137,8 +139,22 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
     };
 
     return (
-        <div className="flex flex-col h-full">
-            <div className="p-4 border-b border-zinc-800">
+        <div className="fixed top-0 right-0 w-[320px] h-[80%] bg-zinc-900/50 backdrop-blur-sm border-t border-zinc-800/50 flex flex-col">
+            <div className="p-4 border-b border-zinc-800/50">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-medium text-zinc-300">Maps</h3>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={onClose}
+                            title="Close sidebar"
+                        >
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
                 <Button
                     variant="outline"
                     size="sm"
