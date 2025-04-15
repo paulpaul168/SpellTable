@@ -7,13 +7,12 @@ import threading
 from typing import Generator
 import asyncio
 import io
+from loguru import logger
 
 router = APIRouter()
 
 # Define the path to the sounds directory
 SOUNDS_DIR = Path(__file__).parent.parent.parent.parent / "backend" / "sounds"
-print(f"SOUNDS_DIR: {SOUNDS_DIR}")
-print(f"SOUNDS_DIR exists: {SOUNDS_DIR.exists()}")
 
 
 def stream_file(file_path: Path) -> Generator[bytes, None, None]:
@@ -147,8 +146,8 @@ async def list_audio_files():
         loop_dir = SOUNDS_DIR / "loop"
         oneshot_dir = SOUNDS_DIR / "oneshot"
 
-        print(f"Loop dir: {loop_dir}, exists: {loop_dir.exists()}")
-        print(f"Oneshot dir: {oneshot_dir}, exists: {oneshot_dir.exists()}")
+        logger.debug(f"Loop dir: {loop_dir}, exists: {loop_dir.exists()}")
+        logger.debug(f"Oneshot dir: {oneshot_dir}, exists: {oneshot_dir.exists()}")
 
         if loop_dir.exists():
             audio_files["loop"] = scan_directory(loop_dir, "loop")

@@ -10,6 +10,31 @@ interface MapProps {
     zIndex: number;
 }
 
+// Update image source URL to include folder path if available
+const getMapImageUrl = (map: MapData) => {
+    const baseUrl = 'http://localhost:8010/maps/file';
+
+    // Add debugging log
+    console.log("Getting map URL for:", map);
+
+    if (map.folder) {
+        // Use both folder and filename but make sure to encode them correctly
+        // Using a different pattern that might be more reliable with the backend
+        const encodedPath = `${encodeURIComponent(map.folder)}/${encodeURIComponent(map.name)}`;
+        console.log(`Map in folder encoded path: ${encodedPath}`);
+
+        // Try alternative approach - send folder and filename separately
+        const url = `${baseUrl}/${encodedPath}`;
+        console.log("Final URL:", url);
+        return url;
+    }
+
+    console.log(`Map without folder: ${map.name}`);
+    const url = `${baseUrl}/${encodeURIComponent(map.name)}`;
+    console.log("Final URL:", url);
+    return url;
+};
+
 export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode, zIndex }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [currentPos, setCurrentPos] = useState(map.data.position);
@@ -144,7 +169,7 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode,
             >
                 <div className="relative w-full h-full">
                     <img
-                        src={`http://localhost:8010/maps/file/${map.name}`}
+                        src={getMapImageUrl(map)}
                         alt={map.name}
                         className="block max-w-none"
                         style={{
@@ -199,7 +224,7 @@ export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode,
         >
             <div className="relative w-full h-full">
                 <img
-                    src={`http://localhost:8010/maps/file/${map.name}`}
+                    src={getMapImageUrl(map)}
                     alt={map.name}
                     className="block max-w-none"
                     style={{

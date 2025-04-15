@@ -5,6 +5,7 @@ click==8.1.8
 fastapi==0.109.2
 h11==0.14.0
 idna==3.10
+loguru==0.7.3
 pydantic==2.11.3
 pydantic_core==2.33.1
 python-engineio==4.11.2

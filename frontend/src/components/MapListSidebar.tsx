@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MapData } from '../types/map';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
-import { Eye, EyeOff, Trash2, Plus, GripVertical, X } from 'lucide-react';
+import { Eye, EyeOff, Trash2, Plus, GripVertical, X, FolderPlus } from 'lucide-react';
 import {
     DndContext,
     closestCenter,
@@ -20,6 +20,7 @@ import {
     useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { MapManagement } from './MapManagement';
 
 interface MapListItemProps {
     map: MapData;
@@ -110,6 +111,7 @@ interface MapListSidebarProps {
     onMapsReorder: (newMaps: MapData[]) => void;
     onMapDelete: (mapName: string) => void;
     onClose: () => void;
+    onMapRefresh: () => void;
 }
 
 export const MapListSidebar: React.FC<MapListSidebarProps> = ({
@@ -120,7 +122,15 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
     onMapsReorder,
     onMapDelete,
     onClose,
+    onMapRefresh
 }) => {
+    const [isMapManagementOpen, setIsMapManagementOpen] = useState(false);
+
+    const handleOpenMapManagement = () => {
+        onMapRefresh();
+        setIsMapManagementOpen(true);
+    };
+
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, {
@@ -159,10 +169,10 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
                     variant="outline"
                     size="sm"
                     className="w-full gap-2"
-                    onClick={onMapAdd}
+                    onClick={handleOpenMapManagement}
                 >
-                    <Plus className="h-4 w-4" />
-                    Add Map
+                    <FolderPlus className="h-4 w-4" />
+                    Manage Maps
                 </Button>
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -188,6 +198,17 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
                     </SortableContext>
                 </DndContext>
             </div>
+
+            <MapManagement
+                isOpen={isMapManagementOpen}
+                onClose={() => setIsMapManagementOpen(false)}
+                onMapSelect={(mapName) => {
+                    onMapSelect(mapName);
+                    setIsMapManagementOpen(false);
+                }}
+                onRefreshMaps={onMapRefresh}
+                maps={scene.maps}
+            />
         </div>
     );
 }; 

@@ -1,5 +1,6 @@
 export interface MapData {
     name: string;
+    folder?: string | null;
     data: {
         position: {
             x: number;

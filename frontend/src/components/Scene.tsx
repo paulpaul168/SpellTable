@@ -148,16 +148,98 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
         });
     };
 
-    const handleMapSelect = (mapName: string | null) => {
-        const updatedScene = {
-            ...scene,
-            activeMapId: mapName
-        };
-        setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
-        });
+    const handleMapSelect = async (mapName: string | null) => {
+        console.log("Map selected:", mapName);
+
+        if (!mapName) {
+            // Just clear the selection
+            const updatedScene = {
+                ...scene,
+                activeMapId: null
+            };
+            setScene(updatedScene);
+            websocketService.send({
+                type: 'scene_update',
+                scene: updatedScene
+            });
+            return;
+        }
+
+        // Check if the map already exists in the scene
+        const mapExists = scene.maps.some(m => m.name === mapName);
+        console.log("Map exists in scene:", mapExists);
+
+        if (mapExists) {
+            // If it exists, just select it
+            const updatedScene = {
+                ...scene,
+                activeMapId: mapName
+            };
+            setScene(updatedScene);
+            websocketService.send({
+                type: 'scene_update',
+                scene: updatedScene
+            });
+            console.log("Selected existing map:", mapName);
+        } else {
+            // If not, fetch the map data and add it to the scene
+            try {
+                console.log("Fetching data for new map:", mapName);
+
+                // First fetch all map details including folder structure
+                const listResponse = await fetch('http://localhost:8010/maps/list');
+                if (!listResponse.ok) throw new Error('Failed to fetch map list');
+
+                const listData = await listResponse.json();
+                console.log("All available maps:", listData.maps);
+
+                const mapInfo = listData.maps.find((m: { name: string, folder?: string }) => m.name === mapName);
+                console.log("Found map info:", mapInfo);
+
+                if (!mapInfo) throw new Error(`Map ${mapName} not found`);
+
+                // Create a new map object
+                const newMap: MapData = {
+                    name: mapName,
+                    folder: mapInfo.folder,
+                    data: {
+                        position: { x: 100, y: 100 },
+                        scale: 1,
+                        rotation: 0,
+                        isHidden: false
+                    }
+                };
+
+                console.log("Adding new map to scene:", newMap);
+
+                // Add it to the scene
+                const updatedScene = {
+                    ...scene,
+                    maps: [...scene.maps, newMap],
+                    activeMapId: mapName
+                };
+
+                setScene(updatedScene);
+                websocketService.send({
+                    type: 'scene_update',
+                    scene: updatedScene
+                });
+
+                toast({
+                    title: "Map Added",
+                    description: `Map "${mapName}" added to scene`,
+                    duration: 3000,
+                });
+            } catch (error) {
+                console.error('Error adding map to scene:', error);
+                toast({
+                    title: "Error",
+                    description: "Failed to add map to scene. Please try again.",
+                    variant: "destructive",
+                    duration: 3000,
+                });
+            }
+        }
     };
 
     const handleUpload = async (file: File) => {
@@ -410,6 +492,62 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
         });
     };
 
+    const handleMapRefresh = async () => {
+        try {
+            // Fetch all available maps
+            const response = await fetch('http://localhost:8010/maps/list');
+            if (!response.ok) throw new Error('Failed to load maps');
+
+            const data = await response.json();
+            const availableMaps = data.maps || [];
+
+            // Only update existing maps with folder information, don't add new ones
+            const updatedMaps = scene.maps.map(currentMap => {
+                const matchingMap = availableMaps.find((m: { name: string, folder?: string }) =>
+                    m.name === currentMap.name
+                );
+
+                if (matchingMap) {
+                    return {
+                        ...currentMap,
+                        folder: matchingMap.folder
+                    };
+                }
+                return currentMap;
+            });
+
+            // Remove maps that no longer exist on the backend
+            const finalMaps = updatedMaps.filter(map =>
+                availableMaps.some((m: { name: string }) => m.name === map.name)
+            );
+
+            const updatedScene = {
+                ...scene,
+                maps: finalMaps
+            };
+
+            setScene(updatedScene);
+            websocketService.send({
+                type: 'scene_update',
+                scene: updatedScene
+            });
+
+            toast({
+                title: "Maps Refreshed",
+                description: "Map list has been updated",
+                duration: 3000,
+            });
+        } catch (error) {
+            console.error('Error refreshing maps:', error);
+            toast({
+                title: "Error",
+                description: "Failed to refresh maps. Please try again.",
+                variant: "destructive",
+                duration: 3000,
+            });
+        }
+    };
+
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
@@ -474,6 +612,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                     onMapsReorder={handleMapsReorder}
                     onMapDelete={handleDeleteMap}
                     onClose={() => setShowMapList(false)}
+                    onMapRefresh={handleMapRefresh}
                 />
             )}
 
