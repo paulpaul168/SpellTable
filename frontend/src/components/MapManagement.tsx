@@ -222,7 +222,7 @@ const SortableMapItem: React.FC<SortableMapItemProps> = ({
                             className="h-7 px-2 text-xs"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                console.log("Use button clicked for map:", map.name);
+                                console.log("Selected map:", map.name);
                                 onSelect(map.name);
                             }}
                         >
@@ -253,6 +253,8 @@ export const MapManagement: React.FC<MapManagementProps> = ({
     const [uploadFolder, setUploadFolder] = useState<string | null>(null);
     const [mapsByFolder, setMapsByFolder] = useState<Record<string, MapData[]>>({});
     const [allAvailableMaps, setAllAvailableMaps] = useState<MapData[]>([]);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ type: 'map' | 'folder', name: string } | null>(null);
 
     const sensors = useSensors(
         useSensor(MouseSensor, {
@@ -312,12 +314,21 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
     const loadMapFolders = async () => {
         try {
+            console.log("Loading map folders...");
             const response = await fetch('http://localhost:8010/maps/folders');
             if (!response.ok) throw new Error('Failed to load map folders');
 
             const data = await response.json();
+            console.log("Received folder data:", data);
+
             const folders = data.folders || [];
             console.log('Loaded folders:', folders);
+
+            // Expand all folders by default for testing - use proper typing
+            const allFolderPaths = new Set<string>(folders.map((f: FolderItem) => f.path));
+            console.log("Setting expanded folders:", allFolderPaths);
+            setExpandedFolders(allFolderPaths);
+
             setMapFolders(folders);
         } catch (error) {
             console.error('Error loading map folders:', error);
@@ -337,6 +348,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
     useEffect(() => {
         if (isOpen) {
+            console.log("MapManagement dialog opened, loading data...");
             loadAllMaps();
             loadMapFolders();
         }
@@ -549,7 +561,12 @@ export const MapManagement: React.FC<MapManagementProps> = ({
     };
 
     const renderFolderTree = (parent: string | null = null, level: number = 0) => {
-        const childFolders = mapFolders.filter(f => f.parent === (parent || ""));
+        // This function now only handles sub-folders, not top-level ones
+        console.log(`Rendering sub-folders for parent: ${parent}, level: ${level}`);
+
+        // Filter for direct children of the given parent
+        const childFolders = mapFolders.filter(f => f.parent === parent);
+        console.log(`Found ${childFolders.length} sub-folders for parent ${parent}:`, childFolders);
 
         return childFolders.map(folder => (
             <div key={folder.path}>
@@ -562,7 +579,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                         setParentFolder(folder.path);
                         setIsCreateFolderOpen(true);
                     }}
-                    onDelete={() => handleDeleteFolder(folder.name)}
+                    onDelete={() => confirmDeleteFolder(folder.name)}
                     onUpload={() => {
                         setUploadFolder(folder.path);
                         setIsUploadOpen(true);
@@ -571,7 +588,10 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
                 {expandedFolders.has(folder.path) && (
                     <>
+                        {/* Recursive call for deeper sub-folders */}
                         {renderFolderTree(folder.path, level + 1)}
+
+                        {/* Maps in this folder */}
                         <SortableContext
                             items={(mapsByFolder[folder.path] || []).map(map => map.name)}
                             strategy={verticalListSortingStrategy}
@@ -588,7 +608,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                                         onClose();
                                     }}
                                     onRename={handleRenameMap}
-                                    onDelete={handleDeleteMap}
+                                    onDelete={confirmDeleteMap}
                                 />
                             ))}
                         </SortableContext>
@@ -601,6 +621,33 @@ export const MapManagement: React.FC<MapManagementProps> = ({
     const { setNodeRef: setRootNodeRef, isOver: isRootOver } = useDroppable({
         id: 'root',
     });
+
+    const confirmDeleteFolder = (folderName: string) => {
+        setItemToDelete({ type: 'folder', name: folderName });
+        setDeleteConfirmOpen(true);
+    };
+
+    const confirmDeleteMap = (mapName: string) => {
+        setItemToDelete({ type: 'map', name: mapName });
+        setDeleteConfirmOpen(true);
+    };
+
+    const executeDelete = async () => {
+        if (!itemToDelete) return;
+
+        try {
+            if (itemToDelete.type === 'folder') {
+                await handleDeleteFolder(itemToDelete.name);
+            } else {
+                await handleDeleteMap(itemToDelete.name);
+            }
+        } catch (error) {
+            console.error(`Error deleting ${itemToDelete.type}:`, error);
+        } finally {
+            setDeleteConfirmOpen(false);
+            setItemToDelete(null);
+        }
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -641,6 +688,11 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                         </Button>
                     </div>
 
+                    {/* Debug folder information */}
+                    <div className="text-xs text-zinc-500 mb-2">
+                        Folders available: {mapFolders.length}
+                    </div>
+
                     <DndContext
                         sensors={sensors}
                         onDragStart={handleDragStart}
@@ -653,6 +705,58 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                                 isRootOver ? "bg-zinc-800/80" : ""
                             )}
                         >
+                            {/* Render all top-level folders first */}
+                            {mapFolders
+                                .filter(folder => folder.parent === null || folder.parent === "")
+                                .map(folder => (
+                                    <div key={folder.path}>
+                                        <DroppableFolder
+                                            folder={folder}
+                                            level={0}
+                                            isExpanded={expandedFolders.has(folder.path)}
+                                            onToggle={() => toggleFolder(folder.path)}
+                                            onAddSubfolder={() => {
+                                                setParentFolder(folder.path);
+                                                setIsCreateFolderOpen(true);
+                                            }}
+                                            onDelete={() => confirmDeleteFolder(folder.name)}
+                                            onUpload={() => {
+                                                setUploadFolder(folder.path);
+                                                setIsUploadOpen(true);
+                                            }}
+                                        />
+
+                                        {expandedFolders.has(folder.path) && (
+                                            <>
+                                                {/* Sub-folders */}
+                                                {renderFolderTree(folder.path, 1)}
+
+                                                {/* Maps in this folder */}
+                                                <SortableContext
+                                                    items={(mapsByFolder[folder.path] || []).map(map => map.name)}
+                                                    strategy={verticalListSortingStrategy}
+                                                >
+                                                    {(mapsByFolder[folder.path] || []).map(map => (
+                                                        <SortableMapItem
+                                                            key={map.name}
+                                                            map={map}
+                                                            folder={folder.path}
+                                                            level={1}
+                                                            onSelect={(mapName) => {
+                                                                console.log("Selected map:", mapName);
+                                                                onMapSelect(mapName);
+                                                                onClose();
+                                                            }}
+                                                            onRename={handleRenameMap}
+                                                            onDelete={confirmDeleteMap}
+                                                        />
+                                                    ))}
+                                                </SortableContext>
+                                            </>
+                                        )}
+                                    </div>
+                                ))}
+
                             {/* Root level maps */}
                             <SortableContext
                                 items={(mapsByFolder['root'] || []).map(map => map.name)}
@@ -670,13 +774,10 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                                             onClose();
                                         }}
                                         onRename={handleRenameMap}
-                                        onDelete={handleDeleteMap}
+                                        onDelete={confirmDeleteMap}
                                     />
                                 ))}
                             </SortableContext>
-
-                            {/* Folder Tree */}
-                            {renderFolderTree()}
                         </div>
 
                         <DragOverlay
@@ -752,6 +853,28 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsUploadOpen(false)}>
                             Cancel
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Confirm Deletion</DialogTitle>
+                        <DialogDescription>
+                            {itemToDelete?.type === 'folder'
+                                ? `Are you sure you want to delete the folder "${itemToDelete.name}" and all its contents?`
+                                : `Are you sure you want to delete the map "${itemToDelete?.name}"?`}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={executeDelete}>
+                            Delete
                         </Button>
                     </DialogFooter>
                 </DialogContent>
