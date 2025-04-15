@@ -7,23 +7,28 @@ import { useToast } from './ui/use-toast';
 import { Folder, FolderPlus, FolderMinus, ChevronRight, ChevronDown, Map, Upload, Pencil, Trash2 } from 'lucide-react';
 import {
     DndContext,
-    DragEndEvent,
-    DragOverlay,
-    DragStartEvent,
-    MouseSensor,
-    TouchSensor,
+    closestCenter,
+    PointerSensor,
+    KeyboardSensor,
     useSensor,
     useSensors,
     useDroppable,
+    DragEndEvent,
+    DragStartEvent,
+    DragOverEvent,
+    DragOverlay,
+    defaultDropAnimationSideEffects,
 } from '@dnd-kit/core';
 import {
+    arrayMove,
     SortableContext,
-    verticalListSortingStrategy,
     sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from '../lib/utils';
+import { createPortal } from 'react-dom';
 
 interface FolderItem {
     name: string;
@@ -48,6 +53,7 @@ interface SortableMapItemProps {
     onSelect: (mapName: string) => void;
     onRename: (map: MapData, newName: string) => void;
     onDelete: (mapName: string) => void;
+    dragOverlay?: boolean;
 }
 
 interface DroppableFolderProps {
@@ -71,6 +77,11 @@ const DroppableFolder: React.FC<DroppableFolderProps> = ({
 }) => {
     const { setNodeRef, isOver } = useDroppable({
         id: folder.path,
+        data: {
+            type: 'folder',
+            folderPath: folder.path,
+            accepts: 'map'
+        }
     });
 
     return (
@@ -78,19 +89,19 @@ const DroppableFolder: React.FC<DroppableFolderProps> = ({
             ref={setNodeRef}
             style={{ marginLeft: `${level * 20}px` }}
             className={cn(
-                "flex items-center justify-between p-2 rounded-md cursor-pointer",
-                isOver ? "bg-zinc-800/80" : "hover:bg-zinc-800/50"
+                "flex items-center justify-between p-2 rounded-md mb-1 cursor-pointer",
+                isOver ? "bg-blue-500/30 border border-blue-500" : "hover:bg-zinc-800/50"
             )}
             onClick={onToggle}
         >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-1">
                 {isExpanded ? (
                     <ChevronDown className="h-4 w-4" />
                 ) : (
                     <ChevronRight className="h-4 w-4" />
                 )}
                 <Folder className="h-4 w-4 text-zinc-400" />
-                <span>{folder.name}</span>
+                <span className="truncate">{folder.name}</span>
             </div>
             <div className="flex gap-2">
                 <Button
@@ -131,13 +142,36 @@ const DroppableFolder: React.FC<DroppableFolderProps> = ({
     );
 };
 
+// DragOverlayWrapper helps ensure proper overlay positioning
+const DragOverlayWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    // This creates a portal directly to the document body
+    // which avoids issues with nested scroll containers or CSS transformations
+    return createPortal(
+        <div
+            style={{
+                position: 'fixed',
+                pointerEvents: 'none',
+                zIndex: 999,
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%'
+            }}
+        >
+            {children}
+        </div>,
+        document.body
+    );
+};
+
 const SortableMapItem: React.FC<SortableMapItemProps> = ({
     map,
     folder,
     level,
     onSelect,
     onRename,
-    onDelete
+    onDelete,
+    dragOverlay
 }) => {
     // Split the filename into base name and extension
     const getFileNameParts = (fileName: string) => {
@@ -163,13 +197,24 @@ const SortableMapItem: React.FC<SortableMapItemProps> = ({
         transform,
         transition,
         isDragging,
-    } = useSortable({ id: map.name });
+    } = useSortable({
+        id: map.name,
+        data: {
+            type: 'map',
+            currentFolder: folder,
+            map: map
+        }
+    });
 
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.5 : 1,
-    };
+    const style = dragOverlay
+        ? {
+            opacity: 0.8,
+        }
+        : {
+            transform: CSS.Transform.toString(transform),
+            transition,
+            opacity: isDragging ? 0.5 : 1,
+        };
 
     const handleRenameSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -185,15 +230,14 @@ const SortableMapItem: React.FC<SortableMapItemProps> = ({
 
     return (
         <div
-            ref={setNodeRef}
+            ref={!dragOverlay ? setNodeRef : undefined}
             style={{ ...style, marginLeft: `${level * 20}px` }}
             className="flex items-center justify-between p-2 hover:bg-zinc-800/50 rounded-md cursor-move"
-            {...attributes}
-            {...listeners}
+            {...(!dragOverlay ? { ...attributes, ...listeners } : {})}
         >
             <div className="flex items-center gap-2 flex-1">
                 <Map className="h-4 w-4 text-zinc-400" />
-                {isRenaming ? (
+                {isRenaming && !dragOverlay ? (
                     <form onSubmit={handleRenameSubmit} className="flex-1">
                         <div className="flex items-center">
                             <Input
@@ -211,49 +255,47 @@ const SortableMapItem: React.FC<SortableMapItemProps> = ({
                     <span className="truncate">{map.name}</span>
                 )}
             </div>
-            <div className="flex gap-1">
-                {!isRenaming && (
-                    <>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setNewBaseName(baseName); // Reset to current base name
-                                setIsRenaming(true);
-                            }}
-                            title="Rename map"
-                        >
-                            <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onDelete(map.name);
-                            }}
-                            title="Delete map"
-                        >
-                            <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                console.log("Selected map:", map.name);
-                                onSelect(map.name);
-                            }}
-                        >
-                            Use
-                        </Button>
-                    </>
-                )}
-            </div>
+            {!isRenaming && !dragOverlay && (
+                <div className="flex gap-1">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setNewBaseName(baseName); // Reset to current base name
+                            setIsRenaming(true);
+                        }}
+                        title="Rename map"
+                    >
+                        <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(map.name);
+                        }}
+                        title="Delete map"
+                    >
+                        <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            console.log("Selected map:", map.name);
+                            onSelect(map.name);
+                        }}
+                    >
+                        Use
+                    </Button>
+                </div>
+            )}
         </div>
     );
 };
@@ -273,6 +315,8 @@ export const MapManagement: React.FC<MapManagementProps> = ({
     const [parentFolder, setParentFolder] = useState<string | null>(null);
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
     const [activeId, setActiveId] = useState<string | null>(null);
+    const [activeMap, setActiveMap] = useState<MapData | null>(null);
+    const [overFolder, setOverFolder] = useState<string | null>(null);
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [uploadFolder, setUploadFolder] = useState<string | null>(null);
     const [mapsByFolder, setMapsByFolder] = useState<Record<string, MapData[]>>({});
@@ -281,17 +325,13 @@ export const MapManagement: React.FC<MapManagementProps> = ({
     const [itemToDelete, setItemToDelete] = useState<{ type: 'map' | 'folder', name: string } | null>(null);
 
     const sensors = useSensors(
-        useSensor(MouseSensor, {
+        useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 8,
-            },
-            coordinateGetter: sortableKeyboardCoordinates,
+                distance: 5, // Start dragging after moving 5px to avoid accidental drags
+            }
         }),
-        useSensor(TouchSensor, {
-            activationConstraint: {
-                delay: 300,
-                tolerance: 5,
-            },
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
         })
     );
 
@@ -599,17 +639,122 @@ export const MapManagement: React.FC<MapManagementProps> = ({
     };
 
     const handleDragStart = (event: DragStartEvent) => {
+        console.log('Drag start:', event.active.id);
         setActiveId(event.active.id as string);
+
+        // Find the map being dragged
+        if (event.active.data.current?.type === 'map') {
+            const mapName = event.active.id as string;
+            const folder = event.active.data.current.currentFolder;
+
+            const map = mapsByFolder[folder || 'root']?.find(m => m.name === mapName) || null;
+            setActiveMap(map);
+        }
+    };
+
+    const handleDragOver = (event: DragOverEvent) => {
+        const { over } = event;
+
+        // If over a folder, highlight it
+        if (over && over.data.current?.type === 'folder') {
+            setOverFolder(over.id as string);
+        } else {
+            setOverFolder(null);
+        }
     };
 
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
-        setActiveId(null);
 
-        if (over) {
-            const draggedMapName = active.id as string;
-            const targetFolder = over.id === 'root' ? null : over.id as string;
-            await handleMoveMap(draggedMapName, targetFolder);
+        // Clear states
+        setActiveId(null);
+        setActiveMap(null);
+        setOverFolder(null);
+
+        if (!over) return;
+
+        console.log('Drag end:', active.id, 'over:', over.id);
+
+        // Get data from the draggable elements
+        const activeData = active.data.current;
+        const overData = over.data.current;
+
+        // If item is dropped on itself, do nothing
+        if (active.id === over.id) return;
+
+        // Handle drop on a folder
+        if (overData?.type === 'folder') {
+            const targetFolder = over.id as string;
+            const sourceMapName = active.id as string;
+
+            // Get current folder from active data if available, otherwise try to find it
+            let currentFolder = null;
+            if (activeData?.currentFolder) {
+                currentFolder = activeData.currentFolder;
+            } else {
+                // Search each folder for the map
+                for (const [folderPath, mapsInFolder] of Object.entries(mapsByFolder)) {
+                    if (mapsInFolder.some(m => m.name === sourceMapName)) {
+                        currentFolder = folderPath === 'root' ? null : folderPath;
+                        break;
+                    }
+                }
+            }
+
+            // Only move if target folder is different from current
+            const normalizedTargetFolder = targetFolder === 'root' ? null : targetFolder;
+            const shouldMove = normalizedTargetFolder !== currentFolder;
+
+            if (shouldMove) {
+                console.log(`Moving map ${sourceMapName} from ${currentFolder} to ${normalizedTargetFolder}`);
+                await handleMoveMap(sourceMapName, normalizedTargetFolder);
+
+                // Auto-expand the folder where the item was dropped
+                if (normalizedTargetFolder) {
+                    setExpandedFolders(prev => {
+                        const newSet = new Set(prev);
+                        newSet.add(normalizedTargetFolder);
+                        return newSet;
+                    });
+                }
+            }
+        }
+        // Handle reordering within the same folder
+        else if (active.id !== over.id) {
+            let sourceFolder = null;
+            let targetFolder = null;
+
+            // Try to get folders from data
+            if (activeData?.currentFolder && overData?.currentFolder) {
+                sourceFolder = activeData.currentFolder === 'root' ? 'root' : activeData.currentFolder;
+                targetFolder = overData.currentFolder === 'root' ? 'root' : overData.currentFolder;
+            } else {
+                // Find folders by searching in mapsByFolder
+                for (const [folderPath, mapsInFolder] of Object.entries(mapsByFolder)) {
+                    if (mapsInFolder.some(m => m.name === active.id)) {
+                        sourceFolder = folderPath;
+                    }
+                    if (mapsInFolder.some(m => m.name === over.id)) {
+                        targetFolder = folderPath;
+                    }
+                }
+            }
+
+            // If same folder, reorder
+            if (sourceFolder === targetFolder && mapsByFolder[sourceFolder]) {
+                const oldIndex = mapsByFolder[sourceFolder].findIndex(m => m.name === active.id);
+                const newIndex = mapsByFolder[sourceFolder].findIndex(m => m.name === over.id);
+
+                if (oldIndex !== -1 && newIndex !== -1) {
+                    console.log(`Reordering map ${active.id} in folder ${sourceFolder}`);
+                    const newMaps = arrayMove([...mapsByFolder[sourceFolder]], oldIndex, newIndex);
+                    const updatedMapsByFolder = {
+                        ...mapsByFolder,
+                        [sourceFolder]: newMaps
+                    };
+                    setMapsByFolder(updatedMapsByFolder);
+                }
+            }
         }
     };
 
@@ -673,6 +818,11 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
     const { setNodeRef: setRootNodeRef, isOver: isRootOver } = useDroppable({
         id: 'root',
+        data: {
+            type: 'folder',
+            folderPath: 'root',
+            accepts: 'map'
+        }
     });
 
     const confirmDeleteFolder = (folderName: string) => {
@@ -700,6 +850,17 @@ export const MapManagement: React.FC<MapManagementProps> = ({
             setDeleteConfirmOpen(false);
             setItemToDelete(null);
         }
+    };
+
+    // Custom dropAnimation with proper positioning
+    const dropAnimation = {
+        sideEffects: defaultDropAnimationSideEffects({
+            styles: {
+                active: {
+                    opacity: '0.5',
+                },
+            },
+        }),
     };
 
     return (
@@ -748,14 +909,32 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
                     <DndContext
                         sensors={sensors}
+                        collisionDetection={closestCenter}
                         onDragStart={handleDragStart}
+                        onDragOver={handleDragOver}
                         onDragEnd={handleDragEnd}
+                        modifiers={[
+                            // This modifier will adjust the overlay position to be at the cursor
+                            // by offsetting its center point
+                            ({ activatorEvent, transform }) => {
+                                if (activatorEvent && 'clientX' in activatorEvent) {
+                                    const offsetX = 20; // Adjust if needed
+                                    const offsetY = 10; // Adjust if needed
+                                    return {
+                                        ...transform,
+                                        x: transform.x - offsetX,
+                                        y: transform.y - offsetY,
+                                    };
+                                }
+                                return transform;
+                            }
+                        ]}
                     >
                         <div
                             ref={setRootNodeRef}
                             className={cn(
                                 "border rounded-md p-2 max-h-[400px] overflow-y-auto",
-                                isRootOver ? "bg-zinc-800/80" : ""
+                                isRootOver ? "bg-blue-500/20 border-blue-500" : "border-zinc-800"
                             )}
                         >
                             {/* Render all top-level folders first */}
@@ -833,21 +1012,27 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                             </SortableContext>
                         </div>
 
-                        <DragOverlay
-                            dropAnimation={null}
-                            adjustScale={true}
-                        >
-                            {activeId ? (
-                                <div
-                                    className="flex items-center justify-between p-2 bg-zinc-800/50 rounded-md"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <Map className="h-4 w-4 text-zinc-400" />
-                                        <span>{activeId}</span>
-                                    </div>
-                                </div>
-                            ) : null}
-                        </DragOverlay>
+                        <DragOverlayWrapper>
+                            <DragOverlay
+                                dropAnimation={dropAnimation}
+                                style={{
+                                    cursor: 'grabbing',
+                                }}
+                            >
+                                {activeId && activeMap ? (
+                                    <SortableMapItem
+                                        key={activeMap.name}
+                                        map={activeMap}
+                                        folder={activeMap.folder ?? null}
+                                        level={0}
+                                        onSelect={onMapSelect}
+                                        onRename={handleRenameMap}
+                                        onDelete={confirmDeleteMap}
+                                        dragOverlay
+                                    />
+                                ) : null}
+                            </DragOverlay>
+                        </DragOverlayWrapper>
                     </DndContext>
                 </div>
 
