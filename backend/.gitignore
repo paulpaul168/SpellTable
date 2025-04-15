@@ -3,3 +3,6 @@ maps/*
 
 # scenes directory
 scenes/*
+
+# audio files
+sounds/*
