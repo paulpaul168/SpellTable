@@ -38,6 +38,7 @@ export const Soundboard: React.FC<SoundboardProps> = ({ isOpen, onClose }) => {
     const [loading, setLoading] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+    const [volumeControlsVisible, setVolumeControlsVisible] = useState(false);
     const [folderStructure, setFolderStructure] = useState<{
         music: AudioFolder;
         effects: AudioFolder;
@@ -50,6 +51,8 @@ export const Soundboard: React.FC<SoundboardProps> = ({ isOpen, onClose }) => {
     const audioContextRef = useRef<AudioContext | null>(null);
     const gainNodeRef = useRef<GainNode | null>(null);
     const activeEffects = useRef<Set<{ audio: HTMLAudioElement, context: AudioContext, gain: GainNode }>>(new Set());
+    const [isDragging, setIsDragging] = useState(false);
+    const seekBarRef = useRef<HTMLDivElement>(null);
 
     // Set up interval to update current time
     useEffect(() => {
@@ -244,16 +247,46 @@ export const Soundboard: React.FC<SoundboardProps> = ({ isOpen, onClose }) => {
 
     // Function to seek to a specific position in the current track
     const seekTo = (position: number) => {
-        if (currentTrack?.audioElement && Number.isFinite(position) && position >= 0) {
-            // Ensure position doesn't exceed duration
-            const maxDuration = currentTrack.duration || 0;
-            const safePosition = Math.min(position, maxDuration);
+        if (!currentTrack?.audioElement) return;
 
-            // Only set if we have a valid number
-            if (Number.isFinite(safePosition)) {
-                currentTrack.audioElement.currentTime = safePosition;
-                setCurrentTime(safePosition);
+        try {
+            // Ensure position is valid
+            if (Number.isFinite(position) && position >= 0) {
+                const maxDuration = currentTrack.duration || 0;
+                const safePosition = Math.min(position, maxDuration);
+
+                // Only set if we have a valid number
+                if (Number.isFinite(safePosition)) {
+                    // Update the UI immediately for better responsiveness
+                    setCurrentTime(safePosition);
+
+                    // Set the actual audio position
+                    currentTrack.audioElement.currentTime = safePosition;
+
+                    // If paused, we might want to temporarily play a bit to load the audio at that position
+                    if (!isPlaying && currentTrack.audioElement.paused) {
+                        const tempPlay = async () => {
+                            try {
+                                // Play briefly to ensure the position is loaded
+                                await currentTrack.audioElement!.play();
+                                // Then immediately pause
+                                setTimeout(() => {
+                                    if (currentTrack.audioElement && !isPlaying) {
+                                        currentTrack.audioElement.pause();
+                                    }
+                                }, 100);
+                            } catch (e) {
+                                console.warn('Could not briefly play audio to set position:', e);
+                            }
+                        };
+
+                        // Try to play/pause to ensure the position is loaded
+                        tempPlay().catch(e => console.warn(e));
+                    }
+                }
             }
+        } catch (error) {
+            console.error('Error seeking in audio:', error);
         }
     };
 
@@ -611,6 +644,73 @@ export const Soundboard: React.FC<SoundboardProps> = ({ isOpen, onClose }) => {
         return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
     };
 
+    // Function to handle seeking with keyboard arrows
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Only if we have a current track and we're in the soundboard
+            if (!currentTrack || !isOpen) return;
+
+            // Skip by 5 seconds with arrow keys
+            const skipAmount = 5;
+            if (e.key === 'ArrowRight' && currentTrack.audioElement) {
+                const newPosition = Math.min(
+                    (currentTrack.audioElement.currentTime || 0) + skipAmount,
+                    currentTrack.duration || 0
+                );
+                seekTo(newPosition);
+                e.preventDefault();
+            } else if (e.key === 'ArrowLeft' && currentTrack.audioElement) {
+                const newPosition = Math.max(
+                    (currentTrack.audioElement.currentTime || 0) - skipAmount,
+                    0
+                );
+                seekTo(newPosition);
+                e.preventDefault();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [currentTrack, isOpen]);
+
+    // Handle drag functionality for the seekbar
+    useEffect(() => {
+        if (!seekBarRef.current) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            if (isDragging && currentTrack?.duration && seekBarRef.current) {
+                const rect = seekBarRef.current.getBoundingClientRect();
+                const pos = (e.clientX - rect.left) / rect.width;
+                const normalizedPos = Math.max(0, Math.min(1, pos));
+
+                // Just update the visual position during drag
+                setCurrentTime(normalizedPos * currentTrack.duration);
+            }
+        };
+
+        const handleMouseUp = (e: MouseEvent) => {
+            if (isDragging && currentTrack?.duration && seekBarRef.current) {
+                const rect = seekBarRef.current.getBoundingClientRect();
+                const pos = (e.clientX - rect.left) / rect.width;
+                const normalizedPos = Math.max(0, Math.min(1, pos));
+
+                // Actually seek when mouse is released
+                seekTo(normalizedPos * currentTrack.duration);
+                setIsDragging(false);
+            }
+        };
+
+        if (isDragging) {
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+        }
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isDragging, currentTrack]);
+
     if (!isOpen) return null;
 
     return (
@@ -663,9 +763,9 @@ export const Soundboard: React.FC<SoundboardProps> = ({ isOpen, onClose }) => {
                         {/* Seek Bar */}
                         <div className="flex items-center gap-2 text-xs text-zinc-500">
                             <span>{formatDuration(currentTime)}</span>
-                            <div className="relative flex-1 h-1 bg-zinc-700 rounded-lg overflow-hidden">
+                            <div className="relative flex-1 h-2 bg-zinc-700 rounded-lg overflow-hidden cursor-pointer">
                                 <div
-                                    className="w-full h-full absolute"
+                                    className="w-full h-full absolute z-10"
                                     onClick={(e) => {
                                         if (currentTrack?.duration && currentTrack.duration > 0) {
                                             const rect = e.currentTarget.getBoundingClientRect();
@@ -678,10 +778,16 @@ export const Soundboard: React.FC<SoundboardProps> = ({ isOpen, onClose }) => {
                                 />
                                 {currentTrack?.duration && (
                                     <div
-                                        className="h-full bg-zinc-500 absolute"
+                                        className="h-full bg-zinc-500 absolute pointer-events-none"
                                         style={{ width: `${(currentTime / currentTrack.duration) * 100}%` }}
                                     />
                                 )}
+                                <div
+                                    className="h-4 w-4 rounded-full bg-white absolute top-1/2 transform -translate-y-1/2 -ml-2 shadow-md pointer-events-none"
+                                    style={{
+                                        left: currentTrack?.duration ? `${(currentTime / currentTrack.duration) * 100}%` : 0
+                                    }}
+                                />
                             </div>
                             <span>{formatDuration(currentTrack?.duration)}</span>
                         </div>
@@ -722,65 +828,6 @@ export const Soundboard: React.FC<SoundboardProps> = ({ isOpen, onClose }) => {
                         </div>
                     </div>
 
-                    {/* Volume Controls */}
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={() => setIsMuted(!isMuted)}
-                            >
-                                {isMuted ? (
-                                    <VolumeX className="h-4 w-4" />
-                                ) : (
-                                    <Volume2 className="h-4 w-4" />
-                                )}
-                            </Button>
-                            <div className="flex-1">
-                                <div className="text-xs text-zinc-400 mb-1">Master Volume</div>
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    value={volume}
-                                    onChange={(e) => setVolume(parseInt(e.target.value))}
-                                    className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            <Music className="h-4 w-4 text-zinc-400" />
-                            <div className="flex-1">
-                                <div className="text-xs text-zinc-400 mb-1">Background Music</div>
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    value={backgroundVolume}
-                                    onChange={(e) => setBackgroundVolume(parseInt(e.target.value))}
-                                    className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            <Volume2 className="h-4 w-4 text-zinc-400" />
-                            <div className="flex-1">
-                                <div className="text-xs text-zinc-400 mb-1">Sound Effects</div>
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    value={effectsVolume}
-                                    onChange={(e) => setEffectsVolume(parseInt(e.target.value))}
-                                    className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
                     {/* Loading State */}
                     {loading && (
                         <div className="text-center py-2">
@@ -803,6 +850,99 @@ export const Soundboard: React.FC<SoundboardProps> = ({ isOpen, onClose }) => {
                         <div className="max-h-40 overflow-y-auto pr-1">
                             {renderFolder(folderStructure.effects, '', 'effect')}
                         </div>
+                    </div>
+
+                    {/* Volume Controls Section at the bottom */}
+                    <div className="pt-2 border-t border-zinc-800 mt-2">
+                        <div
+                            className="flex items-center gap-2 cursor-pointer hover:bg-zinc-800/50 px-2 py-1 rounded-md"
+                            onClick={() => setVolumeControlsVisible(!volumeControlsVisible)}
+                        >
+                            {volumeControlsVisible ?
+                                <ChevronDown className="h-4 w-4 text-zinc-400" /> :
+                                <ChevronRight className="h-4 w-4 text-zinc-400" />
+                            }
+                            <div className="text-xs font-medium text-zinc-400">Volume Controls</div>
+                            {!volumeControlsVisible && (
+                                <div className="ml-auto flex items-center">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setIsMuted(!isMuted);
+                                        }}
+                                    >
+                                        {isMuted ? (
+                                            <VolumeX className="h-3 w-3 text-zinc-500" />
+                                        ) : (
+                                            <Volume2 className="h-3 w-3 text-zinc-500" />
+                                        )}
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+
+                        {volumeControlsVisible && (
+                            <div className="space-y-2 mt-2 pl-2 pr-1 py-1 bg-zinc-800/30 rounded-md">
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0"
+                                        onClick={() => setIsMuted(!isMuted)}
+                                    >
+                                        {isMuted ? (
+                                            <VolumeX className="h-3 w-3" />
+                                        ) : (
+                                            <Volume2 className="h-3 w-3" />
+                                        )}
+                                    </Button>
+                                    <div className="flex-1">
+                                        <div className="text-xs text-zinc-400 mb-1">Master Volume</div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            value={volume}
+                                            onChange={(e) => setVolume(parseInt(e.target.value))}
+                                            className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <Music className="h-3 w-3 text-zinc-400 ml-1" />
+                                    <div className="flex-1">
+                                        <div className="text-xs text-zinc-400 mb-1">Background Music</div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            value={backgroundVolume}
+                                            onChange={(e) => setBackgroundVolume(parseInt(e.target.value))}
+                                            className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <Volume2 className="h-3 w-3 text-zinc-400 ml-1" />
+                                    <div className="flex-1">
+                                        <div className="text-xs text-zinc-400 mb-1">Sound Effects</div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            value={effectsVolume}
+                                            onChange={(e) => setEffectsVolume(parseInt(e.target.value))}
+                                            className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
