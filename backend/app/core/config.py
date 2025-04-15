@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.websockets import WebSocket
-from app.routes import scenes
+from app.routes import scenes, audio, maps
 
 
 def create_app() -> FastAPI:
@@ -15,9 +15,6 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    # Include routes
-    app.include_router(scenes.router, prefix="/scenes")
 
     # WebSocket connection manager
     class ConnectionManager:

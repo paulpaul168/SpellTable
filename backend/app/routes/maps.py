@@ -10,7 +10,7 @@ from pathlib import Path
 router = APIRouter()
 
 
-@router.post("/maps/upload")
+@router.post("/upload")
 async def upload_map(file: UploadFile = File(...)):
     try:
         # Save the uploaded file
@@ -23,7 +23,7 @@ async def upload_map(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/maps/file/{filename}")
+@router.get("/file/{filename}")
 async def get_map(filename: str):
     try:
         file_path = os.path.join(MAPS_DIR, filename)
@@ -36,7 +36,7 @@ async def get_map(filename: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/maps/data")
+@router.post("/data")
 async def store_map_data(map_data: MapData):
     try:
         file_path = MAPS_DIR / f"{map_data.name}.json"
@@ -47,7 +47,7 @@ async def store_map_data(map_data: MapData):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/maps/data/{map_name}")
+@router.get("/data/{map_name}")
 async def load_map_data(map_name: str):
     try:
         file_path = MAPS_DIR / f"{map_name}.json"
