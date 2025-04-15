@@ -118,6 +118,37 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
         const unsubscribe = websocketService.addListener((data) => {
             console.log('Received data:', data);
             if (data.type === 'scene_update' && data.scene) {
+                // Check if this is an external update that might overwrite our local changes
+                const incomingScene = data.scene;
+
+                // If we just renamed a map, we need to be careful not to lose that update
+                // Compare activeMapId to see if it's reverting to an old name
+                if (scene.activeMapId && scene.activeMapId !== incomingScene.activeMapId) {
+                    const oldMapName = incomingScene.activeMapId;
+                    const currentMapName = scene.activeMapId;
+
+                    console.log(`Detected potential map reference mismatch: 
+                        Current activeMapId: ${currentMapName} 
+                        Incoming activeMapId: ${oldMapName}`);
+
+                    // Check if the current map exists in the incoming scene
+                    const hasCurrentMapInIncoming = incomingScene.maps.some(m => m.name === currentMapName);
+
+                    if (!hasCurrentMapInIncoming) {
+                        console.log(`Warning: Incoming scene update does not contain our active map "${currentMapName}"`);
+
+                        // Try to find a map that was renamed
+                        const potentialRenamedMap = scene.maps.find(m =>
+                            !incomingScene.maps.some(im => im.name === m.name) && m.name === currentMapName);
+
+                        if (potentialRenamedMap) {
+                            console.log(`Detected local map rename that's not reflected in incoming data. 
+                                Preserving local state to avoid losing rename.`);
+                            return; // Skip this update to avoid losing our rename
+                        }
+                    }
+                }
+
                 setScene({
                     ...data.scene,
                     gridSettings: data.scene.gridSettings || {
@@ -548,6 +579,96 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
         }
     };
 
+    // Add a new function to handle map renaming and reference updates
+    const handleMapRename = async (oldName: string, newName: string) => {
+        console.log(`Handling map rename from "${oldName}" to "${newName}" in scene component`);
+
+        // Check if the map exists in the current scene
+        if (scene.maps.some(m => m.name === oldName)) {
+            console.log(`Updating references from "${oldName}" to "${newName}" in current scene`);
+
+            try {
+                // Update maps array
+                const updatedMaps = scene.maps.map(map => {
+                    if (map.name === oldName) {
+                        console.log(`Found map to rename: ${map.name}`);
+                        return {
+                            ...map,
+                            name: newName
+                        };
+                    }
+                    return map;
+                });
+
+                // Update activeMapId if necessary
+                const updatedActiveMapId = scene.activeMapId === oldName
+                    ? newName
+                    : scene.activeMapId;
+
+                console.log(`Updated maps:`, updatedMaps);
+                console.log(`Updated activeMapId: ${updatedActiveMapId}`);
+
+                // Create updated scene with a unique timestamp to ensure it's seen as a new update
+                const updatedScene = {
+                    ...scene,
+                    maps: updatedMaps,
+                    activeMapId: updatedActiveMapId,
+                    _lastUpdated: Date.now() // Add timestamp to force update
+                };
+
+                // Update scene state and broadcast changes
+                setScene(updatedScene);
+
+                // Wait before sending websocket update to ensure state is updated
+                await new Promise(resolve => setTimeout(resolve, 50));
+
+                // Send websocket update
+                websocketService.send({
+                    type: 'scene_update',
+                    scene: updatedScene
+                });
+
+                // Mark this scene as having a pending rename operation
+                const pendingRename = { oldName, newName, timestamp: Date.now() };
+                console.log(`Setting pending rename operation:`, pendingRename);
+
+                // Add a safety delay to prevent race conditions with other components
+                setTimeout(() => {
+                    // Check if the scene still has the updated map
+                    const currentMaps = scene.maps || [];
+                    const hasUpdatedMap = currentMaps.some(m => m.name === newName);
+                    const stillHasOldMap = currentMaps.some(m => m.name === oldName);
+
+                    if (!hasUpdatedMap && stillHasOldMap) {
+                        console.log("Re-applying map rename - scene has reverted to old state");
+                        // If scene reverted, apply the update again
+                        setScene(updatedScene);
+                        websocketService.send({
+                            type: 'scene_update',
+                            scene: updatedScene
+                        });
+                    }
+                }, 500);
+
+                toast({
+                    title: "Map References Updated",
+                    description: `Updated references to map "${newName}" in the current scene`,
+                    duration: 3000,
+                });
+            } catch (error) {
+                console.error("Error updating map references:", error);
+                toast({
+                    title: "Error",
+                    description: "Failed to update map references in the current scene",
+                    variant: "destructive",
+                    duration: 3000,
+                });
+            }
+        } else {
+            console.log(`Map "${oldName}" not found in current scene - no updates needed`);
+        }
+    };
+
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
@@ -613,6 +734,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                     onMapDelete={handleDeleteMap}
                     onClose={() => setShowMapList(false)}
                     onMapRefresh={handleMapRefresh}
+                    onMapRename={handleMapRename}
                 />
             )}
 

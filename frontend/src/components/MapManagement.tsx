@@ -37,6 +37,7 @@ interface MapManagementProps {
     onClose: () => void;
     onMapSelect: (mapName: string) => void;
     onRefreshMaps: () => void;
+    onMapRename?: (oldName: string, newName: string) => void;
     maps: MapData[];
 }
 
@@ -138,8 +139,22 @@ const SortableMapItem: React.FC<SortableMapItemProps> = ({
     onRename,
     onDelete
 }) => {
+    // Split the filename into base name and extension
+    const getFileNameParts = (fileName: string) => {
+        const lastDotIndex = fileName.lastIndexOf('.');
+        if (lastDotIndex === -1) {
+            // No extension
+            return { baseName: fileName, extension: '' };
+        }
+        const baseName = fileName.substring(0, lastDotIndex);
+        const extension = fileName.substring(lastDotIndex);
+        return { baseName, extension };
+    };
+
+    const { baseName, extension } = getFileNameParts(map.name);
+
     const [isRenaming, setIsRenaming] = useState(false);
-    const [newName, setNewName] = useState(map.name);
+    const [newBaseName, setNewBaseName] = useState(baseName);
 
     const {
         attributes,
@@ -158,8 +173,12 @@ const SortableMapItem: React.FC<SortableMapItemProps> = ({
 
     const handleRenameSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (newName.trim() && newName !== map.name) {
-            onRename(map, newName.trim());
+        const trimmedBaseName = newBaseName.trim();
+
+        if (trimmedBaseName && trimmedBaseName !== baseName) {
+            // Combine the new base name with the original extension
+            const newFullName = trimmedBaseName + extension;
+            onRename(map, newFullName);
         }
         setIsRenaming(false);
     };
@@ -176,14 +195,17 @@ const SortableMapItem: React.FC<SortableMapItemProps> = ({
                 <Map className="h-4 w-4 text-zinc-400" />
                 {isRenaming ? (
                     <form onSubmit={handleRenameSubmit} className="flex-1">
-                        <Input
-                            className="h-7 py-1 text-xs"
-                            value={newName}
-                            onChange={(e) => setNewName(e.target.value)}
-                            autoFocus
-                            onBlur={handleRenameSubmit}
-                            onClick={(e) => e.stopPropagation()}
-                        />
+                        <div className="flex items-center">
+                            <Input
+                                className="h-7 py-1 text-xs"
+                                value={newBaseName}
+                                onChange={(e) => setNewBaseName(e.target.value)}
+                                autoFocus
+                                onBlur={handleRenameSubmit}
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                            <span className="text-xs text-zinc-400 ml-1">{extension}</span>
+                        </div>
                     </form>
                 ) : (
                     <span className="truncate">{map.name}</span>
@@ -198,6 +220,7 @@ const SortableMapItem: React.FC<SortableMapItemProps> = ({
                             className="h-7 w-7 p-0"
                             onClick={(e) => {
                                 e.stopPropagation();
+                                setNewBaseName(baseName); // Reset to current base name
                                 setIsRenaming(true);
                             }}
                             title="Rename map"
@@ -240,6 +263,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
     onClose,
     onMapSelect,
     onRefreshMaps,
+    onMapRename,
     maps
 }) => {
     const { toast } = useToast();
@@ -454,7 +478,9 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
     const handleRenameMap = async (map: MapData, newName: string) => {
         try {
-            const response = await fetch(`http://localhost:8010/maps/rename/${map.name}`, {
+            console.log(`Renaming map from "${map.name}" to "${newName}"`);
+
+            const response = await fetch(`http://localhost:8010/maps/rename/${encodeURIComponent(map.name)}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -462,18 +488,45 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                 body: JSON.stringify({ new_name: newName }),
             });
 
-            if (!response.ok) throw new Error('Failed to rename map');
+            console.log(`Rename response status: ${response.status}`);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`Rename failed with status ${response.status}: ${errorText}`);
+                throw new Error(`Failed to rename map: ${errorText}`);
+            }
+
+            const data = await response.json();
+            console.log("Rename response data:", data);
+
+            const oldName = map.name; // Store the old name before refreshing
+
+            // Check if any scenes were updated
+            const scenesUpdated = data.scenes_updated || 0;
+            const sceneMessage = scenesUpdated > 0
+                ? `Updated references in ${scenesUpdated} scene${scenesUpdated === 1 ? '' : 's'}.`
+                : '';
 
             toast({
                 title: "Success",
-                description: "Map renamed successfully",
+                description: `Map renamed to "${newName}". ${sceneMessage}`,
             });
+
+            // Call onMapRename if provided
+            if (onMapRename) {
+                console.log(`Calling onMapRename with old name: ${oldName}, new name: ${newName}`);
+                onMapRename(oldName, newName);
+
+                // Add a small delay before refreshing data to ensure scene updates complete first
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
             refreshData();
         } catch (error) {
             console.error('Error renaming map:', error);
             toast({
                 title: "Error",
-                description: "Failed to rename map. Please try again.",
+                description: error instanceof Error ? error.message : "Failed to rename map. Please try again.",
                 variant: "destructive",
             });
         }

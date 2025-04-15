@@ -112,6 +112,7 @@ interface MapListSidebarProps {
     onMapDelete: (mapName: string) => void;
     onClose: () => void;
     onMapRefresh: () => void;
+    onMapRename?: (oldName: string, newName: string) => void;
 }
 
 export const MapListSidebar: React.FC<MapListSidebarProps> = ({
@@ -122,13 +123,24 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
     onMapsReorder,
     onMapDelete,
     onClose,
-    onMapRefresh
+    onMapRefresh,
+    onMapRename
 }) => {
     const [isMapManagementOpen, setIsMapManagementOpen] = useState(false);
 
     const handleOpenMapManagement = () => {
+        console.log("Opening map management dialog and refreshing maps");
         onMapRefresh();
         setIsMapManagementOpen(true);
+    };
+
+    const handleMapRename = (oldName: string, newName: string) => {
+        console.log(`MapListSidebar: Processing map rename from "${oldName}" to "${newName}"`);
+        if (onMapRename) {
+            onMapRename(oldName, newName);
+        } else {
+            console.warn("MapListSidebar: onMapRename handler is not defined");
+        }
     };
 
     const sensors = useSensors(
@@ -207,6 +219,7 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
                     setIsMapManagementOpen(false);
                 }}
                 onRefreshMaps={onMapRefresh}
+                onMapRename={handleMapRename}
                 maps={scene.maps}
             />
         </div>
