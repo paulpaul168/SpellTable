@@ -39,8 +39,8 @@ A modern, local web-based virtual tabletop designed for in-person D&D sessions w
 - [X] Toggle grid overlay on maps
 - [X] Initiative tracker (text-based list)
 - [X] Separate Admin and Player views
-  - [ ] Admin preview mode
-  - [ ] Player full-screen display mode
+  - [X] Admin preview mode
+  - [X] Player full-screen display mode
 - [X] Show/hide maps and overlays on player screen
 - [X] Sync state via WebSocket
 
@@ -56,19 +56,19 @@ A modern, local web-based virtual tabletop designed for in-person D&D sessions w
 - WebSocket communication
 
 #### 🔵 Post-MVP Phase
-- AoE Markers
-- Distance measuring tool
-- Token system
-- Fog of War
-- Multiple map layers
-- UI polish for touch/table usage
+- [X] AoE Markers
+- [X] Soundboard
+- [ ] Distance measuring tool
+- [ ] Fog of War
+- [X] Multiple map layers
+- [ ] UI polish for touch/table usage
 
 #### 🔮 Future Phase
-- Camera-based tracking for minis
-- Automatic status/effect display
-- Animated effects
-- Player journal web app
-- Multi-session management
+- [ ] Camera-based tracking for minis
+- [ ] Automatic status/effect display
+- [ ] Animated effects
+- [ ] Player journal web app
+- [ ] Multi-session management
 
 ## 🚀 Getting Started
 
