@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { useToast } from './ui/use-toast';
-import { Folder, FolderPlus, FolderMinus, ChevronRight, ChevronDown, Map } from 'lucide-react';
+import { Folder, FolderPlus, FolderMinus, ChevronRight, ChevronDown, Map, Trash, Pencil } from 'lucide-react';
 import {
     DndContext,
     closestCenter,
@@ -50,6 +50,8 @@ interface SortableSceneItemProps {
     level: number;
     onLoad: (scene: Scene) => void;
     dragOverlay?: boolean;
+    onDelete: () => void;
+    onRename: () => void;
 }
 
 interface DroppableFolderProps {
@@ -59,6 +61,7 @@ interface DroppableFolderProps {
     onToggle: () => void;
     onAddSubfolder: () => void;
     onDelete: () => void;
+    onRename: () => void;
 }
 
 const DroppableFolder: React.FC<DroppableFolderProps> = ({
@@ -68,6 +71,7 @@ const DroppableFolder: React.FC<DroppableFolderProps> = ({
     onToggle,
     onAddSubfolder,
     onDelete,
+    onRename
 }) => {
     const { setNodeRef, isOver } = useDroppable({
         id: folder.path,
@@ -113,6 +117,16 @@ const DroppableFolder: React.FC<DroppableFolderProps> = ({
                     size="sm"
                     onClick={(e) => {
                         e.stopPropagation();
+                        onRename();
+                    }}
+                >
+                    <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                        e.stopPropagation();
                         onDelete();
                     }}
                 >
@@ -128,7 +142,9 @@ const SortableSceneItem: React.FC<SortableSceneItemProps> = ({
     folder,
     level,
     onLoad,
-    dragOverlay
+    dragOverlay,
+    onDelete,
+    onRename,
 }) => {
     const {
         attributes,
@@ -179,6 +195,26 @@ const SortableSceneItem: React.FC<SortableSceneItemProps> = ({
                     >
                         Load
                     </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete();
+                        }}
+                    >
+                        <Trash className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onRename();
+                        }}
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </Button>
                 </div>
             )}
         </div>
@@ -223,6 +259,20 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
     const [activeId, setActiveId] = useState<string | null>(null);
     const [activeScene, setActiveScene] = useState<Scene | null>(null);
     const [overFolder, setOverFolder] = useState<string | null>(null);
+
+    // State for confirmation dialogs
+    const [isDeleteFolderDialogOpen, setIsDeleteFolderDialogOpen] = useState(false);
+    const [folderToDelete, setFolderToDelete] = useState<FolderItem | null>(null);
+    const [isDeleteSceneDialogOpen, setIsDeleteSceneDialogOpen] = useState(false);
+    const [sceneToDelete, setSceneToDelete] = useState<Scene | null>(null);
+
+    // State for renaming
+    const [isRenameFolderDialogOpen, setIsRenameFolderDialogOpen] = useState(false);
+    const [folderToRename, setFolderToRename] = useState<FolderItem | null>(null);
+    const [newRenameFolderName, setNewRenameFolderName] = useState('');
+    const [isRenameSceneDialogOpen, setIsRenameSceneDialogOpen] = useState(false);
+    const [sceneToRename, setSceneToRename] = useState<Scene | null>(null);
+    const [newRenameSceneName, setNewRenameSceneName] = useState('');
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -292,9 +342,11 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
         }
     };
 
-    const handleDeleteFolder = async (folderName: string) => {
+    const handleDeleteFolder = async () => {
+        if (!folderToDelete) return;
+
         try {
-            const response = await fetch(`http://localhost:8010/scenes/folder/${folderName}`, {
+            const response = await fetch(`http://localhost:8010/scenes/folder/${folderToDelete.path}`, {
                 method: 'DELETE',
             });
 
@@ -305,12 +357,115 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                 description: "Folder deleted successfully",
             });
 
+            setIsDeleteFolderDialogOpen(false);
+            setFolderToDelete(null);
             loadScenes();
         } catch (error) {
             console.error('Error deleting folder:', error);
             toast({
                 title: "Error",
                 description: "Failed to delete folder. Please try again.",
+                variant: "destructive",
+            });
+        }
+    };
+
+    const handleDeleteScene = async () => {
+        if (!sceneToDelete) return;
+
+        try {
+            const response = await fetch(`http://localhost:8010/scenes/${sceneToDelete.id}`, {
+                method: 'DELETE',
+            });
+
+            if (!response.ok) throw new Error('Failed to delete scene');
+
+            toast({
+                title: "Success",
+                description: "Scene deleted successfully",
+            });
+
+            setIsDeleteSceneDialogOpen(false);
+            setSceneToDelete(null);
+            loadScenes();
+        } catch (error) {
+            console.error('Error deleting scene:', error);
+            toast({
+                title: "Error",
+                description: "Failed to delete scene. Please try again.",
+                variant: "destructive",
+            });
+        }
+    };
+
+    const handleRenameFolder = async () => {
+        if (!folderToRename || !newRenameFolderName.trim()) return;
+
+        try {
+            const response = await fetch(`http://localhost:8010/scenes/folder/${folderToRename.path}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    new_name: newRenameFolderName
+                }),
+            });
+
+            if (!response.ok) throw new Error('Failed to rename folder');
+
+            toast({
+                title: "Success",
+                description: "Folder renamed successfully",
+            });
+
+            setIsRenameFolderDialogOpen(false);
+            setFolderToRename(null);
+            setNewRenameFolderName('');
+            loadScenes();
+        } catch (error) {
+            console.error('Error renaming folder:', error);
+            toast({
+                title: "Error",
+                description: "Failed to rename folder. Please try again.",
+                variant: "destructive",
+            });
+        }
+    };
+
+    const handleRenameScene = async () => {
+        if (!sceneToRename || !newRenameSceneName.trim()) return;
+
+        try {
+            const updatedScene = {
+                ...sceneToRename,
+                name: newRenameSceneName
+            };
+
+            const response = await fetch(`http://localhost:8010/scenes/${sceneToRename.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updatedScene),
+            });
+
+            if (!response.ok) throw new Error('Failed to rename scene');
+
+            toast({
+                title: "Success",
+                description: "Scene renamed successfully",
+            });
+
+            setIsRenameSceneDialogOpen(false);
+            setSceneToRename(null);
+            setNewRenameSceneName('');
+            loadScenes();
+        } catch (error) {
+            console.error('Error renaming scene:', error);
+            toast({
+                title: "Error",
+                description: "Failed to rename scene. Please try again.",
                 variant: "destructive",
             });
         }
@@ -476,7 +631,15 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                         setParentFolder(folder.path);
                         setIsCreateFolderOpen(true);
                     }}
-                    onDelete={() => handleDeleteFolder(folder.name)}
+                    onDelete={() => {
+                        setFolderToDelete(folder);
+                        setIsDeleteFolderDialogOpen(true);
+                    }}
+                    onRename={() => {
+                        setFolderToRename(folder);
+                        setNewRenameFolderName(folder.name);
+                        setIsRenameFolderDialogOpen(true);
+                    }}
                 />
 
                 {expandedFolders.has(folder.path) && (
@@ -497,6 +660,15 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                                         folder={folder.path}
                                         level={level + 1}
                                         onLoad={onLoad}
+                                        onDelete={() => {
+                                            setSceneToDelete(scene);
+                                            setIsDeleteSceneDialogOpen(true);
+                                        }}
+                                        onRename={() => {
+                                            setSceneToRename(scene);
+                                            setNewRenameSceneName(scene.name);
+                                            setIsRenameSceneDialogOpen(true);
+                                        }}
                                     />
                                 ))}
                         </SortableContext>
@@ -582,6 +754,15 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                                             folder={null}
                                             level={0}
                                             onLoad={onLoad}
+                                            onDelete={() => {
+                                                setSceneToDelete(scene);
+                                                setIsDeleteSceneDialogOpen(true);
+                                            }}
+                                            onRename={() => {
+                                                setSceneToRename(scene);
+                                                setNewRenameSceneName(scene.name);
+                                                setIsRenameSceneDialogOpen(true);
+                                            }}
                                         />
                                     ))}
                             </SortableContext>
@@ -603,6 +784,8 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                                         folder={activeScene.folder ?? null}
                                         level={0}
                                         onLoad={onLoad}
+                                        onDelete={() => { }}
+                                        onRename={() => { }}
                                         dragOverlay
                                     />
                                 ) : null}
@@ -639,6 +822,98 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                         </Button>
                         <Button onClick={handleCreateFolder}>
                             Create
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Folder Confirmation Dialog */}
+            <Dialog open={isDeleteFolderDialogOpen} onOpenChange={setIsDeleteFolderDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Folder</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete the folder "{folderToDelete?.name}"?
+                            This will delete all scenes inside this folder and cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsDeleteFolderDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDeleteFolder}>
+                            Delete
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Scene Confirmation Dialog */}
+            <Dialog open={isDeleteSceneDialogOpen} onOpenChange={setIsDeleteSceneDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Scene</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete the scene "{sceneToDelete?.name}"?
+                            This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsDeleteSceneDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDeleteScene}>
+                            Delete
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Rename Folder Dialog */}
+            <Dialog open={isRenameFolderDialogOpen} onOpenChange={setIsRenameFolderDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Rename Folder</DialogTitle>
+                        <DialogDescription>
+                            Enter a new name for the folder "{folderToRename?.name}"
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Input
+                        value={newRenameFolderName}
+                        onChange={(e) => setNewRenameFolderName(e.target.value)}
+                        placeholder="New folder name"
+                    />
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsRenameFolderDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleRenameFolder}>
+                            Rename
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Rename Scene Dialog */}
+            <Dialog open={isRenameSceneDialogOpen} onOpenChange={setIsRenameSceneDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Rename Scene</DialogTitle>
+                        <DialogDescription>
+                            Enter a new name for the scene "{sceneToRename?.name}"
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Input
+                        value={newRenameSceneName}
+                        onChange={(e) => setNewRenameSceneName(e.target.value)}
+                        placeholder="New scene name"
+                    />
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsRenameSceneDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleRenameScene}>
+                            Rename
                         </Button>
                     </DialogFooter>
                 </DialogContent>

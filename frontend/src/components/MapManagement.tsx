@@ -573,10 +573,6 @@ export const MapManagement: React.FC<MapManagementProps> = ({
     };
 
     const handleDeleteMap = async (mapName: string) => {
-        if (!confirm(`Are you sure you want to delete the map "${mapName}"?`)) {
-            return;
-        }
-
         try {
             const response = await fetch(`http://localhost:8010/maps/file/${mapName}`, {
                 method: 'DELETE',

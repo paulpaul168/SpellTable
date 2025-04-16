@@ -34,6 +34,10 @@ class FolderCreateRequest(BaseModel):
     parent_folder: Optional[str] = None
 
 
+class FolderRenameRequest(BaseModel):
+    new_name: str
+
+
 @router.post("/save")
 async def save_scene(scene: SceneData):
     try:
@@ -103,10 +107,10 @@ async def create_folder(request: FolderCreateRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/folder/{folder_name}")
-async def delete_folder(folder_name: str):
+@router.delete("/folder/{folder_path:path}")
+async def delete_folder(folder_path: str):
     try:
-        folder_path = os.path.join(SCENES_DIR, folder_name)
+        folder_path = os.path.join(SCENES_DIR, folder_path)
         if not os.path.exists(folder_path):
             raise HTTPException(status_code=404, detail="Folder not found")
         shutil.rmtree(folder_path)
@@ -308,5 +312,53 @@ async def delete_scene_image(scene_id: str, image_id: str):
             json.dump(scene_data, f)
 
         return {"message": "Image deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/folder/{folder_path:path}")
+async def rename_folder(folder_path: str, request: FolderRenameRequest):
+    """Rename a folder in the scenes directory."""
+    try:
+        # Ensure folder exists
+        old_path = os.path.join(SCENES_DIR, folder_path)
+        if not os.path.exists(old_path):
+            raise HTTPException(status_code=404, detail="Folder not found")
+
+        # Get parent path and construct new path
+        parent_dir = os.path.dirname(old_path)
+        new_path = os.path.join(parent_dir, request.new_name)
+
+        # Check if destination exists
+        if os.path.exists(new_path):
+            raise HTTPException(
+                status_code=400,
+                detail=f"A folder named '{request.new_name}' already exists",
+            )
+
+        # Rename folder
+        os.rename(old_path, new_path)
+
+        # Update all scenes that reference this folder
+        for root, _, files in os.walk(SCENES_DIR):
+            for file in files:
+                if file.endswith(".json") and file != "current_scene.json":
+                    file_path = os.path.join(root, file)
+                    try:
+                        with open(file_path, "r") as f:
+                            scene_data = json.load(f)
+
+                        # Check if this scene's folder needs updating
+                        if scene_data.get("folder") == folder_path:
+                            scene_data["folder"] = request.new_name
+                            with open(file_path, "w") as f:
+                                json.dump(scene_data, f)
+                    except Exception as e:
+                        # Continue even if one scene fails to update
+                        continue
+
+        return {"message": "Folder renamed successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

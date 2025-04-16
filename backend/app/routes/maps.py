@@ -40,7 +40,9 @@ def get_maps_in_structure() -> List[Dict[str, Any]]:
 
     for root, _, files in os.walk(MAPS_DIR):
         for file in files:
-            if file.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif")):
+            if file.endswith(
+                (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg")
+            ):
                 rel_path = os.path.relpath(root, MAPS_DIR) if root != MAPS_DIR else ""
                 folder = rel_path if rel_path != "" else None
 
