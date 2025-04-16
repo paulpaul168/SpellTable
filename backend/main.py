@@ -1,6 +1,6 @@
-from app.core.config import create_app
-from app.routes import maps, websocket, scenes, audio
 import uvicorn
+from app.core.config import create_app
+from app.routes import audio, maps, scenes, websocket
 
 app = create_app()
 
@@ -12,7 +12,7 @@ app.include_router(maps.router, prefix="/maps")
 
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, str]:
     return {"message": "Welcome to SpellTable API"}
 
 

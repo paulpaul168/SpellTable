@@ -1,8 +1,10 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import Dict, Any, Set
+import asyncio
 import json
 import os
-import asyncio
+from typing import Any, Set
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
 from ..core.constants import SCENES_DIR
 
 router = APIRouter()
@@ -13,7 +15,7 @@ clients: Set[WebSocket] = set()
 clients_lock = asyncio.Lock()
 
 
-async def broadcast_scene_update(scene_data: Dict[str, Any]):
+async def broadcast_scene_update(scene_data: dict[str, Any]) -> None:
     """Broadcast scene update to all connected clients"""
     message = {"type": "scene_update", "scene": scene_data}
     async with clients_lock:
@@ -30,7 +32,7 @@ async def broadcast_scene_update(scene_data: Dict[str, Any]):
 
 
 @router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket) -> None:
     try:
         # Accept the WebSocket connection
         await websocket.accept()

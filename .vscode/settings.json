@@ -1,0 +1,7 @@
+{
+    "python.defaultInterpreterPath": "backend/.venv/bin/python",
+    "mypy.enabled": true,
+    "mypy.runUsingActiveInterpreter": true,
+    "mypy.configFile": "backend/pyproject.toml",
+    "mypy.targets": ["backend"],
+}

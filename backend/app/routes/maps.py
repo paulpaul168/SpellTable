@@ -1,13 +1,14 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Body
-from fastapi.responses import JSONResponse, FileResponse
-from ..models.map import MapData, FolderItem
-from ..core.constants import MAPS_DIR, SCENES_DIR
 import json
 import os
 import shutil
-from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Body, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from loguru import logger
+
+from ..core.constants import MAPS_DIR, SCENES_DIR
+from ..models.map import FolderItem, MapData
 
 router = APIRouter()
 
@@ -52,21 +53,21 @@ def get_maps_in_structure() -> List[Dict[str, Any]]:
 
 
 @router.get("/list")
-async def list_maps():
+async def list_maps() -> dict[str, list[dict[str, str]]]:
     """List all available maps with their folder structure."""
     maps = get_maps_in_structure()
     return {"maps": maps}
 
 
 @router.get("/folders")
-async def list_folders():
+async def list_folders() -> dict[str, list[FolderItem]]:
     """List all folders in the maps directory."""
     folders = get_folder_structure()
     return {"folders": folders}
 
 
 @router.post("/folder")
-async def create_folder(folder_data: dict = Body(...)):
+async def create_folder(folder_data: dict[str, str] = Body(...)) -> dict[str, str]:
     """Create a new folder in the maps directory."""
     folder_name = folder_data.get("folder_name")
     parent_folder = folder_data.get("parent_folder")
@@ -88,7 +89,7 @@ async def create_folder(folder_data: dict = Body(...)):
 
 
 @router.delete("/folder/{folder_name}")
-async def delete_folder(folder_name: str):
+async def delete_folder(folder_name: str) -> dict[str, str]:
     """Delete a folder and all its contents."""
     folder_path = os.path.join(MAPS_DIR, folder_name)
 
@@ -103,12 +104,21 @@ async def delete_folder(folder_name: str):
 
 
 @router.post("/upload")
-async def upload_map(file: UploadFile = File(...), folder: Optional[str] = Form(None)):
+async def upload_map(
+    file: UploadFile = File(...), folder: Optional[str] = Form(None)
+) -> dict[str, str]:
     """Upload a map file, optionally to a specific folder."""
     try:
         # Determine the target directory
-        target_dir = os.path.join(MAPS_DIR, folder) if folder else MAPS_DIR
+        if folder is None:
+            target_dir = MAPS_DIR
+        else:
+            target_dir = os.path.join(MAPS_DIR, folder)
+
         ensure_folder_exists(target_dir)
+
+        if file.filename is None:
+            raise HTTPException(status_code=400, detail="File name is required")
 
         # Save the uploaded file
         file_path = os.path.join(target_dir, file.filename)
@@ -116,13 +126,16 @@ async def upload_map(file: UploadFile = File(...), folder: Optional[str] = Form(
             content = await file.read()
             f.write(content)
 
-        return {"filename": file.filename, "folder": folder}
+        return {
+            "filename": file.filename,
+            "folder": "" if folder is None else folder,
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/file/{path:path}")
-async def get_map(path: str):
+async def get_map(path: str) -> FileResponse:
     """Get a map file by path, supporting folder structure."""
     try:
         # Make sure the path is properly constructed with OS-specific separators
@@ -168,7 +181,9 @@ async def get_map(path: str):
 
 
 @router.put("/rename/{file_name}")
-async def rename_map(file_name: str, rename_data: dict = Body(...)):
+async def rename_map(
+    file_name: str, rename_data: dict[str, str] = Body(...)
+) -> dict[str, str]:
     """Rename a map file and update all scenes that reference it."""
     try:
         new_name = rename_data.get("new_name")
@@ -287,7 +302,7 @@ async def rename_map(file_name: str, rename_data: dict = Body(...)):
         logger.info(f"Successfully renamed map from '{file_name}' to '{new_name}'")
         return {
             "message": f"Map renamed from '{file_name}' to '{new_name}'",
-            "scenes_updated": scenes_updated,
+            "scenes_updated": str(scenes_updated),
         }
     except HTTPException:
         # Re-throw HTTP exceptions as-is
@@ -298,7 +313,9 @@ async def rename_map(file_name: str, rename_data: dict = Body(...)):
 
 
 @router.put("/move/{file_name}")
-async def move_map(file_name: str, move_data: dict = Body(...)):
+async def move_map(
+    file_name: str, move_data: dict[str, str] = Body(...)
+) -> dict[str, str]:
     """Move a map file to a different folder."""
     target_folder = move_data.get("folder")
 
@@ -332,7 +349,7 @@ async def move_map(file_name: str, move_data: dict = Body(...)):
 
 
 @router.delete("/file/{file_name}")
-async def delete_map(file_name: str):
+async def delete_map(file_name: str) -> dict[str, str]:
     """Delete a map file."""
     try:
         logger.info(f"Attempting to delete map '{file_name}'")
@@ -390,7 +407,7 @@ async def delete_map(file_name: str):
 
 
 @router.post("/data")
-async def store_map_data(map_data: MapData):
+async def store_map_data(map_data: MapData) -> dict[str, str]:
     """Store map data including folder information."""
     try:
         # Determine target folder
@@ -410,7 +427,7 @@ async def store_map_data(map_data: MapData):
 
 
 @router.get("/data/{map_name}")
-async def load_map_data(map_name: str):
+async def load_map_data(map_name: str) -> dict[str, Any]:
     """Load map data for a specified map."""
     try:
         # Find the map in the folder structure
@@ -440,7 +457,7 @@ async def load_map_data(map_name: str):
             }
 
         with open(file_path, "r") as f:
-            data = json.load(f)
+            data: dict[str, Any] = json.load(f)
 
         return data
     except HTTPException:

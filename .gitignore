@@ -51,7 +51,6 @@ next-env.d.ts
 
 # IDE
 .idea/
-.vscode/
 *.swp
 *.swo
 *~
@@ -89,3 +88,5 @@ lerna-debug.log*
 
 # Local development
 *.local
+
+# Exceptions

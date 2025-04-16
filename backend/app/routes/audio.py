@@ -1,12 +1,10 @@
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-import os
-from pathlib import Path
-import mimetypes
-import threading
-from typing import Generator
 import asyncio
-import io
+import mimetypes
+from pathlib import Path
+from typing import Any, AsyncGenerator, Generator
+
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from loguru import logger
 
 router = APIRouter()
@@ -23,7 +21,7 @@ def stream_file(file_path: Path) -> Generator[bytes, None, None]:
             yield chunk
 
 
-async def async_stream_generator(file_path: Path) -> Generator[bytes, None, None]:
+async def async_stream_generator(file_path: Path) -> AsyncGenerator[bytes, None]:
     """Wrap the synchronous generator in an async context."""
     # Create a thread pool executor for the blocking file operations
     loop = asyncio.get_event_loop()
@@ -34,7 +32,7 @@ async def async_stream_generator(file_path: Path) -> Generator[bytes, None, None
 
 
 @router.get("/file/{category}/{filename:path}")
-async def get_audio_file(category: str, filename: str):
+async def get_audio_file(category: str, filename: str) -> StreamingResponse:
     """
     Stream an audio file from the sounds directory in a separate thread.
     Category should be 'loop' or 'oneshot'.
@@ -79,7 +77,7 @@ async def get_audio_file(category: str, filename: str):
 
 
 @router.get("/list")
-async def list_audio_files():
+async def list_audio_files() -> dict[str, dict[str, list[dict[str, Any]]]]:
     """
     List all available audio files organized by category and type.
     """
@@ -87,12 +85,17 @@ async def list_audio_files():
         print(f"SOUNDS_DIR in list_audio_files: {SOUNDS_DIR}")
         print(f"SOUNDS_DIR exists: {SOUNDS_DIR.exists()}")
 
-        audio_files = {"loop": {}, "oneshot": {}}
+        audio_files: dict[str, dict[str, list[dict[str, Any]]]] = {
+            "loop": {},
+            "oneshot": {},
+        }
 
         # Function to scan directories recursively
-        def scan_directory(directory, category, current_path=""):
+        def scan_directory(
+            directory: Path, category: str, current_path: str = ""
+        ) -> dict[str, list[dict[str, Any]]]:
             print(f"Scanning directory: {directory}, exists: {directory.exists()}")
-            result = {}
+            result: dict[str, list[dict[str, Any]]] = {}
 
             try:
                 for item in directory.iterdir():
