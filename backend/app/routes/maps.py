@@ -1,3 +1,7 @@
+"""
+This module contains the maps routes for the FastAPI app.
+"""
+
 import json
 import os
 import shutil
@@ -22,7 +26,7 @@ def get_folder_structure() -> List[FolderItem]:
     """Scan the maps directory and return the folder structure."""
     folders = []
 
-    for root, dirs, _ in os.walk(MAPS_DIR):
+    for root, _, _ in os.walk(MAPS_DIR):
         rel_path = os.path.relpath(root, MAPS_DIR) if root != MAPS_DIR else ""
 
         # Skip the root directory itself
@@ -85,7 +89,7 @@ async def create_folder(folder_data: dict[str, str] = Body(...)) -> dict[str, st
         os.makedirs(folder_path, exist_ok=True)
         return {"message": f"Folder '{folder_name}' created successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/folder/{folder_name}")
@@ -100,7 +104,7 @@ async def delete_folder(folder_name: str) -> dict[str, str]:
         shutil.rmtree(folder_path)
         return {"message": f"Folder '{folder_name}' deleted successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/upload")
@@ -131,7 +135,7 @@ async def upload_map(
             "folder": "" if folder is None else folder,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/file/{path:path}")
@@ -177,7 +181,7 @@ async def get_map(path: str) -> FileResponse:
         raise
     except Exception as e:
         logger.error(f"Error accessing file {path}: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/rename/{file_name}")
@@ -236,7 +240,7 @@ async def rename_map(
                 if scene_file.endswith(".json"):
                     scene_path = os.path.join(scenes_folder, scene_file)
                     try:
-                        with open(scene_path, "r") as f:
+                        with open(file=scene_path, mode="r", encoding="utf-8") as f:
                             scene_data = json.load(f)
 
                         # Check if this scene references the map
@@ -261,7 +265,7 @@ async def rename_map(
 
                         # Save the updated scene if changes were made
                         if map_refs_updated:
-                            with open(scene_path, "w") as f:
+                            with open(file=scene_path, mode="w", encoding="utf-8") as f:
                                 json.dump(scene_data, f, indent=2)
                             scenes_updated += 1
                             logger.info(f"Updated map reference in scene: {scene_file}")
@@ -276,7 +280,7 @@ async def rename_map(
             logger.error(f"Error renaming map file: {str(e)}")
             raise HTTPException(
                 status_code=500, detail=f"Error renaming map file: {str(e)}"
-            )
+            ) from e
 
         # Also rename any associated JSON data file if it exists
         old_data_path = os.path.join(folder_path, f"{file_name}.json")
@@ -287,11 +291,11 @@ async def rename_map(
                 os.rename(old_data_path, new_data_path)
                 # Update the name inside the JSON file
                 try:
-                    with open(new_data_path, "r") as f:
+                    with open(file=new_data_path, mode="r", encoding="utf-8") as f:
                         data = json.load(f)
                     if isinstance(data, dict) and "name" in data:
                         data["name"] = new_name
-                        with open(new_data_path, "w") as f:
+                        with open(file=new_data_path, mode="w", encoding="utf-8") as f:
                             json.dump(data, f, indent=2)
                 except Exception as e:
                     logger.error(f"Error updating JSON data file: {str(e)}")
@@ -309,7 +313,7 @@ async def rename_map(
         raise
     except Exception as e:
         logger.error(f"Error renaming map: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/move/{file_name}")
@@ -345,7 +349,7 @@ async def move_map(
         shutil.move(source_path, target_path)
         return {"message": f"Map '{file_name}' moved successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/file/{file_name}")
@@ -384,7 +388,7 @@ async def delete_map(file_name: str) -> dict[str, str]:
             logger.error(f"Error removing map file: {str(e)}")
             raise HTTPException(
                 status_code=500, detail=f"Error removing map file: {str(e)}"
-            )
+            ) from e
 
         # Also delete any associated JSON data file if it exists
         data_path = os.path.join(folder_path, f"{file_name}.json")
@@ -403,7 +407,7 @@ async def delete_map(file_name: str) -> dict[str, str]:
         raise
     except Exception as e:
         logger.error(f"Error deleting map: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/data")
@@ -418,12 +422,12 @@ async def store_map_data(map_data: MapData) -> dict[str, str]:
 
         # Store the map data
         file_path = os.path.join(target_dir, f"{map_data.name}.json")
-        with open(file_path, "w") as f:
+        with open(file=file_path, mode="w", encoding="utf-8") as f:
             json.dump(map_data.dict(), f)
 
         return {"message": f"Map '{map_data.name}' stored successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/data/{map_name}")
@@ -456,11 +460,11 @@ async def load_map_data(map_name: str) -> dict[str, Any]:
                 },
             }
 
-        with open(file_path, "r") as f:
+        with open(file=file_path, mode="r", encoding="utf-8") as f:
             data: dict[str, Any] = json.load(f)
 
         return data
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

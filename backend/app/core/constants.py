@@ -1,3 +1,7 @@
+"""
+This module contains constants for the FastAPI app.
+"""
+
 import os
 
 # Create necessary directories

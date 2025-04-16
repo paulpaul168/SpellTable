@@ -22,4 +22,4 @@ jobs:
     - name: Run mypy
       working-directory: ./backend
       run: |
-        mypy .
+        mypy --python-executable $(which python) .

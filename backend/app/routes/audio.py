@@ -1,3 +1,7 @@
+"""
+This module contains the audio routes for the FastAPI app.
+"""
+
 import asyncio
 import mimetypes
 from pathlib import Path
@@ -73,7 +77,7 @@ async def get_audio_file(category: str, filename: str) -> StreamingResponse:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/list")
@@ -163,4 +167,4 @@ async def list_audio_files() -> dict[str, dict[str, list[dict[str, Any]]]]:
 
     except Exception as e:
         print(f"Error in list_audio_files: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

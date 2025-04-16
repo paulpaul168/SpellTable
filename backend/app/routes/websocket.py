@@ -1,3 +1,7 @@
+"""
+This module contains the websocket routes for the FastAPI app.
+"""
+
 import asyncio
 import json
 import os
@@ -33,6 +37,9 @@ async def broadcast_scene_update(scene_data: dict[str, Any]) -> None:
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
+    """
+    WebSocket endpoint for the FastAPI app.
+    """
     try:
         # Accept the WebSocket connection
         await websocket.accept()
@@ -46,7 +53,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         try:
             scene_file = os.path.join(SCENES_DIR, "current_scene.json")
             if os.path.exists(scene_file):
-                with open(scene_file, "r") as f:
+                with open(file=scene_file, mode="r", encoding="utf-8") as f:
                     scene_data = json.load(f)
                     await websocket.send_json(
                         {"type": "scene_update", "scene": scene_data}
@@ -65,7 +72,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     scene_data = message.get("scene", {})
                     try:
                         scene_file = os.path.join(SCENES_DIR, "current_scene.json")
-                        with open(scene_file, "w") as f:
+                        with open(file=scene_file, mode="w", encoding="utf-8") as f:
                             json.dump(scene_data, f)
                     except Exception as e:
                         print(f"Error saving scene: {e}")
