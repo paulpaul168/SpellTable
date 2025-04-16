@@ -1,5 +1,17 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# Node.js
+node_modules/
+.next/
+out/
+build/
+.DS_Store
+*.pem
+.env*.local
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
 # dependencies
 /node_modules
 /.pnp
