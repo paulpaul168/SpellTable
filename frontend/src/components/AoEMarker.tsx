@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { AoEMarker as AoEMarkerType } from '../types/map';
 
 interface AoEMarkerProps {
@@ -23,16 +23,25 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const lastUpdateRef = useRef<number>(0);
     const pendingUpdateRef = useRef<AoEMarkerType | null>(null);
     const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+    const markerRef = useRef<HTMLDivElement>(null);
+    const positionRef = useRef(marker.position);
 
     // Convert size in feet to pixels based on grid size
     const sizeInPixels = (marker.sizeInFeet * gridSize) / 5; // Assuming 5ft per grid cell
 
+    // Keep the position ref updated with the latest state
+    useEffect(() => {
+        positionRef.current = currentPos;
+    }, [currentPos]);
+
+    // Sync position state when marker position prop changes
     useEffect(() => {
         setCurrentPos(marker.position);
+        positionRef.current = marker.position;
     }, [marker.position]);
 
-    // Throttle updates to avoid excessive network traffic
-    const throttledUpdate = (newMarker: AoEMarkerType) => {
+    // Improved throttle function with better handling
+    const throttledUpdate = useCallback((newMarker: AoEMarkerType) => {
         const now = performance.now();
         if (now - lastUpdateRef.current >= 32) { // ~30fps
             onUpdate(newMarker);
@@ -40,76 +49,105 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             pendingUpdateRef.current = null;
         } else {
             pendingUpdateRef.current = newMarker;
-        }
-    };
-
-    // Process any pending updates
-    useEffect(() => {
-        if (!pendingUpdateRef.current) return;
-
-        const processPendingUpdate = () => {
-            if (pendingUpdateRef.current) {
-                onUpdate(pendingUpdateRef.current);
-                pendingUpdateRef.current = null;
+            // Schedule processing if not already scheduled
+            if (!lastUpdateRef.current) {
+                requestAnimationFrame(() => {
+                    const pendingMarker = pendingUpdateRef.current;
+                    if (pendingMarker) {
+                        onUpdate(pendingMarker);
+                        pendingUpdateRef.current = null;
+                    }
+                    lastUpdateRef.current = performance.now();
+                });
             }
-        };
-
-        const interval = setInterval(processPendingUpdate, 32);
-        return () => clearInterval(interval);
+        }
     }, [onUpdate]);
 
-    const handleMouseDown = (e: React.MouseEvent) => {
-        if (!isActive || !isAdmin) return;
-        e.stopPropagation();
-        e.preventDefault();
-        setIsDragging(true);
-
-        // Calculate the offset between mouse and marker position
-        dragOffsetRef.current = {
-            x: e.clientX - currentPos.x,
-            y: e.clientY - currentPos.y
-        };
-    };
-
-    const handleMouseMove = (e: MouseEvent) => {
+    // Handle mouse movement during drag with improved positioning
+    const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!isDragging) return;
-        e.preventDefault();
 
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Calculate new position using the stored drag offset
         const newPosition = {
             x: e.clientX - dragOffsetRef.current.x,
             y: e.clientY - dragOffsetRef.current.y
         };
 
         setCurrentPos(newPosition);
+
+        // Update using the throttled function
         throttledUpdate({
             ...marker,
             position: newPosition
         });
-    };
+    }, [isDragging, marker, throttledUpdate]);
 
-    const handleMouseUp = () => {
+    // Handle mouse up - end dragging
+    const handleMouseUp = useCallback((e: MouseEvent) => {
         if (isDragging) {
+            e.preventDefault();
+            e.stopPropagation();
+
             // Final position update
             onUpdate({
                 ...marker,
-                position: currentPos
+                position: positionRef.current
             });
-        }
-        setIsDragging(false);
-    };
 
-    // Add global event listeners for drag
+            setIsDragging(false);
+        }
+    }, [isDragging, marker, onUpdate]);
+
+    // Add global event listeners for drag with proper cleanup
     useEffect(() => {
         if (isDragging) {
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
+            // Use capture phase to ensure our handlers run first
+            window.addEventListener('mousemove', handleMouseMove, true);
+            window.addEventListener('mouseup', handleMouseUp, true);
+
+            // Also listen for these events to handle edge cases
+            window.addEventListener('mouseleave', handleMouseUp, true);
+            window.addEventListener('mouseout', handleMouseUp, true);
+            document.body.style.userSelect = 'none'; // Prevent text selection during drag
         }
 
         return () => {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('mousemove', handleMouseMove, true);
+            window.removeEventListener('mouseup', handleMouseUp, true);
+            window.removeEventListener('mouseleave', handleMouseUp, true);
+            window.removeEventListener('mouseout', handleMouseUp, true);
+            document.body.style.userSelect = ''; // Restore normal selection
         };
-    }, [isDragging]);
+    }, [isDragging, handleMouseMove, handleMouseUp]);
+
+    // Improved mouse down handler with better offset calculation
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (!isActive || !isAdmin) return;
+
+        e.stopPropagation();
+        e.preventDefault();
+
+        // More precise calculation of drag offset
+        const rect = markerRef.current?.getBoundingClientRect();
+        if (rect) {
+            // Calculate the offset from the click point to the element's top-left corner
+            dragOffsetRef.current = {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        } else {
+            // Fallback to direct position offset
+            dragOffsetRef.current = {
+                x: e.clientX - currentPos.x,
+                y: e.clientY - currentPos.y
+            };
+        }
+
+        setIsDragging(true);
+    };
 
     const handleWheel = (e: React.WheelEvent) => {
         if (!isActive || !isAdmin) return;
@@ -226,6 +264,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
 
     return (
         <div
+            ref={markerRef}
             className="absolute select-none flex flex-col items-center"
             style={{
                 position: 'absolute',
@@ -235,7 +274,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 cursor: isActive && isAdmin ? (isDragging ? 'grabbing' : 'grab') : 'default',
                 transformOrigin: 'center',
                 pointerEvents: isActive ? 'auto' : 'none',
-                zIndex: 100
+                zIndex: 100,
+                touchAction: 'none' // Disable browser touch actions
             }}
             onMouseDown={handleMouseDown}
             onWheel={handleWheel}

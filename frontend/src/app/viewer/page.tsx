@@ -5,6 +5,7 @@ import { Scene as SceneType } from '../../types/map';
 import { Map } from '../../components/Map';
 import { websocketService } from '../../services/websocket';
 import { InitiativeIndicator } from '../../components/InitiativeIndicator';
+import { AoEMarker } from '../../components/AoEMarker';
 
 const initialScene: SceneType = {
     id: 'default',
@@ -16,7 +17,8 @@ const initialScene: SceneType = {
         gridSize: 50
     },
     initiativeOrder: [],
-    showCurrentPlayer: false
+    showCurrentPlayer: false,
+    aoeMarkers: []
 };
 
 export default function ViewerPage() {
@@ -34,7 +36,8 @@ export default function ViewerPage() {
                     gridSettings: data.scene.gridSettings || {
                         showGrid: true,
                         gridSize: 50
-                    }
+                    },
+                    aoeMarkers: data.scene.aoeMarkers || []
                 });
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
@@ -72,6 +75,19 @@ export default function ViewerPage() {
                         onUpdate={() => { }} // No updates in viewer mode
                         isViewerMode={true}
                         zIndex={0}
+                    />
+                ))}
+
+                {/* AoE Markers - View Only */}
+                {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
+                    <AoEMarker
+                        key={marker.id}
+                        marker={marker}
+                        gridSize={scene.gridSettings.gridSize}
+                        isActive={false} // Not interactive in viewer mode
+                        isAdmin={false}  // Not admin in viewer mode
+                        onUpdate={() => { }} // No-op in viewer mode
+                        onDelete={() => { }} // No-op in viewer mode
                     />
                 ))}
             </div>
