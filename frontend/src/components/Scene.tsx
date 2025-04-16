@@ -21,7 +21,8 @@ import {
     Eye,
     EyeOff,
     Music,
-    Zap
+    Zap,
+    X
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -42,6 +43,10 @@ import { cn } from '@/lib/utils';
 import { InitiativeIndicator } from './InitiativeIndicator';
 import { AoEMarker } from './AoEMarker';
 import { AoEPalette } from './AoEPalette';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import { Label } from './ui/label';
+import { Input } from './ui/input';
+import { DisplayCalculator } from './DisplayCalculator';
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -116,6 +121,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
     const [isSoundboardOpen, setIsSoundboardOpen] = useState(false);
     const [isCleanLayout, setIsCleanLayout] = useState(false);
     const [isAoEPaletteOpen, setIsAoEPaletteOpen] = useState(false);
+    const [isDisplayCalculatorOpen, setIsDisplayCalculatorOpen] = useState(false);
+    const [isGridSettingsOpen, setIsGridSettingsOpen] = useState(false);
 
     useEffect(() => {
         websocketService.connect();
@@ -454,6 +461,21 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
             gridSettings: {
                 ...scene.gridSettings,
                 showGrid: !scene.gridSettings.showGrid
+            }
+        };
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
+        });
+    };
+
+    const handleUpdateGridSettings = (newGridSettings: any) => {
+        const updatedScene = {
+            ...scene,
+            gridSettings: {
+                ...scene.gridSettings,
+                ...newGridSettings
             }
         };
         setScene(updatedScene);
@@ -807,11 +829,11 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                         className="absolute inset-0 pointer-events-none"
                         style={{
                             backgroundImage: `
-                                linear-gradient(to right, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-                                linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 1px, transparent 1px)
+                                linear-gradient(to right, ${scene.gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)'} 1px, transparent 1px),
+                                linear-gradient(to bottom, ${scene.gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)'} 1px, transparent 1px)
                             `,
                             backgroundSize: `${scene.gridSettings.gridSize}px ${scene.gridSettings.gridSize}px`,
-                            opacity: 0.5,
+                            opacity: scene.gridSettings.gridOpacity || 0.5,
                             zIndex: 999
                         }}
                     />
@@ -951,6 +973,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                                 {isCleanLayout ? 'Show Full Menu' : 'Clean Layout'}
                             </DropdownMenuItem>
 
+                            <DropdownMenuSeparator className="bg-zinc-800" />
+
                             {/* Map List Toggle */}
                             <DropdownMenuItem
                                 onClick={() => setShowMapList(!showMapList)}
@@ -976,6 +1000,15 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                             >
                                 <Music className="h-4 w-4" />
                                 {isSoundboardOpen ? 'Hide Soundboard' : 'Show Soundboard'}
+                            </DropdownMenuItem>
+
+
+                            <DropdownMenuItem
+                                className="text-xs cursor-pointer"
+                                onClick={() => setIsAoEPaletteOpen(!isAoEPaletteOpen)}
+                            >
+                                <Zap className="h-4 w-4 mr-2" />
+                                {isAoEPaletteOpen ? 'Hide AoE Palette' : 'Show AoE Palette'}
                             </DropdownMenuItem>
 
                             <DropdownMenuSeparator className="bg-zinc-800" />
@@ -1052,25 +1085,17 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                                         )}
                                         {scene.gridSettings.showGrid ? 'Hide Grid' : 'Show Grid'}
                                     </DropdownMenuItem>
-                                </div>
-                            </div>
-
-                            {/* AoE Markers Section */}
-                            <div className="px-2 py-1">
-                                <div className="flex items-center gap-2 px-2 py-1">
-                                    <Zap className="h-4 w-4 text-zinc-400" />
-                                    <span className="text-xs font-medium text-zinc-300">AoE Markers</span>
-                                </div>
-                                <div className="space-y-1 mt-1">
                                     <DropdownMenuItem
                                         className="text-xs cursor-pointer"
-                                        onClick={() => setIsAoEPaletteOpen(!isAoEPaletteOpen)}
+                                        onClick={() => setIsGridSettingsOpen(true)}
                                     >
-                                        <Zap className="h-4 w-4 mr-2" />
-                                        {isAoEPaletteOpen ? 'Hide AoE Palette' : 'Show AoE Palette'}
+                                        <Settings className="h-4 w-4 mr-2" />
+                                        Grid Settings
                                     </DropdownMenuItem>
                                 </div>
                             </div>
+
+
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -1153,6 +1178,19 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                     </Button>
                 </div>
             )}
+
+            {/* Add Display Calculator Dialog */}
+            <DisplayCalculator
+                isOpen={isDisplayCalculatorOpen || isGridSettingsOpen}
+                onClose={() => {
+                    setIsDisplayCalculatorOpen(false);
+                    setIsGridSettingsOpen(false);
+                }}
+                currentGridSize={scene.gridSettings.gridSize}
+                gridSettings={scene.gridSettings}
+                onApplyGridSize={(size) => handleUpdateGridSettings({ gridSize: size })}
+                onUpdateGridSettings={handleUpdateGridSettings}
+            />
         </div>
     );
 }; 

@@ -103,9 +103,12 @@ export default function ViewerPage() {
                 <div
                     className="fixed inset-0 pointer-events-none"
                     style={{
-                        backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.3) 1px, transparent 1px),
-                                        linear-gradient(to bottom, rgba(255,255,255,0.3) 1px, transparent 1px)`,
+                        backgroundImage: `
+                            linear-gradient(to right, ${scene.gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)'} 1px, transparent 1px),
+                            linear-gradient(to bottom, ${scene.gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)'} 1px, transparent 1px)
+                        `,
                         backgroundSize: `${scene.gridSettings?.gridSize || 50}px ${scene.gridSettings?.gridSize || 50}px`,
+                        opacity: scene.gridSettings.gridOpacity || 0.5,
                         zIndex: 10
                     }}
                 />
