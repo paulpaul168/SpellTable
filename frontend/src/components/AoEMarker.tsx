@@ -22,12 +22,15 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const [isDragging, setIsDragging] = useState(false);
     const [currentPos, setCurrentPos] = useState(marker.position);
     const [isHovered, setIsHovered] = useState(false);
+    const [isResizing, setIsResizing] = useState(false);
+    const [showSizeIndicator, setShowSizeIndicator] = useState(false);
     const lastUpdateRef = useRef<number>(0);
     const pendingUpdateRef = useRef<AoEMarkerType | null>(null);
     const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     const markerRef = useRef<HTMLDivElement>(null);
     const positionRef = useRef(marker.position);
     const isDraggingRef = useRef(false);
+    const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // Convert size in feet to pixels based on grid size
     const sizeInPixels = (marker.sizeInFeet * gridSize) / 5; // Assuming 5ft per grid cell
@@ -144,6 +147,15 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         }
     }, [isDragging]);
 
+    // Clean up resize indicator timer on unmount
+    useEffect(() => {
+        return () => {
+            if (resizeTimerRef.current) {
+                clearTimeout(resizeTimerRef.current);
+            }
+        };
+    }, []);
+
     // Improved mouse down handler with better offset calculation
     const handleMouseDown = (e: React.MouseEvent) => {
         if (!isActive || !isAdmin) return;
@@ -188,6 +200,24 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         if (!isActive || !isAdmin) return;
         e.stopPropagation();
         e.preventDefault();
+
+        // Show size indicator when resizing
+        if (!e.shiftKey) {
+            setIsResizing(true);
+            setShowSizeIndicator(true);
+
+            // Clear any existing timer
+            if (resizeTimerRef.current) {
+                clearTimeout(resizeTimerRef.current);
+            }
+
+            // Set a timer to hide the size indicator after 1.5 seconds of inactivity
+            resizeTimerRef.current = setTimeout(() => {
+                setIsResizing(false);
+                setShowSizeIndicator(false);
+                resizeTimerRef.current = null;
+            }, 1500);
+        }
 
         // Use Shift key to rotate, otherwise resize
         if (e.shiftKey) {
@@ -356,6 +386,13 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                     >
                         <RotateCw size={14} />
                     </button>
+                </div>
+            )}
+
+            {/* Size indicator - shows when resizing */}
+            {isAdmin && showSizeIndicator && (
+                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full mt-1 px-2 py-1 bg-black/80 text-white text-xs rounded pointer-events-none">
+                    {marker.sizeInFeet}′
                 </div>
             )}
 
