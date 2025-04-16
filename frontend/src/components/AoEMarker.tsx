@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { AoEMarker as AoEMarkerType } from '../types/map';
+import { RotateCw, RotateCcw } from 'lucide-react';
 
 interface AoEMarkerProps {
     marker: AoEMarkerType;
@@ -20,11 +21,13 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
 }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [currentPos, setCurrentPos] = useState(marker.position);
+    const [isHovered, setIsHovered] = useState(false);
     const lastUpdateRef = useRef<number>(0);
     const pendingUpdateRef = useRef<AoEMarkerType | null>(null);
     const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     const markerRef = useRef<HTMLDivElement>(null);
     const positionRef = useRef(marker.position);
+    const isDraggingRef = useRef(false);
 
     // Convert size in feet to pixels based on grid size
     const sizeInPixels = (marker.sizeInFeet * gridSize) / 5; // Assuming 5ft per grid cell
@@ -65,7 +68,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
 
     // Handle mouse movement during drag with improved positioning
     const handleMouseMove = useCallback((e: MouseEvent) => {
-        if (!isDragging) return;
+        if (!isDraggingRef.current) return;
 
         e.preventDefault();
         e.stopPropagation();
@@ -77,19 +80,19 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         };
 
         setCurrentPos(newPosition);
+        positionRef.current = newPosition;
 
         // Update using the throttled function
         throttledUpdate({
             ...marker,
             position: newPosition
         });
-    }, [isDragging, marker, throttledUpdate]);
+    }, [marker, throttledUpdate]);
 
     // Handle mouse up - end dragging
     const handleMouseUp = useCallback((e: MouseEvent) => {
-        if (isDragging) {
+        if (isDraggingRef.current) {
             e.preventDefault();
-            e.stopPropagation();
 
             // Final position update
             onUpdate({
@@ -98,30 +101,48 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             });
 
             setIsDragging(false);
+            isDraggingRef.current = false;
+            document.body.classList.remove('dragging-aoe');
         }
-    }, [isDragging, marker, onUpdate]);
+    }, [marker, onUpdate]);
 
-    // Add global event listeners for drag with proper cleanup
+    // Set up global drag event handling
     useEffect(() => {
-        if (isDragging) {
-            // Use capture phase to ensure our handlers run first
-            window.addEventListener('mousemove', handleMouseMove, true);
-            window.addEventListener('mouseup', handleMouseUp, true);
-
-            // Also listen for these events to handle edge cases
-            window.addEventListener('mouseleave', handleMouseUp, true);
-            window.addEventListener('mouseout', handleMouseUp, true);
-            document.body.style.userSelect = 'none'; // Prevent text selection during drag
-        }
-
-        return () => {
-            window.removeEventListener('mousemove', handleMouseMove, true);
-            window.removeEventListener('mouseup', handleMouseUp, true);
-            window.removeEventListener('mouseleave', handleMouseUp, true);
-            window.removeEventListener('mouseout', handleMouseUp, true);
-            document.body.style.userSelect = ''; // Restore normal selection
+        // These handlers will be active throughout the component's lifecycle
+        // but will only do something when isDraggingRef.current is true
+        const handleGlobalMouseMove = (e: MouseEvent) => handleMouseMove(e);
+        const handleGlobalMouseUp = (e: MouseEvent) => handleMouseUp(e);
+        const handleGlobalEscapeKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isDraggingRef.current) {
+                setIsDragging(false);
+                isDraggingRef.current = false;
+                document.body.classList.remove('dragging-aoe');
+            }
         };
-    }, [isDragging, handleMouseMove, handleMouseUp]);
+
+        // Add global listeners that will be active throughout
+        window.addEventListener('mousemove', handleGlobalMouseMove, { capture: true });
+        window.addEventListener('mouseup', handleGlobalMouseUp, { capture: true });
+        window.addEventListener('keydown', handleGlobalEscapeKey);
+
+        // Cleanup on component unmount
+        return () => {
+            window.removeEventListener('mousemove', handleGlobalMouseMove, { capture: true });
+            window.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
+            window.removeEventListener('keydown', handleGlobalEscapeKey);
+            document.body.classList.remove('dragging-aoe');
+        };
+    }, [handleMouseMove, handleMouseUp]);
+
+    // Update isDraggingRef when isDragging changes
+    useEffect(() => {
+        isDraggingRef.current = isDragging;
+        if (isDragging) {
+            document.body.classList.add('dragging-aoe');
+        } else {
+            document.body.classList.remove('dragging-aoe');
+        }
+    }, [isDragging]);
 
     // Improved mouse down handler with better offset calculation
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -130,23 +151,37 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         e.stopPropagation();
         e.preventDefault();
 
-        // More precise calculation of drag offset
+        // Get the marker element
         const rect = markerRef.current?.getBoundingClientRect();
         if (rect) {
-            // Calculate the offset from the click point to the element's top-left corner
+            // Calculate the center of the marker
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            // Calculate offset from cursor to center (not corner)
+            // This makes dragging work consistently regardless of rotation
             dragOffsetRef.current = {
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top
+                x: e.clientX - centerX,
+                y: e.clientY - centerY
             };
+
+            // Store the adjusted "center" position
+            const adjustedPos = {
+                x: centerX,
+                y: centerY
+            };
+            setCurrentPos(adjustedPos);
+            positionRef.current = adjustedPos;
         } else {
-            // Fallback to direct position offset
+            // Fallback if we can't get the rect
             dragOffsetRef.current = {
-                x: e.clientX - currentPos.x,
-                y: e.clientY - currentPos.y
+                x: 0,
+                y: 0
             };
         }
 
         setIsDragging(true);
+        isDraggingRef.current = true;
     };
 
     const handleWheel = (e: React.WheelEvent) => {
@@ -174,6 +209,29 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 sizeInFeet: newSize
             });
         }
+    };
+
+    // Rotation handlers
+    const handleRotateClockwise = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        const newRotation = (marker.rotation + 15) % 360;
+        onUpdate({
+            ...marker,
+            rotation: newRotation
+        });
+    };
+
+    const handleRotateCounterClockwise = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        const newRotation = (marker.rotation - 15 + 360) % 360;
+        onUpdate({
+            ...marker,
+            rotation: newRotation
+        });
     };
 
     // Different rendering based on shape type
@@ -270,18 +328,39 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 position: 'absolute',
                 left: `${currentPos.x}px`,
                 top: `${currentPos.y}px`,
-                transform: `rotate(${marker.rotation}deg)`,
+                transform: `translate(-50%, -50%) rotate(${marker.rotation}deg)`, // Center the marker at its position
                 cursor: isActive && isAdmin ? (isDragging ? 'grabbing' : 'grab') : 'default',
                 transformOrigin: 'center',
                 pointerEvents: isActive ? 'auto' : 'none',
-                zIndex: 100,
+                zIndex: isDragging ? 1000 : 100, // Increase z-index when dragging
                 touchAction: 'none' // Disable browser touch actions
             }}
             onMouseDown={handleMouseDown}
             onWheel={handleWheel}
             onDoubleClick={handleDoubleClick}
+            onMouseEnter={() => !isDragging && setIsHovered(true)}
+            onMouseLeave={() => !isDragging && setIsHovered(false)}
         >
+            {/* Rotation controls - only visible for admins when hovering */}
+            {isAdmin && isHovered && !isDragging && (
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-full flex gap-1 mb-1 bg-black/50 p-1 rounded">
+                    <button
+                        onClick={handleRotateCounterClockwise}
+                        className="flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white"
+                    >
+                        <RotateCcw size={14} />
+                    </button>
+                    <button
+                        onClick={handleRotateClockwise}
+                        className="flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white"
+                    >
+                        <RotateCw size={14} />
+                    </button>
+                </div>
+            )}
+
             {renderShape()}
+
             {marker.label && (
                 <div
                     className="mt-1 px-2 py-1 bg-black/70 text-white text-xs rounded pointer-events-none"
