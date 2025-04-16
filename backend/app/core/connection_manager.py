@@ -2,7 +2,8 @@
 This module contains the connection manager for the FastAPI app.
 """
 
-from fastapi.websockets import WebSocket
+from fastapi import WebSocket, WebSocketDisconnect
+from loguru import logger
 
 
 class ConnectionManager:
@@ -25,8 +26,9 @@ class ConnectionManager:
         """
         await websocket.accept()
         self.active_connections.append(websocket)
-        print(
-            f"New WebSocket connection established. Total connections: {len(self.active_connections)}"
+        logger.info(
+            f"New WebSocket connection established. \
+                Total connections: {len(self.active_connections)}"
         )
 
     def disconnect(self, websocket: WebSocket) -> None:
@@ -37,7 +39,7 @@ class ConnectionManager:
             websocket (WebSocket): The WebSocket connection to close.
         """
         self.active_connections.remove(websocket)
-        print(
+        logger.info(
             f"WebSocket connection closed. Remaining connections: {len(self.active_connections)}"
         )
 
@@ -51,8 +53,8 @@ class ConnectionManager:
         for connection in self.active_connections:
             try:
                 await connection.send_text(message)
-            except Exception as e:
-                print(f"Error broadcasting message: {e}")
+            except (WebSocketDisconnect, RuntimeError, ConnectionError) as e:
+                logger.exception(f"Error broadcasting message: {e}")
                 self.disconnect(connection)
 
 

@@ -108,3 +108,41 @@ The backend uses the local file system to store:
 ## Deployment
 
 The application is designed to run as a self-contained service on port 8010, accessible to frontend clients through a combination of REST API endpoints and WebSocket connections.
+
+## Logging
+
+The application uses [loguru](https://github.com/Delgan/loguru) for logging. The logger is configured in `app/core/logging.py` and is initialized as the first operation when the server starts.
+
+### Log Levels
+
+The following log levels are used:
+
+- `DEBUG`: Detailed information, typically useful only when diagnosing problems.
+- `INFO`: Confirmation that things are working as expected.
+- `WARNING`: An indication that something unexpected happened, or may happen in the near future.
+- `ERROR`: Due to a more serious problem, the software has not been able to perform a function.
+- `CRITICAL`: A serious error, indicating that the program itself may be unable to continue running.
+
+### Log Destinations
+
+Logs are written to:
+
+1. **Console** - Shows INFO level and above with colored formatting
+2. **Log Files** - All logs (DEBUG and above) are written to the `logs/` directory with daily rotation
+
+### Usage
+
+To use the logger in your code:
+
+```python
+from loguru import logger
+
+# Example usage
+logger.debug("Debug message")
+logger.info("Info message")
+logger.warning("Warning message")
+logger.error("Error message")
+logger.critical("Critical message")
+```
+
+The logger configuration is performed once at application startup in `app/core/logging.py` and the logs directory is included in `.gitignore`.

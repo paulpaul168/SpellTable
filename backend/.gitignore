@@ -45,3 +45,6 @@ scenes/*
 
 # audio files
 sounds/*
+
+# Logs
+logs/

@@ -10,6 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from loguru import logger
 
 from ..core.constants import SCENES_DIR
 from ..models.scenes import FolderCreateRequest, FolderRenameRequest, SceneData
@@ -33,9 +34,10 @@ async def save_scene(scene: SceneData) -> dict[str, str]:
             scene_file = os.path.join(SCENES_DIR, f"{scene.id}.json")
 
         with open(file=scene_file, mode="w", encoding="utf-8") as f:
-            json.dump(scene.dict(), f)
+            json.dump(scene.model_dump(), f)
         return {"message": "Scene saved successfully"}
     except Exception as e:
+        logger.exception(f"Error saving scene: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -71,6 +73,7 @@ async def list_scenes() -> dict[str, list[dict[str, str]]]:
         scan_directory(SCENES_DIR)
         return {"folders": folders, "scenes": scenes}
     except Exception as e:
+        logger.exception(f"Error listing scenes: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -81,9 +84,7 @@ async def create_folder(request: FolderCreateRequest) -> dict[str, str]:
     """
     try:
         if request.parent_folder:
-            folder_path = os.path.join(
-                SCENES_DIR, request.parent_folder, request.folder_name
-            )
+            folder_path = os.path.join(SCENES_DIR, request.parent_folder, request.folder_name)
         else:
             folder_path = os.path.join(SCENES_DIR, request.folder_name)
 
@@ -92,6 +93,7 @@ async def create_folder(request: FolderCreateRequest) -> dict[str, str]:
         os.makedirs(folder_path)
         return {"message": "Folder created successfully"}
     except Exception as e:
+        logger.exception(f"Error creating folder: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -107,6 +109,7 @@ async def delete_folder(folder_path: str) -> dict[str, str]:
         shutil.rmtree(folder_path)
         return {"message": "Folder deleted successfully"}
     except Exception as e:
+        logger.exception(f"Error deleting folder: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -138,9 +141,11 @@ async def load_scene(scene_id: str) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail="Scene not found")
 
         return scene_data
-    except HTTPException:
+    except HTTPException as e:
+        logger.exception(f"HTTPException in load_scene: {e}")
         raise
     except Exception as e:
+        logger.exception(f"Error in load_scene: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -165,9 +170,11 @@ async def delete_scene(scene_id: str) -> dict[str, str]:
 
         os.remove(scene_file)
         return {"message": "Scene deleted successfully"}
-    except HTTPException:
+    except HTTPException as e:
+        logger.exception(f"HTTPException in delete_scene: {e}")
         raise
     except Exception as e:
+        logger.exception(f"Error in delete_scene: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -206,16 +213,16 @@ async def update_scene(scene_id: str, scene: SceneData) -> dict[str, str]:
         with open(file=scene_file, mode="w", encoding="utf-8") as f:
             json.dump(scene.dict(), f)
         return {"message": "Scene updated successfully"}
-    except HTTPException:
+    except HTTPException as e:
+        logger.exception(f"HTTPException in update_scene: {e}")
         raise
     except Exception as e:
+        logger.exception(f"Error in update_scene: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/{scene_id}/image")
-async def upload_scene_image(
-    scene_id: str, file: UploadFile = File(...)
-) -> dict[str, str]:
+async def upload_scene_image(scene_id: str, file: UploadFile = File(...)) -> dict[str, str]:
     """
     Upload a scene image.
     """
@@ -262,6 +269,7 @@ async def upload_scene_image(
 
         return {"message": "Image uploaded successfully", "image_id": image_id}
     except Exception as e:
+        logger.exception(f"Error in upload_scene_image: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -276,6 +284,7 @@ async def get_scene_image(image_path: str) -> FileResponse:
             raise HTTPException(status_code=404, detail="Image not found")
         return FileResponse(file_path)
     except Exception as e:
+        logger.exception(f"Error in get_scene_image: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -317,21 +326,18 @@ async def delete_scene_image(scene_id: str, image_id: str) -> dict[str, str]:
             os.remove(image_path)
 
         # Update scene data
-        scene_data["images"] = [
-            img for img in scene_data["images"] if img["id"] != image_id
-        ]
+        scene_data["images"] = [img for img in scene_data["images"] if img["id"] != image_id]
         with open(file=scene_file, mode="w", encoding="utf-8") as buffer:
             json.dump(scene_data, buffer)
 
         return {"message": "Image deleted successfully"}
     except Exception as e:
+        logger.exception(f"Error in delete_scene_image: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/folder/{folder_path:path}")
-async def rename_folder(
-    folder_path: str, request: FolderRenameRequest
-) -> dict[str, str]:
+async def rename_folder(folder_path: str, request: FolderRenameRequest) -> dict[str, str]:
     """Rename a folder in the scenes directory."""
     try:
         # Ensure folder exists
@@ -365,16 +371,21 @@ async def rename_folder(
                         # Check if this scene's folder needs updating
                         if scene_data.get("folder") == folder_path:
                             scene_data["folder"] = request.new_name
-                            with open(
-                                file=file_path, mode="w", encoding="utf-8"
-                            ) as buffer:
+                            with open(file=file_path, mode="w", encoding="utf-8") as buffer:
                                 json.dump(scene_data, buffer)
-                    except Exception:
+                    except FileNotFoundError as e:
+                        logger.exception(f"FileNotFoundError in rename_folder: {e}")
+                        # Continue even if one scene fails to update
+                        continue
+                    except json.JSONDecodeError as e:
+                        logger.exception(f"JSONDecodeError in rename_folder: {e}")
                         # Continue even if one scene fails to update
                         continue
 
         return {"message": "Folder renamed successfully"}
-    except HTTPException:
+    except HTTPException as e:
+        logger.exception(f"HTTPException in rename_folder: {e}")
         raise
     except Exception as e:
+        logger.exception(f"Error in rename_folder: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e

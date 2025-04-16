@@ -1,7 +1,8 @@
 {
-    "python.defaultInterpreterPath": "backend/.venv/bin/python",
+    "python.defaultInterpreterPath": "backend/venv/bin/python||backend/.venv/bin/python",
     "mypy.enabled": true,
     "mypy.runUsingActiveInterpreter": true,
     "mypy.configFile": "backend/pyproject.toml",
     "mypy.targets": ["backend"],
+    "mypy.dmypyExecutable": "backend/venv/bin/dmypy||backend/.venv/bin/dmypy"
 }

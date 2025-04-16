@@ -5,7 +5,7 @@ This module contains the maps routes for the FastAPI app.
 import json
 import os
 import shutil
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from fastapi import APIRouter, Body, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -45,9 +45,7 @@ def get_maps_in_structure() -> List[Dict[str, Any]]:
 
     for root, _, files in os.walk(MAPS_DIR):
         for file in files:
-            if file.endswith(
-                (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg")
-            ):
+            if file.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg")):
                 rel_path = os.path.relpath(root, MAPS_DIR) if root != MAPS_DIR else ""
                 folder = rel_path if rel_path != "" else None
 
@@ -88,7 +86,7 @@ async def create_folder(folder_data: dict[str, str] = Body(...)) -> dict[str, st
     try:
         os.makedirs(folder_path, exist_ok=True)
         return {"message": f"Folder '{folder_name}' created successfully"}
-    except Exception as e:
+    except OSError as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -103,7 +101,7 @@ async def delete_folder(folder_name: str) -> dict[str, str]:
     try:
         shutil.rmtree(folder_path)
         return {"message": f"Folder '{folder_name}' deleted successfully"}
-    except Exception as e:
+    except (OSError, shutil.Error) as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -134,7 +132,7 @@ async def upload_map(
             "filename": file.filename,
             "folder": "" if folder is None else folder,
         }
-    except Exception as e:
+    except OSError as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -177,11 +175,113 @@ async def get_map(path: str) -> FileResponse:
                 raise HTTPException(status_code=404, detail=f"Map not found: {path}")
 
         return FileResponse(file_path)
-    except HTTPException:
+    except HTTPException as e:
+        logger.exception(f"HTTPException in get_map: {e}")
         raise
-    except Exception as e:
-        logger.error(f"Error accessing file {path}: {str(e)}")
+    except (OSError, IOError) as e:
+        logger.exception(f"OSError or IOError in get_map: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+def find_map_in_structure(file_name: str) -> Dict[str, Any]:
+    """Find a map in the folder structure and return its data."""
+    maps = get_maps_in_structure()
+    map_data = next((m for m in maps if m["name"] == file_name), None)
+
+    if not map_data:
+        logger.error(f"Map '{file_name}' not found in structure")
+        raise HTTPException(status_code=404, detail=f"Map '{file_name}' not found")
+
+    return map_data
+
+
+def get_map_paths(file_name: str, map_data: Dict[str, Any]) -> Tuple[str, str]:
+    """Get the folder path and file path for a map."""
+    folder_path = os.path.join(MAPS_DIR, map_data["folder"]) if map_data["folder"] else MAPS_DIR
+    file_path = os.path.join(folder_path, file_name)
+
+    if not os.path.exists(file_path):
+        logger.error(f"Source file not found at path: {file_path}")
+        raise HTTPException(status_code=404, detail=f"Source file '{file_name}' not found")
+
+    return folder_path, file_path
+
+
+def update_scenes_for_renamed_map(file_name: str, new_name: str) -> int:
+    """Update all scenes that reference the renamed map and return count of updated scenes."""
+    scenes_updated = 0
+    scenes_folder = os.path.join(os.getcwd(), SCENES_DIR)
+
+    logger.debug(f"Looking for scenes referencing map '{file_name}' in {scenes_folder}")
+
+    if not os.path.exists(scenes_folder):
+        return scenes_updated
+
+    for scene_file in os.listdir(scenes_folder):
+        if not scene_file.endswith(".json"):
+            continue
+
+        scene_path = os.path.join(scenes_folder, scene_file)
+        try:
+            with open(file=scene_path, mode="r", encoding="utf-8") as f:
+                scene_data = json.load(f)
+
+            map_refs_updated = False
+
+            # Update map references in the maps array
+            if "maps" in scene_data and isinstance(scene_data["maps"], list):
+                for i, map_ref in enumerate(scene_data["maps"]):
+                    if isinstance(map_ref, dict) and map_ref.get("name") == file_name:
+                        scene_data["maps"][i]["name"] = new_name
+                        map_refs_updated = True
+
+            # Update the active map reference if it matches
+            if scene_data.get("activeMapId") == file_name:
+                scene_data["activeMapId"] = new_name
+                map_refs_updated = True
+
+            # Save the updated scene if changes were made
+            if map_refs_updated:
+                with open(file=scene_path, mode="w", encoding="utf-8") as f:
+                    json.dump(scene_data, f, indent=2)
+                scenes_updated += 1
+                logger.info(f"Updated map reference in scene: {scene_file}")
+        except (OSError, json.JSONDecodeError) as e:
+            logger.error(f"Error updating scene {scene_file}: {str(e)}")
+
+    return scenes_updated
+
+
+def rename_map_file(old_path: str, new_path: str) -> None:
+    """Rename the map file from old path to new path."""
+    try:
+        os.rename(old_path, new_path)
+    except OSError as e:
+        logger.error(f"Error renaming map file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error renaming map file: {str(e)}") from e
+
+
+def update_map_data_file(old_data_path: str, new_data_path: str, new_name: str) -> None:
+    """Rename and update the map's JSON data file if it exists."""
+    if not os.path.exists(old_data_path):
+        return
+
+    logger.info(f"Renaming data file from {old_data_path} to {new_data_path}")
+    try:
+        os.rename(old_data_path, new_data_path)
+
+        # Update the name inside the JSON file
+        try:
+            with open(file=new_data_path, mode="r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict) and "name" in data:
+                data["name"] = new_name
+                with open(file=new_data_path, mode="w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+        except (OSError, json.JSONDecodeError) as e:
+            logger.error(f"Error updating JSON data file: {str(e)}")
+    except OSError as e:
+        logger.error(f"Error renaming data file: {str(e)}")
 
 
 @router.put("/rename/{file_name}")
@@ -197,129 +297,43 @@ async def rename_map(
 
         logger.info(f"Attempting to rename map '{file_name}' to '{new_name}'")
 
-        # Find the map in the folder structure
-        maps = get_maps_in_structure()
-        map_data = next((m for m in maps if m["name"] == file_name), None)
-
-        if not map_data:
-            logger.error(f"Map '{file_name}' not found in structure")
-            raise HTTPException(status_code=404, detail=f"Map '{file_name}' not found")
-
-        folder_path = (
-            os.path.join(MAPS_DIR, map_data["folder"])
-            if map_data["folder"]
-            else MAPS_DIR
-        )
-        old_path = os.path.join(folder_path, file_name)
+        # Find the map and get its paths
+        map_data = find_map_in_structure(file_name)
+        folder_path, old_path = get_map_paths(file_name, map_data)
         new_path = os.path.join(folder_path, new_name)
-
-        # Check if source file exists
-        if not os.path.exists(old_path):
-            logger.error(f"Source file not found at path: {old_path}")
-            raise HTTPException(
-                status_code=404, detail=f"Source file '{file_name}' not found"
-            )
 
         # Check if destination file already exists
         if os.path.exists(new_path):
             logger.error(f"Destination file already exists: {new_path}")
-            raise HTTPException(
-                status_code=409, detail=f"A file named '{new_name}' already exists"
-            )
+            raise HTTPException(status_code=409, detail=f"A file named '{new_name}' already exists")
 
-        # First, update all scenes that reference this map
-        scenes_updated = 0
-        scenes_folder = os.path.join(os.getcwd(), SCENES_DIR)
+        # Update scenes that reference this map
+        scenes_updated = update_scenes_for_renamed_map(file_name, new_name)
 
-        logger.debug(
-            f"Looking for scenes referencing map '{file_name}' in {scenes_folder}"
-        )
-
-        if os.path.exists(scenes_folder):
-            for scene_file in os.listdir(scenes_folder):
-                if scene_file.endswith(".json"):
-                    scene_path = os.path.join(scenes_folder, scene_file)
-                    try:
-                        with open(file=scene_path, mode="r", encoding="utf-8") as f:
-                            scene_data = json.load(f)
-
-                        # Check if this scene references the map
-                        map_refs_updated = False
-
-                        # Update map references in the maps array
-                        if "maps" in scene_data and isinstance(
-                            scene_data["maps"], list
-                        ):
-                            for i, map_ref in enumerate(scene_data["maps"]):
-                                if (
-                                    isinstance(map_ref, dict)
-                                    and map_ref.get("name") == file_name
-                                ):
-                                    scene_data["maps"][i]["name"] = new_name
-                                    map_refs_updated = True
-
-                        # Update the active map reference if it matches
-                        if scene_data.get("activeMapId") == file_name:
-                            scene_data["activeMapId"] = new_name
-                            map_refs_updated = True
-
-                        # Save the updated scene if changes were made
-                        if map_refs_updated:
-                            with open(file=scene_path, mode="w", encoding="utf-8") as f:
-                                json.dump(scene_data, f, indent=2)
-                            scenes_updated += 1
-                            logger.info(f"Updated map reference in scene: {scene_file}")
-                    except Exception as e:
-                        logger.error(f"Error updating scene {scene_file}: {str(e)}")
-
-        # Now rename the actual map file
+        # Rename the actual map file
         logger.info(f"Renaming file from {old_path} to {new_path}")
-        try:
-            os.rename(old_path, new_path)
-        except Exception as e:
-            logger.error(f"Error renaming map file: {str(e)}")
-            raise HTTPException(
-                status_code=500, detail=f"Error renaming map file: {str(e)}"
-            ) from e
+        rename_map_file(old_path, new_path)
 
-        # Also rename any associated JSON data file if it exists
+        # Update associated JSON data file if it exists
         old_data_path = os.path.join(folder_path, f"{file_name}.json")
         new_data_path = os.path.join(folder_path, f"{new_name}.json")
-        if os.path.exists(old_data_path):
-            logger.info(f"Renaming data file from {old_data_path} to {new_data_path}")
-            try:
-                os.rename(old_data_path, new_data_path)
-                # Update the name inside the JSON file
-                try:
-                    with open(file=new_data_path, mode="r", encoding="utf-8") as f:
-                        data = json.load(f)
-                    if isinstance(data, dict) and "name" in data:
-                        data["name"] = new_name
-                        with open(file=new_data_path, mode="w", encoding="utf-8") as f:
-                            json.dump(data, f, indent=2)
-                except Exception as e:
-                    logger.error(f"Error updating JSON data file: {str(e)}")
-            except Exception as e:
-                logger.error(f"Error renaming data file: {str(e)}")
-                # Continue even if data file rename fails
+        update_map_data_file(old_data_path, new_data_path, new_name)
 
         logger.info(f"Successfully renamed map from '{file_name}' to '{new_name}'")
         return {
             "message": f"Map renamed from '{file_name}' to '{new_name}'",
             "scenes_updated": scenes_updated,
         }
-    except HTTPException:
-        # Re-throw HTTP exceptions as-is
+    except HTTPException as e:
+        logger.exception(f"HTTPException in rename_map: {e}")
         raise
-    except Exception as e:
-        logger.error(f"Error renaming map: {str(e)}")
+    except (OSError, json.JSONDecodeError) as e:
+        logger.exception(f"OSError or JSONDecodeError in rename_map: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/move/{file_name}")
-async def move_map(
-    file_name: str, move_data: dict[str, str] = Body(...)
-) -> dict[str, str]:
+async def move_map(file_name: str, move_data: dict[str, str] = Body(...)) -> dict[str, str]:
     """Move a map file to a different folder."""
     target_folder = move_data.get("folder")
 
@@ -331,12 +345,8 @@ async def move_map(
         raise HTTPException(status_code=404, detail=f"Map '{file_name}' not found")
 
     # Determine source and target paths
-    source_folder = (
-        os.path.join(MAPS_DIR, map_data["folder"]) if map_data["folder"] else MAPS_DIR
-    )
-    target_folder_path = (
-        os.path.join(MAPS_DIR, target_folder) if target_folder else MAPS_DIR
-    )
+    source_folder = os.path.join(MAPS_DIR, map_data["folder"]) if map_data["folder"] else MAPS_DIR
+    target_folder_path = os.path.join(MAPS_DIR, target_folder) if target_folder else MAPS_DIR
 
     source_path = os.path.join(source_folder, file_name)
     target_path = os.path.join(target_folder_path, file_name)
@@ -348,8 +358,28 @@ async def move_map(
         # Move the file
         shutil.move(source_path, target_path)
         return {"message": f"Map '{file_name}' moved successfully"}
-    except Exception as e:
+    except (OSError, shutil.Error) as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+def delete_map_file(file_path: str) -> None:
+    """Delete the map file."""
+    try:
+        os.remove(file_path)
+    except OSError as e:
+        logger.error(f"Error removing map file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error removing map file: {str(e)}") from e
+
+
+def delete_map_data_file(folder_path: str, file_name: str) -> None:
+    """Delete the map's JSON data file if it exists."""
+    data_path = os.path.join(folder_path, f"{file_name}.json")
+    if os.path.exists(data_path):
+        logger.info(f"Deleting map data file: {data_path}")
+        try:
+            os.remove(data_path)
+        except OSError as e:
+            logger.error(f"Error removing map data file: {str(e)}")
 
 
 @router.delete("/file/{file_name}")
@@ -358,55 +388,24 @@ async def delete_map(file_name: str) -> dict[str, str]:
     try:
         logger.info(f"Attempting to delete map '{file_name}'")
 
-        # Find the map in the folder structure
-        maps = get_maps_in_structure()
-        map_data = next((m for m in maps if m["name"] == file_name), None)
+        # Find the map and get its paths
+        map_data = find_map_in_structure(file_name)
+        folder_path, file_path = get_map_paths(file_name, map_data)
 
-        if not map_data:
-            logger.error(f"Map '{file_name}' not found in structure")
-            raise HTTPException(status_code=404, detail=f"Map '{file_name}' not found")
-
-        folder_path = (
-            os.path.join(MAPS_DIR, map_data["folder"])
-            if map_data["folder"]
-            else MAPS_DIR
-        )
-        file_path = os.path.join(folder_path, file_name)
-
-        # Check if the file exists
-        if not os.path.exists(file_path):
-            logger.error(f"Map file not found at path: {file_path}")
-            raise HTTPException(
-                status_code=404, detail=f"Map file '{file_name}' not found"
-            )
-
-        # Remove the file
+        # Delete the map file
         logger.info(f"Deleting map file: {file_path}")
-        try:
-            os.remove(file_path)
-        except Exception as e:
-            logger.error(f"Error removing map file: {str(e)}")
-            raise HTTPException(
-                status_code=500, detail=f"Error removing map file: {str(e)}"
-            ) from e
+        delete_map_file(file_path)
 
-        # Also delete any associated JSON data file if it exists
-        data_path = os.path.join(folder_path, f"{file_name}.json")
-        if os.path.exists(data_path):
-            logger.info(f"Deleting map data file: {data_path}")
-            try:
-                os.remove(data_path)
-            except Exception as e:
-                logger.error(f"Error removing map data file: {str(e)}")
-                # Continue even if data file deletion fails
+        # Delete any associated JSON data file
+        delete_map_data_file(folder_path, file_name)
 
         logger.info(f"Map '{file_name}' deleted successfully")
         return {"message": f"Map '{file_name}' deleted successfully"}
-    except HTTPException:
-        # Re-throw HTTP exceptions as-is
+    except HTTPException as e:
+        logger.exception(f"HTTPException in delete_map: {e}")
         raise
-    except Exception as e:
-        logger.error(f"Error deleting map: {str(e)}")
+    except OSError as e:
+        logger.exception(f"OSError in delete_map: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -415,9 +414,7 @@ async def store_map_data(map_data: MapData) -> dict[str, str]:
     """Store map data including folder information."""
     try:
         # Determine target folder
-        target_dir = (
-            os.path.join(MAPS_DIR, map_data.folder) if map_data.folder else MAPS_DIR
-        )
+        target_dir = os.path.join(MAPS_DIR, map_data.folder) if map_data.folder else MAPS_DIR
         ensure_folder_exists(target_dir)
 
         # Store the map data
@@ -426,7 +423,7 @@ async def store_map_data(map_data: MapData) -> dict[str, str]:
             json.dump(map_data.dict(), f)
 
         return {"message": f"Map '{map_data.name}' stored successfully"}
-    except Exception as e:
+    except (OSError, json.JSONDecodeError) as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -435,11 +432,7 @@ async def load_map_data(map_name: str) -> dict[str, Any]:
     """Load map data for a specified map."""
     try:
         # Find the map in the folder structure
-        maps = get_maps_in_structure()
-        map_data = next((m for m in maps if m["name"] == map_name), None)
-
-        if not map_data:
-            raise HTTPException(status_code=404, detail=f"Map '{map_name}' not found")
+        map_data = find_map_in_structure(map_name)
 
         file_path = (
             os.path.join(MAPS_DIR, map_data["folder"], f"{map_name}.json")
@@ -464,7 +457,9 @@ async def load_map_data(map_name: str) -> dict[str, Any]:
             data: dict[str, Any] = json.load(f)
 
         return data
-    except HTTPException:
+    except HTTPException as e:
+        logger.exception(f"HTTPException in load_map_data: {e}")
         raise
-    except Exception as e:
+    except (OSError, json.JSONDecodeError) as e:
+        logger.exception(f"OSError or JSONDecodeError in load_map_data: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e

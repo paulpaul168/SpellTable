@@ -53,9 +53,7 @@ async def get_audio_file(category: str, filename: str) -> StreamingResponse:
 
         # Check if the file exists
         if not file_path.exists() or not file_path.is_file():
-            raise HTTPException(
-                status_code=404, detail=f"Audio file not found: {filename}"
-            )
+            raise HTTPException(status_code=404, detail=f"Audio file not found: {filename}")
 
         # Add MIME type for mp3 files
         mimetypes.add_type("audio/mpeg", ".mp3")
@@ -86,8 +84,8 @@ async def list_audio_files() -> dict[str, dict[str, list[dict[str, Any]]]]:
     List all available audio files organized by category and type.
     """
     try:
-        print(f"SOUNDS_DIR in list_audio_files: {SOUNDS_DIR}")
-        print(f"SOUNDS_DIR exists: {SOUNDS_DIR.exists()}")
+        logger.debug(f"SOUNDS_DIR in list_audio_files: {SOUNDS_DIR}")
+        logger.debug(f"SOUNDS_DIR exists: {SOUNDS_DIR.exists()}")
 
         audio_files: dict[str, dict[str, list[dict[str, Any]]]] = {
             "loop": {},
@@ -98,7 +96,7 @@ async def list_audio_files() -> dict[str, dict[str, list[dict[str, Any]]]]:
         def scan_directory(
             directory: Path, category: str, current_path: str = ""
         ) -> dict[str, list[dict[str, Any]]]:
-            print(f"Scanning directory: {directory}, exists: {directory.exists()}")
+            logger.debug(f"Scanning directory: {directory}, exists: {directory.exists()}")
             result: dict[str, list[dict[str, Any]]] = {}
 
             try:
@@ -111,10 +109,7 @@ async def list_audio_files() -> dict[str, dict[str, list[dict[str, Any]]]]:
 
                         # Generate a unique ID based on the path
                         file_id = (
-                            rel_path.replace("/", "-")
-                            .replace("\\", "-")
-                            .replace(" ", "_")
-                            .lower()
+                            rel_path.replace("/", "-").replace("\\", "-").replace(" ", "_").lower()
                         )
                         if file_id.endswith(".mp3"):
                             file_id = file_id[:-4]
@@ -144,8 +139,8 @@ async def list_audio_files() -> dict[str, dict[str, list[dict[str, Any]]]]:
                         # Recursively scan subdirectories
                         subdir_result = scan_directory(item, category, rel_path)
                         result.update(subdir_result)
-            except Exception as e:
-                print(f"Error scanning directory {directory}: {str(e)}")
+            except FileNotFoundError:
+                logger.error(f"Directory not found: {directory}")
 
             return result
 
@@ -162,9 +157,9 @@ async def list_audio_files() -> dict[str, dict[str, list[dict[str, Any]]]]:
         if oneshot_dir.exists():
             audio_files["oneshot"] = scan_directory(oneshot_dir, "oneshot")
 
-        print(f"Audio files found: {audio_files}")
+        logger.debug(f"Audio files found: {audio_files}")
         return audio_files
 
     except Exception as e:
-        print(f"Error in list_audio_files: {str(e)}")
+        logger.exception(f"Error in list_audio_files: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e)) from e

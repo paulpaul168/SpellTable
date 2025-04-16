@@ -35,11 +35,10 @@ dev = [
 
 [tool.mypy]
 # Mypy configuration
-python_version = "3.12"
+python_version = "3.13"
 exclude = [".venv", "venv"]
 
 # Use the virtual environment python interpreter
-python_executable = ".venv/bin/python"
 no_site_packages = false
 namespace_packages = true
 
@@ -55,3 +54,18 @@ warn_unused_ignores = true
 warn_return_any = true
 warn_unreachable = true
 strict_equality = true
+
+[tool.pylint.main]
+ignore = [".venv", "venv"]
+ignore-patterns = ["^\\.venv.*$", "^venv.*$"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
