@@ -13,7 +13,7 @@ readme = "README.md"
 authors = [
     {name = "SpellTable Team"}
 ]
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.13,<3.14"
 license = {text = "SpellTable is dual-licensed under the GNU Affero General Public License v3 (AGPL v3) and a commercial license."}
 dependencies = [
     "fastapi==0.115.12",

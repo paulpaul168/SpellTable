@@ -68,7 +68,6 @@ tomlkit==0.13.2
     # via pylint
 typing-extensions==4.13.2
     # via
-    #   anyio
     #   fastapi
     #   mypy
     #   pydantic
