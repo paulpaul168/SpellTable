@@ -29,6 +29,22 @@ export interface SceneImage {
     path: string;
 }
 
+export type AoEShape = 'circle' | 'cone' | 'line' | 'square' | 'cube' | 'cylinder';
+
+export interface AoEMarker {
+    id: string;
+    shape: AoEShape;
+    sizeInFeet: number;
+    color: string;
+    position: {
+        x: number;
+        y: number;
+    };
+    rotation: number;
+    opacity: number;
+    label?: string;
+}
+
 export interface Scene {
     id: string;
     name: string;
@@ -41,4 +57,5 @@ export interface Scene {
     };
     initiativeOrder: InitiativeEntry[];
     showCurrentPlayer: boolean;
+    aoeMarkers?: AoEMarker[];
 } 

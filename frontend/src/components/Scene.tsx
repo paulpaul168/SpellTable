@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react';
-import { Scene as SceneType, MapData } from '../types/map';
+import { Scene as SceneType, MapData, AoEMarker as AoEMarkerType } from '../types/map';
 import { Map } from './Map';
 import { websocketService } from '../services/websocket';
 import { UploadDialog } from './UploadDialog';
@@ -20,7 +20,8 @@ import {
     Grid,
     Eye,
     EyeOff,
-    Music
+    Music,
+    Zap
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -39,6 +40,8 @@ import { SceneManagement } from './SceneManagement';
 import { Soundboard } from './Soundboard';
 import { cn } from '@/lib/utils';
 import { InitiativeIndicator } from './InitiativeIndicator';
+import { AoEMarker } from './AoEMarker';
+import { AoEPalette } from './AoEPalette';
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -95,6 +98,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
         },
         initiativeOrder: initialScene?.initiativeOrder || [],
         showCurrentPlayer: true,
+        aoeMarkers: initialScene?.aoeMarkers || [],
     });
     const [connectionStatus, setConnectionStatus] = useState('connecting');
     const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -111,6 +115,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
     const [isSceneManagementOpen, setIsSceneManagementOpen] = useState(false);
     const [isSoundboardOpen, setIsSoundboardOpen] = useState(false);
     const [isCleanLayout, setIsCleanLayout] = useState(false);
+    const [isAoEPaletteOpen, setIsAoEPaletteOpen] = useState(false);
 
     useEffect(() => {
         websocketService.connect();
@@ -669,6 +674,83 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
         }
     };
 
+    // Handler for adding a new AoE marker
+    const handleAddAoEMarker = (markerData: Omit<AoEMarkerType, 'id' | 'position'>) => {
+        // Calculate center position of the screen for initial placement
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        const newMarker: AoEMarkerType = {
+            ...markerData,
+            id: Date.now().toString(),
+            position: {
+                x: viewportWidth / 2,
+                y: viewportHeight / 2
+            }
+        };
+
+        const updatedScene = {
+            ...scene,
+            aoeMarkers: [...(scene.aoeMarkers || []), newMarker]
+        };
+
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
+        });
+
+        toast({
+            title: "Marker Added",
+            description: `Added ${markerData.shape} marker`,
+            duration: 3000,
+        });
+    };
+
+    // Handler for updating an AoE marker
+    const handleUpdateAoEMarker = (updatedMarker: AoEMarkerType) => {
+        if (!scene.aoeMarkers) return;
+
+        const updatedMarkers = scene.aoeMarkers.map(marker =>
+            marker.id === updatedMarker.id ? updatedMarker : marker
+        );
+
+        const updatedScene = {
+            ...scene,
+            aoeMarkers: updatedMarkers
+        };
+
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
+        });
+    };
+
+    // Handler for deleting an AoE marker
+    const handleDeleteAoEMarker = (markerId: string) => {
+        if (!scene.aoeMarkers) return;
+
+        const updatedMarkers = scene.aoeMarkers.filter(marker => marker.id !== markerId);
+
+        const updatedScene = {
+            ...scene,
+            aoeMarkers: updatedMarkers
+        };
+
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
+        });
+
+        toast({
+            title: "Marker Deleted",
+            description: "AoE marker removed",
+            duration: 3000,
+        });
+    };
+
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
@@ -705,6 +787,19 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                         />
                     ))}
                 </div>
+
+                {/* AoE Markers */}
+                {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
+                    <AoEMarker
+                        key={marker.id}
+                        marker={marker}
+                        gridSize={scene.gridSettings.gridSize}
+                        isActive={true}
+                        isAdmin={isAdmin}
+                        onUpdate={handleUpdateAoEMarker}
+                        onDelete={handleDeleteAoEMarker}
+                    />
+                ))}
 
                 {/* Grid Overlay - Always on top */}
                 {scene.gridSettings.showGrid && (
@@ -959,6 +1054,23 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                                     </DropdownMenuItem>
                                 </div>
                             </div>
+
+                            {/* AoE Markers Section */}
+                            <div className="px-2 py-1">
+                                <div className="flex items-center gap-2 px-2 py-1">
+                                    <Zap className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-xs font-medium text-zinc-300">AoE Markers</span>
+                                </div>
+                                <div className="space-y-1 mt-1">
+                                    <DropdownMenuItem
+                                        className="text-xs cursor-pointer"
+                                        onClick={() => setIsAoEPaletteOpen(!isAoEPaletteOpen)}
+                                    >
+                                        <Zap className="h-4 w-4 mr-2" />
+                                        {isAoEPaletteOpen ? 'Hide AoE Palette' : 'Show AoE Palette'}
+                                    </DropdownMenuItem>
+                                </div>
+                            </div>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -1019,6 +1131,28 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                 isOpen={isSoundboardOpen}
                 onClose={() => setIsSoundboardOpen(false)}
             />
+
+            {/* AoE Palette Component */}
+            <AoEPalette
+                isOpen={isAoEPaletteOpen}
+                onClose={() => setIsAoEPaletteOpen(false)}
+                onAddMarker={handleAddAoEMarker}
+            />
+
+            {/* AoE Palette Toggle Button - Only show when not in clean layout */}
+            {!isViewerMode && !isCleanLayout && (
+                <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 z-40">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
+                        onClick={() => setIsAoEPaletteOpen(!isAoEPaletteOpen)}
+                    >
+                        <Zap className="h-4 w-4" />
+                        {isAoEPaletteOpen ? 'Hide AoE' : 'Show AoE'}
+                    </Button>
+                </div>
+            )}
         </div>
     );
 }; 
