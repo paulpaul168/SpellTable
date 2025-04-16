@@ -5,7 +5,7 @@ This module contains the maps routes for the FastAPI app.
 import json
 import os
 import shutil
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Body, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -187,7 +187,7 @@ async def get_map(path: str) -> FileResponse:
 @router.put("/rename/{file_name}")
 async def rename_map(
     file_name: str, rename_data: dict[str, str] = Body(...)
-) -> dict[str, str]:
+) -> dict[str, Union[str, int]]:
     """Rename a map file and update all scenes that reference it."""
     try:
         new_name = rename_data.get("new_name")
@@ -306,7 +306,7 @@ async def rename_map(
         logger.info(f"Successfully renamed map from '{file_name}' to '{new_name}'")
         return {
             "message": f"Map renamed from '{file_name}' to '{new_name}'",
-            "scenes_updated": str(scenes_updated),
+            "scenes_updated": scenes_updated,
         }
     except HTTPException:
         # Re-throw HTTP exceptions as-is
