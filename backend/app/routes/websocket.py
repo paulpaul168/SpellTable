@@ -1,8 +1,14 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import Dict, Any, Set
+"""
+This module contains the websocket routes for the FastAPI app.
+"""
+
+import asyncio
 import json
 import os
-import asyncio
+from typing import Any, Set
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
 from ..core.constants import SCENES_DIR
 
 router = APIRouter()
@@ -13,7 +19,7 @@ clients: Set[WebSocket] = set()
 clients_lock = asyncio.Lock()
 
 
-async def broadcast_scene_update(scene_data: Dict[str, Any]):
+async def broadcast_scene_update(scene_data: dict[str, Any]) -> None:
     """Broadcast scene update to all connected clients"""
     message = {"type": "scene_update", "scene": scene_data}
     async with clients_lock:
@@ -30,7 +36,10 @@ async def broadcast_scene_update(scene_data: Dict[str, Any]):
 
 
 @router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket) -> None:
+    """
+    WebSocket endpoint for the FastAPI app.
+    """
     try:
         # Accept the WebSocket connection
         await websocket.accept()
@@ -44,7 +53,7 @@ async def websocket_endpoint(websocket: WebSocket):
         try:
             scene_file = os.path.join(SCENES_DIR, "current_scene.json")
             if os.path.exists(scene_file):
-                with open(scene_file, "r") as f:
+                with open(file=scene_file, mode="r", encoding="utf-8") as f:
                     scene_data = json.load(f)
                     await websocket.send_json(
                         {"type": "scene_update", "scene": scene_data}
@@ -63,7 +72,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     scene_data = message.get("scene", {})
                     try:
                         scene_file = os.path.join(SCENES_DIR, "current_scene.json")
-                        with open(scene_file, "w") as f:
+                        with open(file=scene_file, mode="w", encoding="utf-8") as f:
                             json.dump(scene_data, f)
                     except Exception as e:
                         print(f"Error saving scene: {e}")

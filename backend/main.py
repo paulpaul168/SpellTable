@@ -1,6 +1,10 @@
-from app.core.config import create_app
-from app.routes import maps, websocket, scenes, audio
+"""
+This module is the entry point for the FastAPI app.
+"""
+
 import uvicorn
+from app.core.config import create_app
+from app.routes import audio, maps, scenes, websocket
 
 app = create_app()
 
@@ -12,7 +16,10 @@ app.include_router(maps.router, prefix="/maps")
 
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, str]:
+    """
+    Root endpoint for the FastAPI app.
+    """
     return {"message": "Welcome to SpellTable API"}
 
 
