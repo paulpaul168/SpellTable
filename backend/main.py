@@ -46,6 +46,15 @@ async def root() -> dict[str, str]:
     return {"message": "Welcome to SpellTable API"}
 
 
+@app.get("/health")
+async def health_check() -> dict[str, str]:
+    """
+    Health check endpoint for monitoring the application status.
+    """
+    logger.debug("Health check endpoint accessed")
+    return {"status": "ok"}
+
+
 if __name__ == "__main__":
     logger.info("Starting uvicorn server")
     uvicorn.run("main:app", host="0.0.0.0", port=8010, reload=True)
