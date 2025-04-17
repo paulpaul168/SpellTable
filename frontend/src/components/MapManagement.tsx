@@ -66,6 +66,12 @@ interface DroppableFolderProps {
     onUpload: () => void;
 }
 
+// Helper function to truncate text
+const truncateName = (name: string, maxLength: number = 15): string => {
+    if (name.length <= maxLength) return name;
+    return name.substring(0, maxLength - 3) + '...';
+};
+
 const DroppableFolder: React.FC<DroppableFolderProps> = ({
     folder,
     level,
@@ -101,7 +107,7 @@ const DroppableFolder: React.FC<DroppableFolderProps> = ({
                     <ChevronRight className="h-4 w-4" />
                 )}
                 <Folder className="h-4 w-4 text-zinc-400" />
-                <span className="truncate">{folder.name}</span>
+                <span className="truncate" title={folder.name}>{truncateName(folder.name)}</span>
             </div>
             <div className="flex gap-2">
                 <Button
@@ -252,7 +258,7 @@ const SortableMapItem: React.FC<SortableMapItemProps> = ({
                         </div>
                     </form>
                 ) : (
-                    <span className="truncate">{map.name}</span>
+                    <span className="truncate" title={map.name}>{truncateName(map.name)}</span>
                 )}
             </div>
             {!isRenaming && !dragOverlay && (
@@ -388,10 +394,8 @@ export const MapManagement: React.FC<MapManagementProps> = ({
             const folders = data.folders || [];
             console.log('Loaded folders:', folders);
 
-            // Expand all folders by default for testing - use proper typing
-            const allFolderPaths = new Set<string>(folders.map((f: FolderItem) => f.path));
-            console.log("Setting expanded folders:", allFolderPaths);
-            setExpandedFolders(allFolderPaths);
+            // Don't expand folders by default - start with an empty set
+            setExpandedFolders(new Set());
 
             setMapFolders(folders);
         } catch (error) {
