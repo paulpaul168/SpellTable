@@ -8,7 +8,7 @@ from loguru import logger
 
 from app.core.config import create_app
 from app.core.logging import setup_logger
-from app.routes import audio, maps, scenes, websocket
+from app.routes import audio, backup, maps, scenes, websocket
 
 
 def get_application() -> FastAPI:
@@ -28,6 +28,7 @@ def get_application() -> FastAPI:
     local_app.include_router(scenes.router, prefix="/scenes")
     local_app.include_router(audio.router, prefix="/audio")
     local_app.include_router(maps.router, prefix="/maps")
+    local_app.include_router(backup.router, prefix="/backup")
 
     return local_app
 

@@ -13,8 +13,7 @@ from loguru import logger
 
 router = APIRouter()
 
-# Define the path to the sounds directory
-SOUNDS_DIR = Path(__file__).parent.parent.parent.parent / "backend" / "sounds"
+from app.core.constants import SOUNDS_DIR
 
 
 def stream_file(file_path: Path) -> Generator[bytes, None, None]:
