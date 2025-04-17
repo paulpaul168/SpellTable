@@ -42,13 +42,13 @@ async def save_scene(scene: SceneData) -> dict[str, str]:
 
 
 @router.get("/list")
-async def list_scenes() -> dict[str, list[dict[str, str]]]:
+async def list_scenes() -> dict[str, Any]:
     """
     List all scenes.
     """
     try:
-        scenes: list[dict[str, str]] = []
-        folders: list[dict[str, str]] = []
+        scenes: list[dict[str, Any]] = []
+        folders: list[dict[str, Any]] = []
 
         def scan_directory(path: str, parent_path: str = "") -> None:
             for item in os.listdir(path):
