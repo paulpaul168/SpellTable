@@ -22,7 +22,8 @@ import {
     EyeOff,
     Music,
     Zap,
-    X
+    X,
+    Database
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -47,6 +48,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { DisplayCalculator } from './DisplayCalculator';
+import { BackupDialog } from './BackupDialog';
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -123,6 +125,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
     const [isAoEPaletteOpen, setIsAoEPaletteOpen] = useState(false);
     const [isDisplayCalculatorOpen, setIsDisplayCalculatorOpen] = useState(false);
     const [isGridSettingsOpen, setIsGridSettingsOpen] = useState(false);
+    const [isBackupDialogOpen, setIsBackupDialogOpen] = useState(false);
 
     useEffect(() => {
         websocketService.connect();
@@ -1095,6 +1098,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                                 </div>
                             </div>
 
+                            <DropdownMenuSeparator className="bg-zinc-800" />
+
+                            <DropdownMenuItem onClick={() => setIsBackupDialogOpen(true)}>
+                                <Database className="mr-2 h-4 w-4" />
+                                <span>Backup & Restore</span>
+                            </DropdownMenuItem>
 
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -1190,6 +1199,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                 gridSettings={scene.gridSettings}
                 onApplyGridSize={(size) => handleUpdateGridSettings({ gridSize: size })}
                 onUpdateGridSettings={handleUpdateGridSettings}
+            />
+
+            {/* Backup Dialog */}
+            <BackupDialog
+                isOpen={isBackupDialogOpen}
+                onClose={() => setIsBackupDialogOpen(false)}
             />
         </div>
     );
