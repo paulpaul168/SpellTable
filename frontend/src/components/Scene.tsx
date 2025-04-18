@@ -53,6 +53,7 @@ import { BackupDialog } from './BackupDialog';
 interface SceneProps {
     initialScene?: SceneType;
     isAdmin?: boolean;
+    initialDisplayScale?: number;
 }
 
 interface SceneOperationStatusDialogProps {
@@ -92,7 +93,7 @@ const SceneOperationStatusDialog: React.FC<SceneOperationStatusDialogProps> = ({
     );
 };
 
-export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) => {
+export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, initialDisplayScale = 1.0 }) => {
     const { toast } = useToast();
     const [scene, setScene] = useState<SceneType>({
         id: initialScene?.id || 'default',
@@ -126,6 +127,23 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
     const [isDisplayCalculatorOpen, setIsDisplayCalculatorOpen] = useState(false);
     const [isGridSettingsOpen, setIsGridSettingsOpen] = useState(false);
     const [isBackupDialogOpen, setIsBackupDialogOpen] = useState(false);
+
+    // Try to load saved display scale from localStorage, fallback to initialDisplayScale
+    const savedScale = isAdmin && typeof window !== 'undefined' ? parseFloat(localStorage.getItem('displayScale') || '') : null;
+    const [displayScale, setDisplayScale] = useState(savedScale || initialDisplayScale);
+
+    // Save display scale to localStorage when it changes
+    useEffect(() => {
+        if (isAdmin && typeof window !== 'undefined') {
+            localStorage.setItem('displayScale', displayScale.toString());
+
+            // Also send the current display scale to all connected clients
+            websocketService.send({
+                type: 'display_scale_update',
+                scale: displayScale
+            });
+        }
+    }, [displayScale, isAdmin]);
 
     useEffect(() => {
         websocketService.connect();
@@ -173,6 +191,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                 });
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
+            } else if (data.type === 'display_scale_update' && !isAdmin) {
+                // Only non-admin (viewer) should respond to scale updates
+                console.log('Received display scale update:', data.scale);
             }
         });
 
@@ -776,6 +797,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
         });
     };
 
+    // Add function to update display scale
+    const handleUpdateDisplayScale = (newScale: number) => {
+        const clampedScale = Math.max(0.25, Math.min(2, newScale));
+        setDisplayScale(clampedScale);
+    };
+
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
@@ -800,7 +827,10 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                     </div>
                 )}
                 {/* Maps Container */}
-                <div className="absolute inset-0">
+                <div className="absolute inset-0" style={{
+                    transform: `scale(${displayScale})`,
+                    transformOrigin: 'top left'
+                }}>
                     {scene.maps.map((map, index) => (
                         <Map
                             key={map.name}
@@ -809,22 +839,31 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                             onUpdate={handleMapUpdate}
                             isViewerMode={isViewerMode}
                             zIndex={index}
+                            scale={displayScale}
+                            gridSettings={scene.gridSettings}
                         />
                     ))}
                 </div>
 
                 {/* AoE Markers */}
-                {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
-                    <AoEMarker
-                        key={marker.id}
-                        marker={marker}
-                        gridSize={scene.gridSettings.gridSize}
-                        isActive={true}
-                        isAdmin={isAdmin}
-                        onUpdate={handleUpdateAoEMarker}
-                        onDelete={handleDeleteAoEMarker}
-                    />
-                ))}
+                <div style={{
+                    transform: `scale(${displayScale})`,
+                    transformOrigin: 'top left'
+                }}>
+                    {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
+                        <AoEMarker
+                            key={marker.id}
+                            marker={marker}
+                            gridSize={scene.gridSettings.gridSize}
+                            isActive={true}
+                            isAdmin={isAdmin}
+                            onUpdate={handleUpdateAoEMarker}
+                            onDelete={handleDeleteAoEMarker}
+                            scale={displayScale}
+                            gridSettings={scene.gridSettings}
+                        />
+                    ))}
+                </div>
 
                 {/* Grid Overlay - Always on top */}
                 {scene.gridSettings.showGrid && (
@@ -835,11 +874,22 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                                 linear-gradient(to right, ${scene.gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)'} 1px, transparent 1px),
                                 linear-gradient(to bottom, ${scene.gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)'} 1px, transparent 1px)
                             `,
-                            backgroundSize: `${scene.gridSettings.gridSize}px ${scene.gridSettings.gridSize}px`,
+                            backgroundSize: scene.gridSettings.useFixedGrid
+                                ? `calc(100% / ${scene.gridSettings.gridCellsX || 25}) calc(100% / ${scene.gridSettings.gridCellsY || 13})`
+                                : `${scene.gridSettings.gridSize * displayScale}px ${scene.gridSettings.gridSize * displayScale}px`,
                             opacity: scene.gridSettings.gridOpacity || 0.5,
-                            zIndex: 999
+                            zIndex: 90,
                         }}
                     />
+                )}
+
+                {/* Display Scale Indicator */}
+                {isAdmin && displayScale !== 1.0 && (
+                    <div className="absolute bottom-4 right-16 px-2 py-1 bg-zinc-900/80 backdrop-blur-sm rounded text-xs text-zinc-400 z-50">
+                        <div className="flex items-center gap-2">
+                            <span>{Math.round(displayScale * 100)}%</span>
+                        </div>
+                    </div>
                 )}
             </div>
 
@@ -961,6 +1011,61 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false }) =
                                                 <span className="text-xs text-zinc-600 capitalize">{connectionStatus}</span>
                                             </>
                                         )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <DropdownMenuSeparator className="bg-zinc-800" />
+
+                            {/* Display Scaling */}
+                            <div className="px-2 py-1">
+                                <div className="flex items-center gap-2 px-2 py-1">
+                                    <Settings className="h-4 w-4 text-zinc-400" />
+                                    <span className="text-xs font-medium text-zinc-300">Display Scaling</span>
+                                </div>
+                                <div className="mt-2 px-2">
+                                    <div className="flex items-center justify-between">
+                                        <button
+                                            className="text-xs bg-zinc-800 px-2 py-1 rounded"
+                                            onClick={() => handleUpdateDisplayScale(displayScale - 0.1)}
+                                        >
+                                            -
+                                        </button>
+                                        <span className="text-xs text-zinc-300">{Math.round(displayScale * 100)}%</span>
+                                        <button
+                                            className="text-xs bg-zinc-800 px-2 py-1 rounded"
+                                            onClick={() => handleUpdateDisplayScale(displayScale + 0.1)}
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                    {/* Common scaling presets */}
+                                    <div className="flex mt-2 gap-1">
+                                        <button
+                                            className="text-[10px] bg-zinc-800 px-1 py-0.5 rounded flex-1"
+                                            onClick={() => handleUpdateDisplayScale(0.5)}
+                                        >
+                                            50%
+                                        </button>
+                                        <button
+                                            className="text-[10px] bg-zinc-800 px-1 py-0.5 rounded flex-1"
+                                            onClick={() => handleUpdateDisplayScale(0.56)}
+                                            title="2K to 4K ratio (2560:1440 to 3840:2160)"
+                                        >
+                                            56%
+                                        </button>
+                                        <button
+                                            className="text-[10px] bg-zinc-800 px-1 py-0.5 rounded flex-1"
+                                            onClick={() => handleUpdateDisplayScale(0.75)}
+                                        >
+                                            75%
+                                        </button>
+                                        <button
+                                            className="text-[10px] bg-zinc-800 px-1 py-0.5 rounded flex-1"
+                                            onClick={() => handleUpdateDisplayScale(1)}
+                                        >
+                                            100%
+                                        </button>
                                     </div>
                                 </div>
                             </div>

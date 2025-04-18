@@ -16,6 +16,9 @@ interface DisplayCalculatorProps {
         gridSize: number;
         gridColor?: string;
         gridOpacity?: number;
+        gridCellsX?: number;
+        gridCellsY?: number;
+        useFixedGrid?: boolean;
     };
     onUpdateGridSettings?: (settings: any) => void;
 }
@@ -44,8 +47,13 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
     const [gridColor, setGridColor] = useState(gridSettings?.gridColor || 'rgba(255, 255, 255, 0.1)');
     const [gridOpacity, setGridOpacity] = useState(gridSettings?.gridOpacity || 0.5);
 
+    // Grid layout state
+    const [useFixedGrid, setUseFixedGrid] = useState(gridSettings?.useFixedGrid || false);
+    const [gridCellsX, setGridCellsX] = useState(gridSettings?.gridCellsX || 25);
+    const [gridCellsY, setGridCellsY] = useState(gridSettings?.gridCellsY || 13);
+
     // Active tab state
-    const [activeTab, setActiveTab] = useState("calculator");
+    const [activeTab, setActiveTab] = useState("settings");
 
     // Recalculate when the props change
     useEffect(() => {
@@ -54,8 +62,28 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
             setShowGrid(gridSettings.showGrid);
             setGridColor(gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)');
             setGridOpacity(gridSettings.gridOpacity || 0.5);
+            setUseFixedGrid(gridSettings.useFixedGrid || false);
+            setGridCellsX(gridSettings.gridCellsX || 25);
+            setGridCellsY(gridSettings.gridCellsY || 13);
         }
     }, [currentGridSize, gridSettings]);
+
+    // Calculation for optimal grid size based on viewport
+    useEffect(() => {
+        if (isOpen && useFixedGrid) {
+            // Calculate the best grid size to fit the specified grid cells
+            const optimalGridSizeX = Math.floor(window.innerWidth / gridCellsX);
+            const optimalGridSizeY = Math.floor(window.innerHeight / gridCellsY);
+
+            // Use the smaller value to ensure grid fits in viewport
+            const optimalSize = Math.min(optimalGridSizeX, optimalGridSizeY);
+
+            // Update the grid size if different from current
+            if (optimalSize !== gridSize && optimalSize > 0) {
+                setGridSize(optimalSize);
+            }
+        }
+    }, [isOpen, useFixedGrid, gridCellsX, gridCellsY]);
 
     // Calculations for display metrics
     const diagonalPixels = Math.sqrt(
@@ -73,16 +101,43 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
     const gridsPerFootY = 12 / gridPhysicalSize;
 
     // Calculate total grid cells on screen
-    const gridCellsX = Math.floor(RESOLUTIONS[resolution].width / gridSize);
-    const gridCellsY = Math.floor(RESOLUTIONS[resolution].height / gridSize);
-    const totalGridCells = gridCellsX * gridCellsY;
+    const totalGridCellsX = useFixedGrid ? gridCellsX : Math.floor(RESOLUTIONS[resolution].width / gridSize);
+    const totalGridCellsY = useFixedGrid ? gridCellsY : Math.floor(RESOLUTIONS[resolution].height / gridSize);
+    const totalGridCells = totalGridCellsX * totalGridCellsY;
 
     // Calculate physical map size
-    const mapWidthFeet = gridCellsX / gridsPerFootX;
-    const mapHeightFeet = gridCellsY / gridsPerFootY;
+    const mapWidthFeet = totalGridCellsX / gridsPerFootX;
+    const mapHeightFeet = totalGridCellsY / gridsPerFootY;
+
+    // Calculate grid size based on fixed grid if enabled
+    const calculatedGridSize = useFixedGrid
+        ? Math.floor(Math.min(
+            window.innerWidth / gridCellsX,
+            window.innerHeight / gridCellsY
+        ))
+        : gridSize;
+
+    // Add a new function to help users set up common display resolutions
+    const applyViewportOptimizedGrid = (width: number, height: number) => {
+        // Set to fixed grid mode
+        setUseFixedGrid(true);
+
+        // Set cells based on the given dimensions
+        setGridCellsX(width);
+        setGridCellsY(height);
+
+        // Calculate optimal grid size
+        const optimalGridSizeX = Math.floor(window.innerWidth / width);
+        const optimalGridSizeY = Math.floor(window.innerHeight / height);
+        const optimal = Math.min(optimalGridSizeX, optimalGridSizeY);
+
+        if (optimal > 0) {
+            setGridSize(optimal);
+        }
+    };
 
     const handleApplyCalculator = () => {
-        onApplyGridSize(gridSize);
+        onApplyGridSize(useFixedGrid ? calculatedGridSize : gridSize);
         onClose();
     };
 
@@ -90,9 +145,12 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
         if (onUpdateGridSettings) {
             onUpdateGridSettings({
                 showGrid,
-                gridSize,
+                gridSize: useFixedGrid ? calculatedGridSize : gridSize,
                 gridColor,
-                gridOpacity
+                gridOpacity,
+                useFixedGrid,
+                gridCellsX,
+                gridCellsY
             });
         }
         onClose();
@@ -102,12 +160,15 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
         if (onUpdateGridSettings) {
             onUpdateGridSettings({
                 showGrid,
-                gridSize,
+                gridSize: useFixedGrid ? calculatedGridSize : gridSize,
                 gridColor,
-                gridOpacity
+                gridOpacity,
+                useFixedGrid,
+                gridCellsX,
+                gridCellsY
             });
         } else {
-            onApplyGridSize(gridSize);
+            onApplyGridSize(useFixedGrid ? calculatedGridSize : gridSize);
         }
         onClose();
     };
@@ -123,8 +184,9 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 </DialogHeader>
 
                 <Tabs defaultValue="settings" value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid grid-cols-2 mb-4">
+                    <TabsList className="grid grid-cols-3 mb-4">
                         <TabsTrigger value="settings">Grid Settings</TabsTrigger>
+                        <TabsTrigger value="layout">Grid Layout</TabsTrigger>
                         <TabsTrigger value="calculator">Display Calculator</TabsTrigger>
                     </TabsList>
 
@@ -143,31 +205,33 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="grid-size" className="text-sm">Grid Size (pixels)</Label>
-                            <div className="flex items-center gap-2">
-                                <input
-                                    id="grid-size-slider"
-                                    type="range"
-                                    min="10"
-                                    max="100"
-                                    step="5"
-                                    value={gridSize}
-                                    onChange={(e) => setGridSize(Number(e.target.value))}
-                                    className="w-full"
-                                />
-                                <Input
-                                    id="grid-size"
-                                    type="number"
-                                    min="10"
-                                    max="100"
-                                    step="5"
-                                    value={gridSize}
-                                    onChange={(e) => setGridSize(Number(e.target.value))}
-                                    className="w-16 text-center"
-                                />
+                        {!useFixedGrid && (
+                            <div className="space-y-2">
+                                <Label htmlFor="grid-size" className="text-sm">Grid Size (pixels)</Label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        id="grid-size-slider"
+                                        type="range"
+                                        min="10"
+                                        max="100"
+                                        step="5"
+                                        value={gridSize}
+                                        onChange={(e) => setGridSize(Number(e.target.value))}
+                                        className="w-full"
+                                    />
+                                    <Input
+                                        id="grid-size"
+                                        type="number"
+                                        min="10"
+                                        max="100"
+                                        step="5"
+                                        value={gridSize}
+                                        onChange={(e) => setGridSize(Number(e.target.value))}
+                                        className="w-16 text-center"
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         <div className="space-y-2">
                             <Label htmlFor="grid-color" className="text-sm">Grid Color</Label>
@@ -229,8 +293,149 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                                 />
                                 <span className="text-xs text-zinc-400">Grid Preview</span>
                             </div>
-                            <p className="text-xs text-zinc-500">Grid size: {gridSize}px — Opacity: {Math.round(gridOpacity * 100)}%</p>
+                            <p className="text-xs text-zinc-500">
+                                {useFixedGrid
+                                    ? `Fixed grid: ${gridCellsX}×${gridCellsY} cells`
+                                    : `Grid size: ${gridSize}px`} — Opacity: {Math.round(gridOpacity * 100)}%
+                            </p>
                         </div>
+                    </TabsContent>
+
+                    <TabsContent value="layout" className="space-y-4">
+                        <div className="space-y-2 mt-4">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="fixed-grid-toggle" className="text-sm text-foreground">
+                                    Use Fixed Grid Layout
+                                </Label>
+                                <div className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        id="fixed-grid-toggle"
+                                        checked={useFixedGrid}
+                                        onChange={() => setUseFixedGrid(!useFixedGrid)}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </div>
+                            </div>
+
+                            {useFixedGrid && (
+                                <>
+                                    <div className="flex gap-4 mt-2">
+                                        <div className="space-y-2 flex-1">
+                                            <Label htmlFor="grid-cells-x" className="text-sm">Grid Width (cells)</Label>
+                                            <Input
+                                                id="grid-cells-x"
+                                                type="number"
+                                                min="5"
+                                                max="100"
+                                                value={gridCellsX}
+                                                onChange={(e) => setGridCellsX(Number(e.target.value))}
+                                            />
+                                        </div>
+                                        <div className="space-y-2 flex-1">
+                                            <Label htmlFor="grid-cells-y" className="text-sm">Grid Height (cells)</Label>
+                                            <Input
+                                                id="grid-cells-y"
+                                                type="number"
+                                                min="5"
+                                                max="100"
+                                                value={gridCellsY}
+                                                onChange={(e) => setGridCellsY(Number(e.target.value))}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-2">
+                                        <div className="p-2 bg-zinc-900 border border-zinc-800 rounded text-xs">
+                                            <p>When using fixed grid:</p>
+                                            <ul className="list-disc pl-4 mt-1 space-y-1">
+                                                <li>Grid will always contain exactly {gridCellsX}×{gridCellsY} cells</li>
+                                                <li>Calculated grid size: {calculatedGridSize}px per cell</li>
+                                                <li>All AoE markers will align to this grid</li>
+                                            </ul>
+
+                                            <div className="flex gap-2 mt-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    className="text-xs flex-1"
+                                                    onClick={() => {
+                                                        setGridCellsX(18);
+                                                        setGridCellsY(32);
+                                                    }}
+                                                >
+                                                    18×32
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    className="text-xs flex-1"
+                                                    onClick={() => {
+                                                        setGridCellsX(20);
+                                                        setGridCellsY(30);
+                                                    }}
+                                                >
+                                                    20×30
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    className="text-xs flex-1"
+                                                    onClick={() => {
+                                                        setGridCellsX(24);
+                                                        setGridCellsY(42);
+                                                    }}
+                                                >
+                                                    24×42
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {!useFixedGrid && (
+                            <div className="mt-4 p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg">
+                                <h3 className="text-sm font-medium text-zinc-300 mb-2">Viewport-Relative Scaling</h3>
+                                <p className="text-xs text-zinc-400 mb-3">
+                                    These presets will create a grid that scales consistently across different display sizes.
+                                    Maps and AoE markers will align properly between admin and player views.
+                                </p>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => applyViewportOptimizedGrid(18, 32)}
+                                    >
+                                        18×32 Grid
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => applyViewportOptimizedGrid(20, 30)}
+                                    >
+                                        20×30 Grid
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => applyViewportOptimizedGrid(24, 42)}
+                                    >
+                                        24×42 Grid
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => applyViewportOptimizedGrid(25, 13)}
+                                    >
+                                        25×13 Grid (Wide)
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
                     </TabsContent>
 
                     <TabsContent value="calculator" className="space-y-4">
@@ -348,7 +553,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                                 <div className="text-xs text-zinc-200">{ppi.toFixed(1)}</div>
 
                                 <div className="text-xs text-zinc-400">Grid Size in Pixels:</div>
-                                <div className="text-xs text-zinc-200">{gridSize}px</div>
+                                <div className="text-xs text-zinc-200">{useFixedGrid ? calculatedGridSize : gridSize}px</div>
 
                                 <div className="text-xs text-zinc-400">Physical Grid Size:</div>
                                 <div className="text-xs text-zinc-200">{gridPhysicalSize.toFixed(2)} inches</div>
@@ -357,7 +562,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                                 <div className="text-xs text-zinc-200">{gridsPerFootX.toFixed(1)}</div>
 
                                 <div className="text-xs text-zinc-400">Grid Cells on Screen:</div>
-                                <div className="text-xs text-zinc-200">{gridCellsX} × {gridCellsY} = {totalGridCells} cells</div>
+                                <div className="text-xs text-zinc-200">{totalGridCellsX} × {totalGridCellsY} = {totalGridCells} cells</div>
 
                                 <div className="text-xs text-zinc-400">Map Size in Feet:</div>
                                 <div className="text-xs text-zinc-200">{mapWidthFeet.toFixed(1)}' × {mapHeightFeet.toFixed(1)}' (approx.)</div>

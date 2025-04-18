@@ -8,6 +8,14 @@ interface MapProps {
     onUpdate: (updatedMap: MapData) => void;
     isViewerMode: boolean;
     zIndex: number;
+    scale?: number; // Add scale prop to adjust for parent container scaling
+    gridSettings?: {
+        showGrid: boolean;
+        gridSize: number;
+        useFixedGrid?: boolean;
+        gridCellsX?: number;
+        gridCellsY?: number;
+    };
 }
 
 // Update image source URL to include folder path if available
@@ -35,214 +43,181 @@ const getMapImageUrl = (map: MapData) => {
     return url;
 };
 
-export const Map: React.FC<MapProps> = ({ map, isActive, onUpdate, isViewerMode, zIndex }) => {
+export const Map: React.FC<MapProps> = ({
+    map,
+    isActive,
+    onUpdate,
+    isViewerMode,
+    zIndex,
+    scale = 1,
+    gridSettings
+}) => {
+    const [position, setPosition] = useState(map.data.position);
     const [isDragging, setIsDragging] = useState(false);
-    const [currentPos, setCurrentPos] = useState(map.data.position);
-    const [imageLoaded, setImageLoaded] = useState(false);
-
+    const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+    const [rotation, setRotation] = useState(map.data.rotation || 0);
+    const [mapScale, setMapScale] = useState(map.data.scale);
     const lastUpdateRef = useRef<number>(0);
-    const pendingUpdateRef = useRef<MapData | null>(null);
-    const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-    const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+    const dragRef = useRef<HTMLDivElement>(null);
+    const imageRef = useRef<HTMLImageElement>(null);
 
-    const throttledUpdate = useCallback((newMap: MapData) => {
-        const now = performance.now();
-        if (now - lastUpdateRef.current >= 32) { // 30fps
-            onUpdate(newMap);
-            lastUpdateRef.current = now;
-            pendingUpdateRef.current = null;
-        } else {
-            pendingUpdateRef.current = newMap;
+    // Determine if using fixed grid and get grid properties
+    const useFixedGrid = gridSettings?.useFixedGrid || false;
+    const gridCellsX = gridSettings?.gridCellsX || 25;
+    const gridCellsY = gridSettings?.gridCellsY || 13;
+
+    // Calculate relative position based on viewport for fixed grid
+    const getRelativePosition = useCallback(() => {
+        if (useFixedGrid) {
+            // For fixed grid, we want to adjust positioning to be relative to viewport cells
+            const cellWidth = window.innerWidth / gridCellsX;
+            const cellHeight = window.innerHeight / gridCellsY;
+
+            return {
+                x: position.x * cellWidth / gridSettings!.gridSize,
+                y: position.y * cellHeight / gridSettings!.gridSize
+            };
         }
-    }, [onUpdate]);
+        return position;
+    }, [position, useFixedGrid, gridCellsX, gridCellsY, gridSettings]);
 
-    useEffect(() => {
-        setCurrentPos(map.data.position);
-    }, [map.data.position, map.data.rotation, zIndex]);
-
-    // Track mouse position globally
-    useEffect(() => {
-        const handleGlobalMouseMove = (e: MouseEvent) => {
-            if (isDragging) {
-                mousePositionRef.current = { x: e.clientX, y: e.clientY };
-                const newPosition = {
-                    x: e.clientX - dragOffsetRef.current.x,
-                    y: e.clientY - dragOffsetRef.current.y
-                };
-                setCurrentPos(newPosition);
-                throttledUpdate({
-                    ...map,
-                    data: {
-                        ...map.data,
-                        position: newPosition
-                    }
-                });
-            }
-        };
-
-        if (isDragging) {
-            window.addEventListener('mousemove', handleGlobalMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
-        }
-
-        return () => {
-            window.removeEventListener('mousemove', handleGlobalMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
-        };
-    }, [isDragging, map, throttledUpdate]);
-
-    // Process any pending updates
-    useEffect(() => {
-        if (!pendingUpdateRef.current) return;
-
-        const processPendingUpdate = () => {
-            if (pendingUpdateRef.current) {
-                throttledUpdate(pendingUpdateRef.current);
-            }
-        };
-
-        const interval = setInterval(processPendingUpdate, 32); // 30fps
-        return () => clearInterval(interval);
-    }, [throttledUpdate]);
-
-    const handleMouseDown = (e: React.MouseEvent) => {
-        if (!isActive || isViewerMode) return;
-        e.preventDefault();
-        setIsDragging(true);
-
-        // Calculate the offset between mouse and image position
-        dragOffsetRef.current = {
-            x: e.clientX - currentPos.x,
-            y: e.clientY - currentPos.y
-        };
+    // Use existing positions if not null/undefined, otherwise use default values
+    const currentPosition = {
+        x: position?.x ?? 0,
+        y: position?.y ?? 0
     };
 
-    const handleMouseUp = () => {
-        if (isDragging) {
-            // Send final position update when dragging ends
-            onUpdate({
+    // Create a throttled update function to reduce number of updates
+    const throttledUpdate = useCallback((updateData: Partial<MapData['data']>) => {
+        const now = Date.now();
+        if (now - lastUpdateRef.current > 50) {  // Throttle to 20 updates per second
+            const updatedMap = {
                 ...map,
                 data: {
                     ...map.data,
-                    position: currentPos
+                    ...updateData
                 }
-            });
-            pendingUpdateRef.current = null;
+            };
+            onUpdate(updatedMap);
+            lastUpdateRef.current = now;
         }
-        setIsDragging(false);
+    }, [map, onUpdate]);
+
+    // Update local state when props change
+    useEffect(() => {
+        if (map.data.position) setPosition(map.data.position);
+        if (map.data.rotation !== undefined) setRotation(map.data.rotation);
+        if (map.data.scale !== undefined) setMapScale(map.data.scale);
+    }, [map.data.position, map.data.rotation, map.data.scale]);
+
+    // Handle mouse movement for dragging
+    const handleMouseMove = useCallback((e: MouseEvent) => {
+        if (isDragging) {
+            e.preventDefault();
+
+            // Calculate new position, accounting for scaling
+            const deltaX = e.movementX / scale;
+            const deltaY = e.movementY / scale;
+
+            const newPosition = {
+                x: currentPosition.x + deltaX,
+                y: currentPosition.y + deltaY
+            };
+
+            setPosition(newPosition);
+
+            // Update the map with new position
+            throttledUpdate({ position: newPosition });
+        }
+    }, [isDragging, currentPosition, throttledUpdate, scale]);
+
+    // End dragging on mouse up
+    const handleMouseUp = useCallback(() => {
+        if (isDragging) {
+            setIsDragging(false);
+            document.body.style.cursor = 'default';
+        }
+    }, [isDragging]);
+
+    // Add and remove event listeners
+    useEffect(() => {
+        if (isDragging) {
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = 'grabbing';
+        }
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isDragging, handleMouseMove, handleMouseUp]);
+
+    // Start dragging on mouse down
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (!isActive || isViewerMode) return;
+
+        e.preventDefault();
+        setIsDragging(true);
+        setStartPos({ x: e.clientX, y: e.clientY });
     };
 
+    // Handle wheel events for scaling and rotation
     const handleWheel = (e: React.WheelEvent) => {
         if (!isActive || isViewerMode) return;
+
         e.preventDefault();
 
-        // Calculate the new scale
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
-        const newScale = Math.max(0.1, Math.min(5, map.data.scale + delta));
-
-        // Update only the scale
-        onUpdate({
-            ...map,
-            data: {
-                ...map.data,
-                scale: newScale
-            }
-        });
+        // Hold shift to rotate, otherwise scale
+        if (e.shiftKey) {
+            const delta = e.deltaY > 0 ? -5 : 5;
+            const newRotation = (rotation + delta) % 360;
+            setRotation(newRotation);
+            throttledUpdate({ rotation: newRotation });
+        } else {
+            const delta = e.deltaY > 0 ? -0.05 : 0.05;
+            const newScale = Math.max(0.1, mapScale + delta);
+            setMapScale(newScale);
+            throttledUpdate({ scale: newScale });
+        }
     };
 
+    // Get the map's URL
+    const getMapUrl = () => {
+        // Handle folder structure if present
+        const folderPrefix = map.folder ? `/${map.folder.replace(/^\//, '')}` : '';
+        return `http://localhost:8010/maps/file/${folderPrefix}/${encodeURIComponent(map.name)}`;
+    };
+
+    // Only show the map if it's not hidden
     if (map.data.isHidden) {
-        if (isViewerMode) return null;
-        return (
-            <div
-                className="absolute select-none"
-                style={{
-                    position: 'absolute',
-                    left: `${currentPos.x}px`,
-                    top: `${currentPos.y}px`,
-                    transform: `scale(${map.data.scale}) rotate(${map.data.rotation}deg)`,
-                    opacity: 0.5,
-                    transformOrigin: 'center',
-                    pointerEvents: isViewerMode ? 'none' : 'auto'
-                }}
-                onMouseDown={handleMouseDown}
-                onWheel={handleWheel}
-            >
-                <div className="relative w-full h-full">
-                    <img
-                        src={getMapImageUrl(map)}
-                        alt={map.name}
-                        className="block max-w-none"
-                        style={{
-                            display: 'block',
-                            width: 'auto',
-                            height: 'auto',
-                            maxWidth: 'none',
-                            maxHeight: 'none',
-                            objectFit: 'contain',
-                            userSelect: 'none',
-                            WebkitUserSelect: 'none',
-                            MozUserSelect: 'none',
-                            msUserSelect: 'none'
-                        }}
-                        onLoad={() => setImageLoaded(true)}
-                        draggable={false}
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="absolute inset-0 bg-zinc-900/30" />
-                        <div className="absolute inset-0" style={{
-                            backgroundImage: `repeating-linear-gradient(45deg, rgba(255,255,255,0.1) 0px, rgba(255,255,255,0.1) 2px, transparent 2px, transparent 4px)`,
-                        }} />
-                        <EyeOff className="h-12 w-12 text-zinc-400 relative z-10" />
-                    </div>
-                </div>
-            </div>
-        );
+        return null;
     }
 
     return (
         <div
-            className={`absolute select-none ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+            ref={dragRef}
+            className="absolute select-none"
             style={{
                 position: 'absolute',
-                left: `${currentPos.x}px`,
-                top: `${currentPos.y}px`,
-                transform: `scale(${map.data.scale}) rotate(${map.data.rotation}deg)`,
+                left: `${currentPosition.x}px`,
+                top: `${currentPosition.y}px`,
+                transform: `rotate(${rotation}deg) scale(${mapScale})`,
+                transformOrigin: 'center center',
                 cursor: isActive && !isViewerMode ? (isDragging ? 'grabbing' : 'grab') : 'default',
-                opacity: isViewerMode ? 1 : 1,
-                transformOrigin: 'center',
-                touchAction: 'none',
-                willChange: 'transform',
-                userSelect: 'none',
-                WebkitUserSelect: 'none',
-                MozUserSelect: 'none',
-                msUserSelect: 'none',
-                pointerEvents: isActive ? 'auto' : 'none',
-                zIndex: zIndex
+                zIndex: isActive ? zIndex + 100 : zIndex,
             }}
             onMouseDown={handleMouseDown}
             onWheel={handleWheel}
         >
-            <div className="relative w-full h-full">
-                <img
-                    src={getMapImageUrl(map)}
-                    alt={map.name}
-                    className="block max-w-none"
-                    style={{
-                        display: 'block',
-                        width: 'auto',
-                        height: 'auto',
-                        maxWidth: 'none',
-                        maxHeight: 'none',
-                        objectFit: 'contain',
-                        userSelect: 'none',
-                        WebkitUserSelect: 'none',
-                        MozUserSelect: 'none',
-                        msUserSelect: 'none'
-                    }}
-                    onLoad={() => setImageLoaded(true)}
-                    draggable={false}
-                />
-            </div>
+            <img
+                ref={imageRef}
+                src={getMapUrl()}
+                alt={map.name}
+                className="max-w-none pointer-events-none"
+                style={{ display: 'block' }}
+                onDragStart={e => e.preventDefault()}
+            />
         </div>
     );
 }; 

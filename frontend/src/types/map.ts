@@ -56,6 +56,9 @@ export interface Scene {
         gridSize: number;
         gridColor?: string;
         gridOpacity?: number;
+        useFixedGrid?: boolean;
+        gridCellsX?: number;
+        gridCellsY?: number;
     };
     initiativeOrder: InitiativeEntry[];
     showCurrentPlayer: boolean;

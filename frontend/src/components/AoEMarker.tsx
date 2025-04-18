@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { AoEMarker as AoEMarkerType } from '../types/map';
-import { RotateCw, RotateCcw } from 'lucide-react';
 
 interface AoEMarkerProps {
     marker: AoEMarkerType;
@@ -9,6 +8,13 @@ interface AoEMarkerProps {
     isAdmin: boolean;
     onUpdate: (updatedMarker: AoEMarkerType) => void;
     onDelete: (markerId: string) => void;
+    scale?: number;
+    gridSettings?: {
+        useFixedGrid?: boolean;
+        gridCellsX?: number;
+        gridCellsY?: number;
+        gridSize: number;
+    };
 }
 
 export const AoEMarker: React.FC<AoEMarkerProps> = ({
@@ -18,6 +24,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     isAdmin,
     onUpdate,
     onDelete,
+    scale = 1,
+    gridSettings
 }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [currentPos, setCurrentPos] = useState(marker.position);
@@ -32,8 +40,24 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const isDraggingRef = useRef(false);
     const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Convert size in feet to pixels based on grid size
-    const sizeInPixels = (marker.sizeInFeet * gridSize) / 5; // Assuming 5ft per grid cell
+    // Determine if using fixed grid and get necessary values
+    const useFixedGrid = gridSettings?.useFixedGrid || false;
+    const gridCellsX = gridSettings?.gridCellsX || 25;
+    const gridCellsY = gridSettings?.gridCellsY || 13;
+
+    // Calculate effective grid size based on settings
+    const effectiveGridSize = useFixedGrid
+        ? (window.innerWidth / gridCellsX) // For fixed grid, calculate cell size based on viewport
+        : gridSize;
+
+    // Use grid size directly for sizing, so a 5ft AoE takes up one grid cell
+    // This calculation ensures 5ft = 1 grid square
+    const sizeInPixels = marker.sizeInFeet * effectiveGridSize / 5;
+
+    // Apply scaling adjustment for better grid alignment and visibility
+    // This compensates for the grid transform scale while maintaining correct proportions
+    const scalingFactor = 1.2; // Increase the size by 20% to make markers more visible
+    const adjustedSizeInPixels = sizeInPixels * scalingFactor;
 
     // Keep the position ref updated with the latest state
     useEffect(() => {
@@ -76,10 +100,14 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         e.preventDefault();
         e.stopPropagation();
 
+        // Adjust for display scaling
+        const adjustedX = useFixedGrid ? e.clientX : e.clientX / scale;
+        const adjustedY = useFixedGrid ? e.clientY : e.clientY / scale;
+
         // Calculate new position using the stored drag offset
         const newPosition = {
-            x: e.clientX - dragOffsetRef.current.x,
-            y: e.clientY - dragOffsetRef.current.y
+            x: adjustedX - dragOffsetRef.current.x,
+            y: adjustedY - dragOffsetRef.current.y
         };
 
         setCurrentPos(newPosition);
@@ -90,7 +118,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             ...marker,
             position: newPosition
         });
-    }, [marker, throttledUpdate]);
+    }, [marker, throttledUpdate, scale, useFixedGrid]);
 
     // Handle mouse up - end dragging
     const handleMouseUp = useCallback((e: MouseEvent) => {
@@ -170,20 +198,16 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             const centerX = rect.left + rect.width / 2;
             const centerY = rect.top + rect.height / 2;
 
+            // Adjust for display scaling
+            const adjustedX = useFixedGrid ? e.clientX : e.clientX / scale;
+            const adjustedY = useFixedGrid ? e.clientY : e.clientY / scale;
+
             // Calculate offset from cursor to center (not corner)
             // This makes dragging work consistently regardless of rotation
             dragOffsetRef.current = {
-                x: e.clientX - centerX,
-                y: e.clientY - centerY
+                x: adjustedX - currentPos.x,
+                y: adjustedY - currentPos.y
             };
-
-            // Store the adjusted "center" position
-            const adjustedPos = {
-                x: centerX,
-                y: centerY
-            };
-            setCurrentPos(adjustedPos);
-            positionRef.current = adjustedPos;
         } else {
             // Fallback if we can't get the rect
             dragOffsetRef.current = {
@@ -241,29 +265,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         }
     };
 
-    // Rotation handlers
-    const handleRotateClockwise = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        e.preventDefault();
-
-        const newRotation = (marker.rotation + 15) % 360;
-        onUpdate({
-            ...marker,
-            rotation: newRotation
-        });
-    };
-
-    const handleRotateCounterClockwise = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        e.preventDefault();
-
-        const newRotation = (marker.rotation - 15 + 360) % 360;
-        onUpdate({
-            ...marker,
-            rotation: newRotation
-        });
-    };
-
     // Different rendering based on shape type
     const renderShape = () => {
         switch (marker.shape) {
@@ -272,8 +273,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                     <div
                         className="rounded-full"
                         style={{
-                            width: `${sizeInPixels}px`,
-                            height: `${sizeInPixels}px`,
+                            width: `${adjustedSizeInPixels}px`,
+                            height: `${adjustedSizeInPixels}px`,
                             backgroundColor: marker.color,
                             opacity: marker.opacity
                         }}
@@ -285,9 +286,9 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                         style={{
                             width: 0,
                             height: 0,
-                            borderLeft: `${sizeInPixels / 2}px solid transparent`,
-                            borderRight: `${sizeInPixels / 2}px solid transparent`,
-                            borderBottom: `${sizeInPixels}px solid ${marker.color}`,
+                            borderLeft: `${adjustedSizeInPixels / 2}px solid transparent`,
+                            borderRight: `${adjustedSizeInPixels / 2}px solid transparent`,
+                            borderBottom: `${adjustedSizeInPixels}px solid ${marker.color}`,
                             opacity: marker.opacity
                         }}
                     />
@@ -296,8 +297,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 return (
                     <div
                         style={{
-                            width: `${sizeInPixels}px`,
-                            height: `${gridSize / 2}px`,
+                            width: `${adjustedSizeInPixels}px`,
+                            height: `${effectiveGridSize / 2}px`,
                             backgroundColor: marker.color,
                             opacity: marker.opacity
                         }}
@@ -308,8 +309,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 return (
                     <div
                         style={{
-                            width: `${sizeInPixels}px`,
-                            height: `${sizeInPixels}px`,
+                            width: `${adjustedSizeInPixels}px`,
+                            height: `${adjustedSizeInPixels}px`,
                             backgroundColor: marker.color,
                             opacity: marker.opacity
                         }}
@@ -321,8 +322,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                         <div
                             className="rounded-full"
                             style={{
-                                width: `${sizeInPixels}px`,
-                                height: `${sizeInPixels}px`,
+                                width: `${adjustedSizeInPixels}px`,
+                                height: `${adjustedSizeInPixels}px`,
                                 backgroundColor: marker.color,
                                 opacity: marker.opacity
                             }}
@@ -330,8 +331,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                         <div
                             className="absolute top-1/4 left-1/4 rounded-full border-2"
                             style={{
-                                width: `${sizeInPixels / 2}px`,
-                                height: `${sizeInPixels / 2}px`,
+                                width: `${adjustedSizeInPixels / 2}px`,
+                                height: `${adjustedSizeInPixels / 2}px`,
                                 borderColor: 'rgba(255, 255, 255, 0.5)',
                                 opacity: marker.opacity
                             }}
@@ -371,24 +372,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             onMouseEnter={() => !isDragging && setIsHovered(true)}
             onMouseLeave={() => !isDragging && setIsHovered(false)}
         >
-            {/* Rotation controls - only visible for admins when hovering */}
-            {isAdmin && isHovered && !isDragging && (
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-full flex gap-1 mb-1 bg-black/50 p-1 rounded">
-                    <button
-                        onClick={handleRotateCounterClockwise}
-                        className="flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white"
-                    >
-                        <RotateCcw size={14} />
-                    </button>
-                    <button
-                        onClick={handleRotateClockwise}
-                        className="flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white"
-                    >
-                        <RotateCw size={14} />
-                    </button>
-                </div>
-            )}
-
             {/* Size indicator - shows when resizing */}
             {isAdmin && showSizeIndicator && (
                 <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full mt-1 px-2 py-1 bg-black/80 text-white text-xs rounded pointer-events-none">
