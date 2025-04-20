@@ -6,10 +6,10 @@ import os
 import shutil
 import tempfile
 import zipfile
-from typing import Dict, List, Optional
-import asyncio
+from pathlib import Path
+from typing import Dict, List, Optional, Union
 
-from fastapi import APIRouter, Body, File, HTTPException, UploadFile, Query, BackgroundTasks, Form
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from loguru import logger
 from pydantic import BaseModel
@@ -28,11 +28,11 @@ class BackupOptions(BaseModel):
     include_folders: Optional[List[str]] = None
 
 
-def remove_file(path: str) -> None:
+def remove_file(path: Union[str, Path]) -> None:
     """Remove a file after it has been sent."""
     try:
         os.unlink(path)
-    except Exception as e:
+    except OSError as e:
         logger.error(f"Error removing temporary file {path}: {e}")
 
 
@@ -103,7 +103,7 @@ async def export_backup(
 
 def _add_directory_to_zip(
     zip_file: zipfile.ZipFile,
-    source_dir: str,
+    source_dir: Union[str, Path],
     zip_dir: str,
     include_folders: Optional[List[str]] = None,
 ) -> None:
@@ -252,7 +252,8 @@ async def import_backup(
                     # Log progress every 10 files
                     if extracted_files % 10 == 0:
                         logger.info(
-                            f"Imported {extracted_files}/{total_files} files ({total_size / 1024:.2f} KB)"
+                            f"Imported {extracted_files}/{total_files} files"
+                            f"({total_size / 1024:.2f} KB)"
                         )
 
         # Log final statistics

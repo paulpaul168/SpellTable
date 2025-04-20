@@ -11,9 +11,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
-router = APIRouter()
-
 from app.core.constants import SOUNDS_DIR
+
+router = APIRouter()
 
 
 def stream_file(file_path: Path) -> Generator[bytes, None, None]:
@@ -83,8 +83,8 @@ async def list_audio_files() -> dict[str, dict[str, list[dict[str, Any]]]]:
     List all available audio files organized by category and type.
     """
     try:
-        logger.debug(f"SOUNDS_DIR in list_audio_files: {SOUNDS_DIR}")
-        logger.debug(f"SOUNDS_DIR exists: {SOUNDS_DIR.exists()}")
+        logger.trace(f"SOUNDS_DIR in list_audio_files: {SOUNDS_DIR}")
+        logger.trace(f"SOUNDS_DIR exists: {SOUNDS_DIR.exists()}")
 
         audio_files: dict[str, dict[str, list[dict[str, Any]]]] = {
             "loop": {},
@@ -95,7 +95,7 @@ async def list_audio_files() -> dict[str, dict[str, list[dict[str, Any]]]]:
         def scan_directory(
             directory: Path, category: str, current_path: str = ""
         ) -> dict[str, list[dict[str, Any]]]:
-            logger.debug(f"Scanning directory: {directory}, exists: {directory.exists()}")
+            logger.trace(f"Scanning directory: {directory}, exists: {directory.exists()}")
             result: dict[str, list[dict[str, Any]]] = {}
 
             try:
@@ -147,8 +147,8 @@ async def list_audio_files() -> dict[str, dict[str, list[dict[str, Any]]]]:
         loop_dir = SOUNDS_DIR / "loop"
         oneshot_dir = SOUNDS_DIR / "oneshot"
 
-        logger.debug(f"Loop dir: {loop_dir}, exists: {loop_dir.exists()}")
-        logger.debug(f"Oneshot dir: {oneshot_dir}, exists: {oneshot_dir.exists()}")
+        logger.trace(f"Loop dir: {loop_dir}, exists: {loop_dir.exists()}")
+        logger.trace(f"Oneshot dir: {oneshot_dir}, exists: {oneshot_dir.exists()}")
 
         if loop_dir.exists():
             audio_files["loop"] = scan_directory(loop_dir, "loop")
@@ -156,7 +156,7 @@ async def list_audio_files() -> dict[str, dict[str, list[dict[str, Any]]]]:
         if oneshot_dir.exists():
             audio_files["oneshot"] = scan_directory(oneshot_dir, "oneshot")
 
-        logger.debug(f"Audio files found: {audio_files}")
+        logger.trace(f"Audio files found: {audio_files}")
         return audio_files
 
     except Exception as e:

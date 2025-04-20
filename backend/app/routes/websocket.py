@@ -65,7 +65,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             try:
                 data = await websocket.receive_text()
                 message = json.loads(data)
-                logger.debug(f"Received message: {message}")
+                logger.trace(f"Received message: {message}")
 
                 if message.get("type") == "scene_update":
                     # Save the scene update

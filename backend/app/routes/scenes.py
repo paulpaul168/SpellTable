@@ -6,7 +6,8 @@ import json
 import os
 import shutil
 import uuid
-from typing import Any
+from pathlib import Path
+from typing import Any, Union
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -50,7 +51,7 @@ async def list_scenes() -> dict[str, Any]:
         scenes: list[dict[str, Any]] = []
         folders: list[dict[str, Any]] = []
 
-        def scan_directory(path: str, parent_path: str = "") -> None:
+        def scan_directory(path: Union[str, Path], parent_path: str = "") -> None:
             for item in os.listdir(path):
                 item_path = os.path.join(path, item)
                 relative_path = os.path.join(parent_path, item) if parent_path else item

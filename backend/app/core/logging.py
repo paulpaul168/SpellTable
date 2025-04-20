@@ -31,7 +31,7 @@ def setup_logger() -> None:
     # Add console handler
     logger.add(
         sys.stderr,
-        level="INFO",
+        level="DEBUG",
         format=(
             "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
             "<level>{level: <8}</level> | "
