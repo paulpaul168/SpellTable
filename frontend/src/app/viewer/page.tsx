@@ -25,17 +25,8 @@ export default function ViewerPage() {
     const [scene, setScene] = useState<SceneType>(initialScene);
     const [connectionStatus, setConnectionStatus] = useState('connecting');
 
-    // Start with 1.0 (100%) scale for the viewer
-    // We'll adjust this based on admin's scale
-    const [adminScale, setAdminScale] = useState<number | null>(null);
-
-    // Calculate inverse scale for the viewer - if admin is at 0.56, viewer should compensate
-    // We want to undo the admin's scaling to show the actual 4K view
-    // The inverse relationship is 1/adminScale to perfectly counteract the admin's scaling
-    const calculatedScale = adminScale ? 1 / adminScale : 1.0;
-
-    // For a smoother appearance, we'll use this as our display scale
-    const displayScale = adminScale ? calculatedScale : 1.0;
+    // Use the admin's display scale directly, no need for inverse calculation
+    const [displayScale, setDisplayScale] = useState<number>(1.0);
 
     useEffect(() => {
         websocketService.connect();
@@ -54,9 +45,10 @@ export default function ViewerPage() {
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
             } else if (data.type === 'display_scale_update') {
-                console.log('Received admin scale update:', data.scale);
+                console.log('Received display scale update:', data.scale);
                 if (typeof data.scale === 'number') {
-                    setAdminScale(data.scale);
+                    // Use the scale directly as sent by the admin
+                    setDisplayScale(data.scale);
                 }
             }
         });
@@ -159,10 +151,10 @@ export default function ViewerPage() {
             </div>
 
             {/* Display Scale Indicator */}
-            {adminScale && adminScale !== 1.0 && (
+            {displayScale !== 1.0 && (
                 <div className="absolute bottom-4 right-16 px-2 py-1 bg-zinc-900/80 backdrop-blur-sm rounded text-xs text-zinc-400 z-50">
                     <div className="flex items-center gap-2">
-                        <span>Scaling: {Math.round(displayScale * 100)}%</span>
+                        <span>Scaling: {(displayScale * 100).toFixed(1)}%</span>
                     </div>
                 </div>
             )}

@@ -137,10 +137,11 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         if (isAdmin && typeof window !== 'undefined') {
             localStorage.setItem('displayScale', displayScale.toString());
 
-            // Also send the current display scale to all connected clients
+            // Send the scale directly for users to apply (no need for inverse calculation)
             websocketService.send({
                 type: 'display_scale_update',
-                scale: displayScale
+                scale: displayScale, // Send the actual scale for users to use directly
+                isUserView: true // Flag to indicate this is already in user view terms
             });
         }
     }, [displayScale, isAdmin]);
@@ -799,7 +800,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
     // Add function to update display scale
     const handleUpdateDisplayScale = (newScale: number) => {
-        const clampedScale = Math.max(0.25, Math.min(2, newScale));
+        // Round to nearest 0.5% (0.005)
+        const roundedScale = Math.round(newScale * 200) / 200;
+        const clampedScale = Math.max(0.25, Math.min(2, roundedScale));
         setDisplayScale(clampedScale);
     };
 
@@ -887,7 +890,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 {isAdmin && displayScale !== 1.0 && (
                     <div className="absolute bottom-4 right-16 px-2 py-1 bg-zinc-900/80 backdrop-blur-sm rounded text-xs text-zinc-400 z-50">
                         <div className="flex items-center gap-2">
-                            <span>{Math.round(displayScale * 100)}%</span>
+                            <span>User View Scale: {(displayScale * 100).toFixed(1)}%</span>
                         </div>
                     </div>
                 )}
@@ -1021,20 +1024,20 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             <div className="px-2 py-1">
                                 <div className="flex items-center gap-2 px-2 py-1">
                                     <Settings className="h-4 w-4 text-zinc-400" />
-                                    <span className="text-xs font-medium text-zinc-300">Display Scaling</span>
+                                    <span className="text-xs font-medium text-zinc-300">User View Scaling</span>
                                 </div>
                                 <div className="mt-2 px-2">
                                     <div className="flex items-center justify-between">
                                         <button
                                             className="text-xs bg-zinc-800 px-2 py-1 rounded"
-                                            onClick={() => handleUpdateDisplayScale(displayScale - 0.1)}
+                                            onClick={() => handleUpdateDisplayScale(displayScale - 0.005)}
                                         >
                                             -
                                         </button>
-                                        <span className="text-xs text-zinc-300">{Math.round(displayScale * 100)}%</span>
+                                        <span className="text-xs text-zinc-300">{(displayScale * 100).toFixed(1)}%</span>
                                         <button
                                             className="text-xs bg-zinc-800 px-2 py-1 rounded"
-                                            onClick={() => handleUpdateDisplayScale(displayScale + 0.1)}
+                                            onClick={() => handleUpdateDisplayScale(displayScale + 0.005)}
                                         >
                                             +
                                         </button>
@@ -1049,10 +1052,10 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                         </button>
                                         <button
                                             className="text-[10px] bg-zinc-800 px-1 py-0.5 rounded flex-1"
-                                            onClick={() => handleUpdateDisplayScale(0.56)}
-                                            title="2K to 4K ratio (2560:1440 to 3840:2160)"
+                                            onClick={() => handleUpdateDisplayScale(0.5625)}
+                                            title="9:16 ratio (perfect for 16:9 screens)"
                                         >
-                                            56%
+                                            56.3%
                                         </button>
                                         <button
                                             className="text-[10px] bg-zinc-800 px-1 py-0.5 rounded flex-1"
