@@ -189,11 +189,6 @@ export const Map: React.FC<MapProps> = ({
         return `http://localhost:8010/maps/file/${folderPrefix}/${encodeURIComponent(map.name)}`;
     };
 
-    // Only show the map if it's not hidden
-    if (map.data.isHidden) {
-        return null;
-    }
-
     return (
         <div
             ref={dragRef}
@@ -206,6 +201,7 @@ export const Map: React.FC<MapProps> = ({
                 transformOrigin: 'center center',
                 cursor: isActive && !isViewerMode ? (isDragging ? 'grabbing' : 'grab') : 'default',
                 zIndex: isActive ? zIndex + 100 : zIndex,
+                opacity: map.data.isHidden ? 0.4 : 1, // Show hidden maps as semi-transparent
             }}
             onMouseDown={handleMouseDown}
             onWheel={handleWheel}
@@ -218,6 +214,13 @@ export const Map: React.FC<MapProps> = ({
                 style={{ display: 'block' }}
                 onDragStart={e => e.preventDefault()}
             />
+
+            {/* Show a visual indicator for hidden maps */}
+            {map.data.isHidden && (
+                <div className="absolute top-2 right-2 bg-black/60 p-1 rounded-full">
+                    <EyeOff className="h-4 w-4 text-white" />
+                </div>
+            )}
         </div>
     );
 }; 
