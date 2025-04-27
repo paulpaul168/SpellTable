@@ -362,8 +362,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 transform: `translate(-50%, -50%) rotate(${marker.rotation}deg)`, // Center the marker at its position
                 cursor: isActive && isAdmin ? (isDragging ? 'grabbing' : 'grab') : 'default',
                 transformOrigin: 'center',
-                pointerEvents: isActive ? 'auto' : 'none',
-                zIndex: isDragging ? 1000 : 100, // Increase z-index when dragging
+                pointerEvents: isAdmin ? 'auto' : (isActive ? 'auto' : 'none'), // Always enable pointer events for admins
+                zIndex: isDragging ? 1001 : 1000, // Increase z-index when dragging
                 touchAction: 'none' // Disable browser touch actions
             }}
             onMouseDown={handleMouseDown}

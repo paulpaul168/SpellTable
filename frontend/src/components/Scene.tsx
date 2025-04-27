@@ -832,7 +832,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 {/* Maps Container */}
                 <div className="absolute inset-0" style={{
                     transform: `scale(${displayScale})`,
-                    transformOrigin: 'top left'
+                    transformOrigin: 'top left',
+                    zIndex: 10,
+                    pointerEvents: 'auto'
                 }}>
                     {scene.maps.map((map, index) => (
                         <Map
@@ -848,10 +850,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     ))}
                 </div>
 
-                {/* AoE Markers */}
-                <div style={{
+                {/* AoE Markers - Must be above everything except UI controls */}
+                <div className="absolute inset-0" style={{
                     transform: `scale(${displayScale})`,
-                    transformOrigin: 'top left'
+                    transformOrigin: 'top left',
+                    zIndex: 999,
+                    pointerEvents: 'auto'
                 }}>
                     {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
                         <AoEMarker
@@ -868,7 +872,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     ))}
                 </div>
 
-                {/* Grid Overlay - Always on top */}
+                {/* Grid Overlay - Above maps and markers, below UI */}
                 {scene.gridSettings.showGrid && (
                     <div
                         className="absolute inset-0 pointer-events-none"
@@ -881,14 +885,15 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 ? `calc(100% / ${scene.gridSettings.gridCellsX || 25}) calc(100% / ${scene.gridSettings.gridCellsY || 13})`
                                 : `${scene.gridSettings.gridSize * displayScale}px ${scene.gridSettings.gridSize * displayScale}px`,
                             opacity: scene.gridSettings.gridOpacity || 0.5,
-                            zIndex: 90,
+                            zIndex: 20,
+                            pointerEvents: 'none'
                         }}
                     />
                 )}
 
                 {/* Display Scale Indicator */}
                 {isAdmin && displayScale !== 1.0 && (
-                    <div className="absolute bottom-4 right-16 px-2 py-1 bg-zinc-900/80 backdrop-blur-sm rounded text-xs text-zinc-400 z-50">
+                    <div className="absolute bottom-4 right-16 px-2 py-1 bg-zinc-900/80 backdrop-blur-sm rounded text-xs text-zinc-400 z-100">
                         <div className="flex items-center gap-2">
                             <span>User View Scale: {(displayScale * 100).toFixed(1)}%</span>
                         </div>
@@ -898,22 +903,24 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             {/* Map List Sidebar */}
             {!isViewerMode && showMapList && (
-                <MapListSidebar
-                    scene={scene}
-                    onMapSelect={handleMapSelect}
-                    onMapVisibilityToggle={handleMapVisibilityToggle}
-                    onMapAdd={() => setIsUploadOpen(true)}
-                    onMapsReorder={handleMapsReorder}
-                    onMapDelete={handleDeleteMap}
-                    onClose={() => setShowMapList(false)}
-                    onMapRefresh={handleMapRefresh}
-                    onMapRename={handleMapRename}
-                />
+                <div className="!z-[9999]">
+                    <MapListSidebar
+                        scene={scene}
+                        onMapSelect={handleMapSelect}
+                        onMapVisibilityToggle={handleMapVisibilityToggle}
+                        onMapAdd={() => setIsUploadOpen(true)}
+                        onMapsReorder={handleMapsReorder}
+                        onMapDelete={handleDeleteMap}
+                        onClose={() => setShowMapList(false)}
+                        onMapRefresh={handleMapRefresh}
+                        onMapRename={handleMapRename}
+                    />
+                </div>
             )}
 
             {/* Show Map List Button - Only show when hidden and not in clean layout */}
             {!isViewerMode && !showMapList && !isCleanLayout && (
-                <div className="absolute top-4 right-4 z-50">
+                <div className="absolute top-4 right-4 !z-[9999]">
                     <Button
                         variant="outline"
                         size="sm"
@@ -928,7 +935,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             {/* Connection Status Indicator - Only show in normal layout */}
             {!isCleanLayout && (
-                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 !z-[9999]">
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800">
                         {connectionStatus === 'connected' ? (
                             <>
@@ -947,27 +954,31 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             {/* Current Player Indicator - Only show in viewer mode */}
             {!isAdmin && (
-                <InitiativeIndicator
-                    initiativeOrder={scene.initiativeOrder}
-                    showCurrentPlayer={scene.showCurrentPlayer}
-                />
+                <div className="!z-[9999]">
+                    <InitiativeIndicator
+                        initiativeOrder={scene.initiativeOrder}
+                        showCurrentPlayer={scene.showCurrentPlayer}
+                    />
+                </div>
             )}
 
             {/* Initiative Sidebar */}
             {showInitiative && (
-                <InitiativeSidebar
-                    isAdmin={isAdmin}
-                    entries={scene.initiativeOrder}
-                    onUpdate={handleInitiativeUpdate}
-                    showCurrentPlayer={scene.showCurrentPlayer}
-                    onToggleCurrentPlayer={handleToggleCurrentPlayer}
-                    onClose={() => setShowInitiative(false)}
-                />
+                <div className="!z-[9999]">
+                    <InitiativeSidebar
+                        isAdmin={isAdmin}
+                        entries={scene.initiativeOrder}
+                        onUpdate={handleInitiativeUpdate}
+                        showCurrentPlayer={scene.showCurrentPlayer}
+                        onToggleCurrentPlayer={handleToggleCurrentPlayer}
+                        onClose={() => setShowInitiative(false)}
+                    />
+                </div>
             )}
 
             {/* Show Initiative Button - Only show when hidden and not in clean layout */}
             {!showInitiative && !isCleanLayout && (
-                <div className="absolute left-4 bottom-4 z-50">
+                <div className="absolute left-4 bottom-4 !z-[9999]">
                     <Button
                         variant="outline"
                         size="sm"
@@ -982,7 +993,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             {/* Floating Menu Button - Only show in non-viewer mode */}
             {!isViewerMode && (
-                <div className="absolute top-4 left-4 z-50">
+                <div className="absolute top-4 left-4 !z-[9999]">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" size="sm" className={cn(
@@ -1255,7 +1266,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             {/* Soundboard Toggle Button - Only show when not in clean layout */}
             {!isViewerMode && !isCleanLayout && (
-                <div className="absolute bottom-4 right-4 z-50">
+                <div className="absolute bottom-4 right-4 !z-[9999]">
                     <Button
                         variant="outline"
                         size="sm"
@@ -1283,7 +1294,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             {/* AoE Palette Toggle Button - Only show when not in clean layout */}
             {!isViewerMode && !isCleanLayout && (
-                <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 z-40">
+                <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 !z-[9999]">
                     <Button
                         variant="outline"
                         size="sm"
