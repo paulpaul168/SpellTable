@@ -247,7 +247,7 @@ export const Map: React.FC<MapProps> = ({
                 transform: `rotate(${rotation}deg) scale(${mapScale * scale})`,
                 transformOrigin: 'center',
                 zIndex,
-                opacity: map.data.isHidden ? 0 : 1,
+                opacity: map.data.isHidden ? (isViewerMode ? 0 : 0.4) : 1,
                 pointerEvents: map.data.isHidden ? 'none' : 'auto'
             }}
             onMouseDown={handleMouseDown}
