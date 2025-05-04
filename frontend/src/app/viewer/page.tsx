@@ -81,7 +81,9 @@ export default function ViewerPage() {
                 )}
                 {/* Maps container - Allow individual z-indices from the admin's sorting order */}
                 <div className="absolute inset-0">
-                    {scene.maps.map((map, index) => (
+                    {scene.maps
+                        .filter(map => !map.data.isHidden)
+                        .map((map, index) => (
                         <Map
                             key={map.name}
                             map={map}
