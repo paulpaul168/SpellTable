@@ -14,7 +14,10 @@ const initialScene: SceneType = {
     activeMapId: null,
     gridSettings: {
         showGrid: true,
-        gridSize: 50
+        gridSize: 50,
+        useFixedGrid: true,
+        gridCellsX: 18,
+        gridCellsY: 32
     },
     initiativeOrder: [],
     showCurrentPlayer: false,
@@ -45,15 +48,10 @@ export default function ViewerPage() {
                 });
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
-              
             } else if (data.type === 'display_scale_update') {
                 console.log('Received display scale update:', data.scale);
-                if (typeof data.scale === 'number') {
-                    // Use the scale directly as sent by the admin
-                    setDisplayScale(data.scale);
-                }
+                // Fixed scale, ignoring scale updates from server
             }
-            // Ignore display_scale_update messages - we're using fixed 1.0 scale
         });
 
         return () => {
@@ -90,6 +88,7 @@ export default function ViewerPage() {
                             isViewerMode={true}
                             zIndex={scene.maps.length - index} // Match admin's z-index calculation
                             scale={displayScale}
+                            gridSettings={scene.gridSettings} // Pass grid settings to Map component
                         />
                     ))}
                 </div>
@@ -106,6 +105,7 @@ export default function ViewerPage() {
                             onUpdate={() => { }} // No-op in viewer mode
                             onDelete={() => { }} // No-op in viewer mode
                             scale={displayScale}
+                            gridSettings={scene.gridSettings}
                         />
                     ))}
                 </div>

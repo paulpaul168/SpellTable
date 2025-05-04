@@ -10,8 +10,11 @@ const initialScene: SceneType = {
     maps: [],
     activeMapId: null,
     gridSettings: {
-        showGrid: false,
-        gridSize: 50
+        showGrid: true,
+        gridSize: 50,
+        useFixedGrid: true,
+        gridCellsX: 18,
+        gridCellsY: 32
     },
     initiativeOrder: [],
     showCurrentPlayer: true

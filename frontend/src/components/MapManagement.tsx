@@ -349,12 +349,13 @@ export const MapManagement: React.FC<MapManagementProps> = ({
             const data = await response.json();
             const availableMaps = data.maps || [];
 
-            // Convert the simplified map objects from the API to MapData objects
+            // Convert the simplified map objects from the API to MapData objects with grid coordinates
             const convertedMaps: MapData[] = availableMaps.map((m: { name: string, folder?: string }) => ({
                 name: m.name,
                 folder: m.folder,
                 data: {
-                    position: { x: 0, y: 0 },
+                    position: { x: 9, y: 16 }, // Default to center of a standard 18x32 grid
+                    useGridCoordinates: true,  // Use grid coordinates by default for new maps
                     scale: 1,
                     rotation: 0,
                     isHidden: true

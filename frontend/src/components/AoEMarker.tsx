@@ -28,7 +28,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     gridSettings
 }) => {
     const [isDragging, setIsDragging] = useState(false);
-    const [currentPos, setCurrentPos] = useState(marker.position);
     const [isHovered, setIsHovered] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
     const [showSizeIndicator, setShowSizeIndicator] = useState(false);
@@ -45,32 +44,89 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const gridCellsX = gridSettings?.gridCellsX || 25;
     const gridCellsY = gridSettings?.gridCellsY || 13;
 
-    // Calculate effective grid size based on settings
+    // Calculate cell size based on viewport and grid dimensions
+    const cellWidth = window.innerWidth / gridCellsX;
+    const cellHeight = window.innerHeight / gridCellsY;
+
+    // Calculate effective grid size
     const effectiveGridSize = useFixedGrid
-        ? (window.innerWidth / gridCellsX) // For fixed grid, calculate cell size based on viewport
+        ? Math.min(cellWidth, cellHeight) // Fixed grid: use the smaller dimension to maintain square cells
         : gridSize;
 
-    // Use grid size directly for sizing, so a 5ft AoE takes up one grid cell
-    // This calculation ensures 5ft = 1 grid square
+    // Scale for sizing (5ft = 1 grid cell)
     const sizeInPixels = marker.sizeInFeet * effectiveGridSize / 5;
+    const adjustedSizeInPixels = sizeInPixels;
 
-    // Apply scaling adjustment for better grid alignment and visibility
-    // This compensates for the grid transform scale while maintaining correct proportions
-    const scalingFactor = 1.0; // optional scaling factor
-    const adjustedSizeInPixels = sizeInPixels * scalingFactor;
+    // Converting positions between grid coordinates and screen pixels
+    // Grid coordinates: where (0,0) is top-left cell, (1,1) is the cell to the right and down, etc.
 
-    // Keep the position ref updated with the latest state
+    // Convert absolute position to grid coordinates
+    const pixelToGridCoords = useCallback((pixelPos: { x: number, y: number }) => {
+        return {
+            x: pixelPos.x / cellWidth,
+            y: pixelPos.y / cellHeight
+        };
+    }, [cellWidth, cellHeight]);
+
+    // Convert grid coordinates to pixel position (centered in grid cell)
+    const gridCoordsToPixel = useCallback((gridPos: { x: number, y: number }) => {
+        // Add 0.5 to place markers at the center of grid cells
+        // rather than at grid line intersections
+        const cellCenterX = (gridPos.x + 0.5) * cellWidth;
+        const cellCenterY = (gridPos.y + 0.5) * cellHeight;
+        return { x: cellCenterX, y: cellCenterY };
+    }, [cellWidth, cellHeight]);
+
+    // Position calculation - converts stored position to correct pixel position
+    const calculatePosition = useCallback(() => {
+        if (marker.useGridCoordinates) {
+            // Position is already in grid coordinates, convert to pixels
+            // using cell-centered approach
+            return gridCoordsToPixel(marker.position);
+        } else if (useFixedGrid) {
+            // Position is in pixels but we need grid coordinates for consistency
+            // Convert existing pixel position to grid coordinates first
+            const gridCoords = pixelToGridCoords(marker.position);
+
+            // Floor to get cell index
+            const cellGridCoords = {
+                x: Math.floor(gridCoords.x),
+                y: Math.floor(gridCoords.y)
+            };
+
+            // Then convert back to pixels for display with cell centering
+            return gridCoordsToPixel(cellGridCoords);
+        } else {
+            // For non-fixed grid, use absolute position directly
+            return marker.position;
+        }
+    }, [marker.position, marker.useGridCoordinates, useFixedGrid, pixelToGridCoords, gridCoordsToPixel]);
+
+    // Store and track the computed position
+    const [currentPos, setCurrentPos] = useState(calculatePosition());
+
+    // Keep position refs updated
     useEffect(() => {
         positionRef.current = currentPos;
     }, [currentPos]);
 
-    // Sync position state when marker position prop changes
+    // Update position when marker changes or window resizes
     useEffect(() => {
-        setCurrentPos(marker.position);
-        positionRef.current = marker.position;
-    }, [marker.position]);
+        const updatePosition = () => {
+            const newPosition = calculatePosition();
+            setCurrentPos(newPosition);
+            positionRef.current = newPosition;
+        };
 
-    // Improved throttle function with better handling
+        updatePosition();
+
+        window.addEventListener('resize', updatePosition);
+        return () => {
+            window.removeEventListener('resize', updatePosition);
+        };
+    }, [marker.position, calculatePosition]);
+
+    // Throttle updates
     const throttledUpdate = useCallback((newMarker: AoEMarkerType) => {
         const now = performance.now();
         if (now - lastUpdateRef.current >= 32) { // ~30fps
@@ -79,7 +135,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             pendingUpdateRef.current = null;
         } else {
             pendingUpdateRef.current = newMarker;
-            // Schedule processing if not already scheduled
             if (!lastUpdateRef.current) {
                 requestAnimationFrame(() => {
                     const pendingMarker = pendingUpdateRef.current;
@@ -93,54 +148,72 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         }
     }, [onUpdate]);
 
-    // Handle mouse movement during drag with improved positioning
+    // Handle mouse movement 
     const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!isDraggingRef.current) return;
 
         e.preventDefault();
         e.stopPropagation();
 
-        // Use direct client coordinates without scaling adjustment
-        const adjustedX = e.clientX;
-        const adjustedY = e.clientY;
+        // Get raw client coordinates
+        const mouseX = e.clientX;
+        const mouseY = e.clientY;
 
-        // Calculate new position using the stored drag offset
-        const newPosition = {
-            x: adjustedX - dragOffsetRef.current.x,
-            y: adjustedY - dragOffsetRef.current.y
+        // Calculate new position, accounting for drag offset
+        let newPosition = {
+            x: mouseX - dragOffsetRef.current.x,
+            y: mouseY - dragOffsetRef.current.y
         };
 
-        setCurrentPos(newPosition);
-        positionRef.current = newPosition;
+        // Convert to grid coordinates
+        const gridPos = pixelToGridCoords(newPosition);
 
-        // Update using the throttled function
+        // Floor to get the cell index, not the nearest grid line
+        const cellGridPos = {
+            x: Math.floor(gridPos.x),
+            y: Math.floor(gridPos.y)
+        };
+
+        // For display, convert back to pixels using the cell-centered conversion
+        const pixelPos = gridCoordsToPixel(cellGridPos);
+        setCurrentPos(pixelPos);
+        positionRef.current = pixelPos;
+
+        // Store in grid coordinates but display in pixels
         throttledUpdate({
             ...marker,
-            position: newPosition
+            position: cellGridPos,
+            useGridCoordinates: true
         });
-    }, [marker, throttledUpdate]);
+    }, [marker, throttledUpdate, pixelToGridCoords, gridCoordsToPixel]);
 
     // Handle mouse up - end dragging
     const handleMouseUp = useCallback((e: MouseEvent) => {
         if (isDraggingRef.current) {
             e.preventDefault();
 
-            // Final position update
+            // Get the EXACT current grid position
+            const gridPos = pixelToGridCoords(positionRef.current);
+            const cellGridPos = {
+                x: Math.floor(gridPos.x),
+                y: Math.floor(gridPos.y)
+            };
+
+            // Ensure final position is stored in grid coordinates
             onUpdate({
                 ...marker,
-                position: positionRef.current
+                position: cellGridPos,
+                useGridCoordinates: true
             });
 
             setIsDragging(false);
             isDraggingRef.current = false;
             document.body.classList.remove('dragging-aoe');
         }
-    }, [marker, onUpdate]);
+    }, [marker, onUpdate, pixelToGridCoords]);
 
     // Set up global drag event handling
     useEffect(() => {
-        // These handlers will be active throughout the component's lifecycle
-        // but will only do something when isDraggingRef.current is true
         const handleGlobalMouseMove = (e: MouseEvent) => handleMouseMove(e);
         const handleGlobalMouseUp = (e: MouseEvent) => handleMouseUp(e);
         const handleGlobalEscapeKey = (e: KeyboardEvent) => {
@@ -151,12 +224,10 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             }
         };
 
-        // Add global listeners that will be active throughout
         window.addEventListener('mousemove', handleGlobalMouseMove, { capture: true });
         window.addEventListener('mouseup', handleGlobalMouseUp, { capture: true });
         window.addEventListener('keydown', handleGlobalEscapeKey);
 
-        // Cleanup on component unmount
         return () => {
             window.removeEventListener('mousemove', handleGlobalMouseMove, { capture: true });
             window.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
@@ -184,36 +255,22 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         };
     }, []);
 
-    // Improved mouse down handler with better offset calculation
+    // Handle mouse down - start dragging
     const handleMouseDown = (e: React.MouseEvent) => {
         if (!isActive || !isAdmin) return;
 
         e.stopPropagation();
         e.preventDefault();
 
-        // Get the marker element
         const rect = markerRef.current?.getBoundingClientRect();
         if (rect) {
-            // Calculate the center of the marker
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-
-            // Use direct client coordinates without scaling adjustment
-            const adjustedX = e.clientX;
-            const adjustedY = e.clientY;
-
-            // Calculate offset from cursor to center (not corner)
-            // This makes dragging work consistently regardless of rotation
+            // Calculate drag offset
             dragOffsetRef.current = {
-                x: adjustedX - currentPos.x,
-                y: adjustedY - currentPos.y
+                x: e.clientX - currentPos.x,
+                y: e.clientY - currentPos.y
             };
         } else {
-            // Fallback if we can't get the rect
-            dragOffsetRef.current = {
-                x: 0,
-                y: 0
-            };
+            dragOffsetRef.current = { x: 0, y: 0 };
         }
 
         setIsDragging(true);

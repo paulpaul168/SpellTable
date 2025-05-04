@@ -4,6 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from './ui/checkbox';
+import { toast } from '@/components/ui/use-toast';
 
 // Using divs instead of RadioGroup and Slider since those components might need extra setup
 interface DisplayCalculatorProps {
@@ -152,6 +154,15 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 gridCellsX,
                 gridCellsY
             });
+
+            // When we apply new grid settings, show a message about existing elements
+            if (useFixedGrid) {
+                toast({
+                    title: "Grid Layout Updated",
+                    description: "Map and AoE positions will now use grid coordinates.",
+                    duration: 3000,
+                });
+            }
         }
         onClose();
     };

@@ -441,12 +441,13 @@ async def load_map_data(map_name: str) -> dict[str, Any]:
         )
 
         if not os.path.exists(file_path):
-            # If JSON data doesn't exist, return basic map data
+            # If JSON data doesn't exist, return basic map data with grid coordinates
             return {
                 "name": map_name,
                 "folder": map_data["folder"],
                 "data": {
-                    "position": {"x": 0, "y": 0},
+                    "position": {"x": 9, "y": 16},  # Default to center of 18x32 grid
+                    "useGridCoordinates": True,  # Use grid coordinates by default
                     "scale": 1,
                     "rotation": 0,
                     "isHidden": True,
