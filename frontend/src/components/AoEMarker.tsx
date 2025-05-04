@@ -100,9 +100,9 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         e.preventDefault();
         e.stopPropagation();
 
-        // Adjust for display scaling
-        const adjustedX = useFixedGrid ? e.clientX : e.clientX / scale;
-        const adjustedY = useFixedGrid ? e.clientY : e.clientY / scale;
+        // Use direct client coordinates without scaling adjustment
+        const adjustedX = e.clientX;
+        const adjustedY = e.clientY;
 
         // Calculate new position using the stored drag offset
         const newPosition = {
@@ -118,7 +118,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             ...marker,
             position: newPosition
         });
-    }, [marker, throttledUpdate, scale, useFixedGrid]);
+    }, [marker, throttledUpdate]);
 
     // Handle mouse up - end dragging
     const handleMouseUp = useCallback((e: MouseEvent) => {
@@ -198,9 +198,9 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             const centerX = rect.left + rect.width / 2;
             const centerY = rect.top + rect.height / 2;
 
-            // Adjust for display scaling
-            const adjustedX = useFixedGrid ? e.clientX : e.clientX / scale;
-            const adjustedY = useFixedGrid ? e.clientY : e.clientY / scale;
+            // Use direct client coordinates without scaling adjustment
+            const adjustedX = e.clientX;
+            const adjustedY = e.clientY;
 
             // Calculate offset from cursor to center (not corner)
             // This makes dragging work consistently regardless of rotation
@@ -362,8 +362,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 transform: `translate(-50%, -50%) rotate(${marker.rotation}deg)`, // Center the marker at its position
                 cursor: isActive && isAdmin ? (isDragging ? 'grabbing' : 'grab') : 'default',
                 transformOrigin: 'center',
-                pointerEvents: isAdmin ? 'auto' : (isActive ? 'auto' : 'none'), // Always enable pointer events for admins
-                zIndex: isDragging ? 1001 : 1000, // Increase z-index when dragging
+                pointerEvents: isActive ? 'auto' : 'none',
+                zIndex: isDragging ? 900 : 500, // High z-index to stay above maps but below UI (1000)
                 touchAction: 'none' // Disable browser touch actions
             }}
             onMouseDown={handleMouseDown}

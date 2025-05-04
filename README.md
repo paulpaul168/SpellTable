@@ -169,6 +169,42 @@ spelltable/
 └── runs.sh                  # Start script
 ```
 
+### Z-Index Layering System
+
+SpellTable implements a structured z-index layering system to ensure proper stacking of UI elements, maps, and game features.
+
+#### Layer Hierarchy
+
+The following hierarchy is enforced through z-index values:
+
+| Layer                | z-index                     | Description                                       |
+| -------------------- | --------------------------- | ------------------------------------------------- |
+| Maps                 | `maps.length - index`       | Maps are stacked based on order in the map list   |
+| Active Map           | `maps.length - index + 100` | Selected map gets +100 to appear above other maps |
+| AoE Markers          | `maps.length + 100`         | AoE markers always appear above all maps          |
+| Grid Overlay         | `maps.length + 200`         | Grid is always above maps and markers             |
+| UI Elements/Buttons  | `1000`                      | UI controls are fixed at z-index 1000             |
+| Dialogs/Menus        | `10000`                     | Dialogs, dropdowns, and menus use z-index 10000   |
+| Toasts/Notifications | `10001`                     | Highest z-index for notifications                 |
+
+#### Implementation
+
+- Maps receive dynamic z-indices based on their position in the map array
+- Lower-positioned maps in the list appear on top (have higher z-index values)
+- UI elements have fixed high z-index values to ensure they're always accessible
+- The system ensures that no matter how many maps are added, UI elements remain accessible
+
+#### Component-Specific Z-Indices
+
+- **Dialog Components**: Override Radix UI's default z-index (50) with z-index 10000
+- **Dropdown Menus**: Set to z-index 10000 to ensure they're above all map elements
+- **Backdrops/Overlays**: Use z-index 9999 to dim the background without hiding dialogs
+
+This z-index system ensures that:
+1. Maps can be stacked and reordered as needed
+2. UI controls and menus are always accessible and never hidden behind maps
+3. Active elements (selected map, open dialog) appear on top of other elements
+
 ### Code Style Guidelines
 
 #### Python (Backend)

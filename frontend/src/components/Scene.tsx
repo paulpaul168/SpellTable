@@ -128,23 +128,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isGridSettingsOpen, setIsGridSettingsOpen] = useState(false);
     const [isBackupDialogOpen, setIsBackupDialogOpen] = useState(false);
 
-    // Try to load saved display scale from localStorage, fallback to initialDisplayScale
-    const savedScale = isAdmin && typeof window !== 'undefined' ? parseFloat(localStorage.getItem('displayScale') || '') : null;
-    const [displayScale, setDisplayScale] = useState(savedScale || initialDisplayScale);
-
-    // Save display scale to localStorage when it changes
-    useEffect(() => {
-        if (isAdmin && typeof window !== 'undefined') {
-            localStorage.setItem('displayScale', displayScale.toString());
-
-            // Send the scale directly for users to apply (no need for inverse calculation)
-            websocketService.send({
-                type: 'display_scale_update',
-                scale: displayScale, // Send the actual scale for users to use directly
-                isUserView: true // Flag to indicate this is already in user view terms
-            });
-        }
-    }, [displayScale, isAdmin]);
+    // Remove display scale functionality, using fixed 1.0 scale
+    const displayScale = 1.0;
 
     useEffect(() => {
         websocketService.connect();
@@ -192,9 +177,6 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 });
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
-            } else if (data.type === 'display_scale_update' && !isAdmin) {
-                // Only non-admin (viewer) should respond to scale updates
-                console.log('Received display scale update:', data.scale);
             }
         });
 
@@ -798,14 +780,6 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         });
     };
 
-    // Add function to update display scale
-    const handleUpdateDisplayScale = (newScale: number) => {
-        // Round to nearest 0.5% (0.005)
-        const roundedScale = Math.round(newScale * 200) / 200;
-        const clampedScale = Math.max(0.25, Math.min(2, roundedScale));
-        setDisplayScale(clampedScale);
-    };
-
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
@@ -829,13 +803,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                         </Button>
                     </div>
                 )}
-                {/* Maps Container */}
-                <div className="absolute inset-0" style={{
-                    transform: `scale(${displayScale})`,
-                    transformOrigin: 'top left',
-                    zIndex: 10,
-                    pointerEvents: 'auto'
-                }}>
+                {/* Maps Container - Allow individual map z-indices based on their order */}
+                <div className="absolute inset-0">
                     {scene.maps.map((map, index) => (
                         <Map
                             key={map.name}
@@ -843,20 +812,15 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             isActive={map.name === scene.activeMapId}
                             onUpdate={handleMapUpdate}
                             isViewerMode={isViewerMode}
-                            zIndex={index}
+                            zIndex={scene.maps.length - index} // Higher index = higher in stack (last map = top)
                             scale={displayScale}
                             gridSettings={scene.gridSettings}
                         />
                     ))}
                 </div>
 
-                {/* AoE Markers - Must be above everything except UI controls */}
-                <div className="absolute inset-0" style={{
-                    transform: `scale(${displayScale})`,
-                    transformOrigin: 'top left',
-                    zIndex: 999,
-                    pointerEvents: 'auto'
-                }}>
+                {/* AoE Markers - Ensure they're above maps but below UI */}
+                <div style={{ zIndex: scene.maps.length + 100 }}>
                     {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
                         <AoEMarker
                             key={marker.id}
@@ -872,7 +836,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     ))}
                 </div>
 
-                {/* Grid Overlay - Above maps and markers, below UI */}
+                {/* Grid Overlay - Always on top of maps and markers but below UI */}
                 {scene.gridSettings.showGrid && (
                     <div
                         className="absolute inset-0 pointer-events-none"
@@ -883,21 +847,11 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             `,
                             backgroundSize: scene.gridSettings.useFixedGrid
                                 ? `calc(100% / ${scene.gridSettings.gridCellsX || 25}) calc(100% / ${scene.gridSettings.gridCellsY || 13})`
-                                : `${scene.gridSettings.gridSize * displayScale}px ${scene.gridSettings.gridSize * displayScale}px`,
+                                : `${scene.gridSettings.gridSize}px ${scene.gridSettings.gridSize}px`,
                             opacity: scene.gridSettings.gridOpacity || 0.5,
-                            zIndex: 20,
-                            pointerEvents: 'none'
+                            zIndex: scene.maps.length + 200,
                         }}
                     />
-                )}
-
-                {/* Display Scale Indicator */}
-                {isAdmin && displayScale !== 1.0 && (
-                    <div className="absolute bottom-4 right-16 px-2 py-1 bg-zinc-900/80 backdrop-blur-sm rounded text-xs text-zinc-400 z-100">
-                        <div className="flex items-center gap-2">
-                            <span>User View Scale: {(displayScale * 100).toFixed(1)}%</span>
-                        </div>
-                    </div>
                 )}
             </div>
 
@@ -920,7 +874,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             {/* Show Map List Button - Only show when hidden and not in clean layout */}
             {!isViewerMode && !showMapList && !isCleanLayout && (
-                <div className="absolute top-4 right-4 !z-[9999]">
+                <div className="absolute top-4 right-4 z-[1000]">
                     <Button
                         variant="outline"
                         size="sm"
@@ -935,7 +889,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             {/* Connection Status Indicator - Only show in normal layout */}
             {!isCleanLayout && (
-                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 !z-[9999]">
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000]">
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800">
                         {connectionStatus === 'connected' ? (
                             <>
@@ -978,7 +932,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             {/* Show Initiative Button - Only show when hidden and not in clean layout */}
             {!showInitiative && !isCleanLayout && (
-                <div className="absolute left-4 bottom-4 !z-[9999]">
+                <div className="absolute left-4 bottom-4 z-[1000]">
                     <Button
                         variant="outline"
                         size="sm"
@@ -993,7 +947,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             {/* Floating Menu Button - Only show in non-viewer mode */}
             {!isViewerMode && (
-                <div className="absolute top-4 left-4 !z-[9999]">
+                <div className="absolute top-4 left-4 z-[1000]">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" size="sm" className={cn(
@@ -1005,7 +959,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 {!isCleanLayout && <ChevronDown className="h-4 w-4" />}
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-64 bg-zinc-900/95 backdrop-blur-sm border-zinc-800">
+                        <DropdownMenuContent className="w-64 bg-zinc-900/95 backdrop-blur-sm border-zinc-800 z-[1001]">
                             {/* Connection Status */}
                             <div className="px-2 py-1">
                                 <div className="flex items-center gap-2 px-2 py-1">
@@ -1030,62 +984,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             </div>
 
                             <DropdownMenuSeparator className="bg-zinc-800" />
-
-                            {/* Display Scaling */}
-                            <div className="px-2 py-1">
-                                <div className="flex items-center gap-2 px-2 py-1">
-                                    <Settings className="h-4 w-4 text-zinc-400" />
-                                    <span className="text-xs font-medium text-zinc-300">User View Scaling</span>
-                                </div>
-                                <div className="mt-2 px-2">
-                                    <div className="flex items-center justify-between">
-                                        <button
-                                            className="text-xs bg-zinc-800 px-2 py-1 rounded"
-                                            onClick={() => handleUpdateDisplayScale(displayScale - 0.005)}
-                                        >
-                                            -
-                                        </button>
-                                        <span className="text-xs text-zinc-300">{(displayScale * 100).toFixed(1)}%</span>
-                                        <button
-                                            className="text-xs bg-zinc-800 px-2 py-1 rounded"
-                                            onClick={() => handleUpdateDisplayScale(displayScale + 0.005)}
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-                                    {/* Common scaling presets */}
-                                    <div className="flex mt-2 gap-1">
-                                        <button
-                                            className="text-[10px] bg-zinc-800 px-1 py-0.5 rounded flex-1"
-                                            onClick={() => handleUpdateDisplayScale(0.5)}
-                                        >
-                                            50%
-                                        </button>
-                                        <button
-                                            className="text-[10px] bg-zinc-800 px-1 py-0.5 rounded flex-1"
-                                            onClick={() => handleUpdateDisplayScale(0.5625)}
-                                            title="9:16 ratio (perfect for 16:9 screens)"
-                                        >
-                                            56.3%
-                                        </button>
-                                        <button
-                                            className="text-[10px] bg-zinc-800 px-1 py-0.5 rounded flex-1"
-                                            onClick={() => handleUpdateDisplayScale(0.75)}
-                                        >
-                                            75%
-                                        </button>
-                                        <button
-                                            className="text-[10px] bg-zinc-800 px-1 py-0.5 rounded flex-1"
-                                            onClick={() => handleUpdateDisplayScale(1)}
-                                        >
-                                            100%
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <DropdownMenuSeparator className="bg-zinc-800" />
-
+                          
                             {/* Layout Toggle */}
                             <DropdownMenuItem
                                 onClick={() => setIsCleanLayout(!isCleanLayout)}
@@ -1266,7 +1165,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             {/* Soundboard Toggle Button - Only show when not in clean layout */}
             {!isViewerMode && !isCleanLayout && (
-                <div className="absolute bottom-4 right-4 !z-[9999]">
+                <div className="absolute bottom-4 right-4 z-[1000]">
                     <Button
                         variant="outline"
                         size="sm"
@@ -1292,21 +1191,6 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 onAddMarker={handleAddAoEMarker}
             />
 
-            {/* AoE Palette Toggle Button - Only show when not in clean layout */}
-            {!isViewerMode && !isCleanLayout && (
-                <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 !z-[9999]">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
-                        onClick={() => setIsAoEPaletteOpen(!isAoEPaletteOpen)}
-                    >
-                        <Zap className="h-4 w-4" />
-                        {isAoEPaletteOpen ? 'Hide AoE' : 'Show AoE'}
-                    </Button>
-                </div>
-            )}
-
             {/* Add Display Calculator Dialog */}
             <DisplayCalculator
                 isOpen={isDisplayCalculatorOpen || isGridSettingsOpen}
@@ -1325,6 +1209,21 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 isOpen={isBackupDialogOpen}
                 onClose={() => setIsBackupDialogOpen(false)}
             />
+
+            {/* AoE Palette Toggle Button - Only show when not in clean layout */}
+            {!isViewerMode && !isCleanLayout && (
+                <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 z-[1000]">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
+                        onClick={() => setIsAoEPaletteOpen(!isAoEPaletteOpen)}
+                    >
+                        <Zap className="h-4 w-4" />
+                        {isAoEPaletteOpen ? 'Hide AoE' : 'Show AoE'}
+                    </Button>
+                </div>
+            )}
         </div>
     );
 }; 

@@ -25,8 +25,9 @@ export default function ViewerPage() {
     const [scene, setScene] = useState<SceneType>(initialScene);
     const [connectionStatus, setConnectionStatus] = useState('connecting');
 
-    // Use the admin's display scale directly, no need for inverse calculation
-    const [displayScale, setDisplayScale] = useState<number>(1.0);
+
+    // Use fixed 1.0 scale to match admin view exactly
+    const displayScale = 1.0;
 
     useEffect(() => {
         websocketService.connect();
@@ -44,6 +45,7 @@ export default function ViewerPage() {
                 });
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
+              
             } else if (data.type === 'display_scale_update') {
                 console.log('Received display scale update:', data.scale);
                 if (typeof data.scale === 'number') {
@@ -51,6 +53,7 @@ export default function ViewerPage() {
                     setDisplayScale(data.scale);
                 }
             }
+            // Ignore display_scale_update messages - we're using fixed 1.0 scale
         });
 
         return () => {
@@ -76,22 +79,23 @@ export default function ViewerPage() {
                         </div>
                     </div>
                 )}
-                <div className="absolute inset-0" style={{ transform: `scale(${displayScale})`, transformOrigin: 'top left' }}>
-                    {scene.maps.map(map => (
+                {/* Maps container - Allow individual z-indices from the admin's sorting order */}
+                <div className="absolute inset-0">
+                    {scene.maps.map((map, index) => (
                         <Map
                             key={map.name}
                             map={map}
                             isActive={map.name === scene.activeMapId}
                             onUpdate={() => { }} // No updates in viewer mode
                             isViewerMode={true}
-                            zIndex={0}
+                            zIndex={scene.maps.length - index} // Match admin's z-index calculation
                             scale={displayScale}
                         />
                     ))}
                 </div>
 
-                {/* AoE Markers - View Only */}
-                <div style={{ transform: `scale(${displayScale})`, transformOrigin: 'top left' }}>
+                {/* AoE Markers - View Only - Ensure they're above maps but below UI */}
+                <div style={{ zIndex: scene.maps.length + 100 }}>
                     {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
                         <AoEMarker
                             key={marker.id}
@@ -113,7 +117,7 @@ export default function ViewerPage() {
                 showCurrentPlayer={scene.showCurrentPlayer}
             />
 
-            {/* Grid Overlay */}
+            {/* Grid Overlay - Always on top of maps and markers but below UI */}
             {scene.gridSettings?.showGrid && (
                 <div
                     className="fixed inset-0 pointer-events-none"
@@ -124,17 +128,15 @@ export default function ViewerPage() {
                         `,
                         backgroundSize: scene.gridSettings.useFixedGrid
                             ? `calc(100% / ${scene.gridSettings.gridCellsX || 25}) calc(100% / ${scene.gridSettings.gridCellsY || 13})`
-                            : `${scene.gridSettings?.gridSize * displayScale}px ${scene.gridSettings?.gridSize * displayScale}px`,
+                            : `${scene.gridSettings?.gridSize}px ${scene.gridSettings?.gridSize}px`,
                         opacity: scene.gridSettings.gridOpacity || 0.5,
-                        zIndex: 10,
-                        transform: `scale(${displayScale})`,
-                        transformOrigin: 'top left'
+                        zIndex: scene.maps.length + 200,
                     }}
                 />
             )}
 
             {/* Connection Status */}
-            <div className="absolute top-4 right-4 px-2 py-1.5 rounded-md bg-zinc-900/80 backdrop-blur-sm" style={{ zIndex: 9999 }}>
+            <div className="absolute top-4 right-4 px-2 py-1.5 rounded-md bg-zinc-900/80 backdrop-blur-sm z-[1000]">
                 <div className="flex items-center gap-2">
                     {connectionStatus === 'connected' ? (
                         <>

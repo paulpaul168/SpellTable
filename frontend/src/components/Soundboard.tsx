@@ -714,7 +714,7 @@ export const Soundboard: React.FC<SoundboardProps> = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed bottom-4 right-4 z-50">
+        <div className="fixed bottom-4 right-4 z-[1000]">
             <div className="bg-zinc-900/80 backdrop-blur-sm rounded-lg p-4 shadow-lg border border-zinc-800 w-80">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
