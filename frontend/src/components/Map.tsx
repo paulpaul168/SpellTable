@@ -8,7 +8,7 @@ interface MapProps {
     onUpdate: (updatedMap: MapData) => void;
     isViewerMode: boolean;
     zIndex: number;
-    scale?: number; // Add scale prop to adjust for parent container scaling
+    scale?: number;
     gridSettings?: {
         showGrid: boolean;
         gridSize: number;
@@ -61,31 +61,46 @@ export const Map: React.FC<MapProps> = ({
     const dragRef = useRef<HTMLDivElement>(null);
     const imageRef = useRef<HTMLImageElement>(null);
 
-    // Determine if using fixed grid and get grid properties
+    // Determine grid cell size in pixels
     const useFixedGrid = gridSettings?.useFixedGrid || false;
     const gridCellsX = gridSettings?.gridCellsX || 25;
     const gridCellsY = gridSettings?.gridCellsY || 13;
 
-    // Calculate relative position based on viewport for fixed grid
-    const getRelativePosition = useCallback(() => {
-        if (useFixedGrid) {
-            // For fixed grid, we want to adjust positioning to be relative to viewport cells
-            const cellWidth = window.innerWidth / gridCellsX;
-            const cellHeight = window.innerHeight / gridCellsY;
-
-            return {
-                x: position.x * cellWidth / gridSettings!.gridSize,
-                y: position.y * cellHeight / gridSettings!.gridSize
-            };
-        }
-        return position;
-    }, [position, useFixedGrid, gridCellsX, gridCellsY, gridSettings]);
+    // Calculate grid cell size in pixels based on current viewport
+    const cellWidth = useFixedGrid ? window.innerWidth / gridCellsX : gridSettings?.gridSize || 50;
+    const cellHeight = useFixedGrid ? window.innerHeight / gridCellsY : gridSettings?.gridSize || 50;
 
     // Use existing positions if not null/undefined, otherwise use default values
     const currentPosition = {
         x: position?.x ?? 0,
         y: position?.y ?? 0
     };
+
+    // Convert pixel coordinates to grid coordinates
+    const pixelToGridCoords = useCallback((pixelPos: { x: number, y: number }) => {
+        return {
+            x: pixelPos.x / cellWidth,
+            y: pixelPos.y / cellHeight
+        };
+    }, [cellWidth, cellHeight]);
+
+    // Convert grid coordinates to pixel position
+    const gridCoordsToPixel = useCallback((gridPos: { x: number, y: number }) => {
+        // Add 0.5 to place maps at the center of grid cells
+        // rather than at grid line intersections
+        const cellCenterX = (gridPos.x + 0.5) * cellWidth;
+        const cellCenterY = (gridPos.y + 0.5) * cellHeight;
+        return { x: cellCenterX, y: cellCenterY };
+    }, [cellWidth, cellHeight]);
+
+    // Calculate display position based on storage format
+    const getDisplayPosition = useCallback(() => {
+        if (map.data.useGridCoordinates) {
+            // Convert from grid coordinates to pixels for display
+            return gridCoordsToPixel(currentPosition);
+        }
+        return currentPosition;
+    }, [currentPosition, map.data.useGridCoordinates, gridCoordsToPixel]);
 
     // Create a throttled update function to reduce number of updates
     const throttledUpdate = useCallback((updateData: Partial<MapData['data']>) => {
@@ -115,21 +130,50 @@ export const Map: React.FC<MapProps> = ({
         if (isDragging) {
             e.preventDefault();
 
-            // Calculate new position, accounting for scaling
+            // Calculate movement in pixels
             const deltaX = e.movementX / scale;
             const deltaY = e.movementY / scale;
 
-            const newPosition = {
-                x: currentPosition.x + deltaX,
-                y: currentPosition.y + deltaY
-            };
+            let newPosition;
+
+            if (map.data.useGridCoordinates) {
+                // If already using grid coordinates, update in grid units
+                const gridDeltaX = deltaX / cellWidth;
+                const gridDeltaY = deltaY / cellHeight;
+
+                newPosition = {
+                    x: currentPosition.x + gridDeltaX,
+                    y: currentPosition.y + gridDeltaY
+                };
+            } else {
+                // For existing maps using pixel coordinates, convert to grid
+                const pixelPos = {
+                    x: currentPosition.x + deltaX,
+                    y: currentPosition.y + deltaY
+                };
+
+                // Convert to grid coordinates
+                newPosition = pixelToGridCoords(pixelPos);
+            }
+
+            // For snapping to cell centers, we use the floor function here
+            // This is different from the previous approach that used rounding
+            if (useFixedGrid) {
+                newPosition = {
+                    x: Math.floor(newPosition.x),
+                    y: Math.floor(newPosition.y)
+                };
+            }
 
             setPosition(newPosition);
 
-            // Update the map with new position
-            throttledUpdate({ position: newPosition });
+            // Update the map with new position in grid coordinates
+            throttledUpdate({
+                position: newPosition,
+                useGridCoordinates: true
+            });
         }
-    }, [isDragging, currentPosition, throttledUpdate, scale]);
+    }, [isDragging, currentPosition, throttledUpdate, scale, cellWidth, cellHeight, pixelToGridCoords, map.data.useGridCoordinates, useFixedGrid]);
 
     // End dragging on mouse up
     const handleMouseUp = useCallback(() => {
@@ -189,19 +233,22 @@ export const Map: React.FC<MapProps> = ({
         return `http://localhost:8010/maps/file/${folderPrefix}/${encodeURIComponent(map.name)}`;
     };
 
+    // In the render, use the display position to position the map
+    const displayPos = getDisplayPosition();
+
     return (
         <div
             ref={dragRef}
-            className="absolute select-none"
+            className={`absolute ${isActive ? 'cursor-grab' : ''} ${isDragging ? 'cursor-grabbing' : ''}`}
             style={{
                 position: 'absolute',
-                left: `${currentPosition.x}px`,
-                top: `${currentPosition.y}px`,
-                transform: `rotate(${rotation}deg) scale(${mapScale})`,
-                transformOrigin: 'center center',
-                cursor: isActive && !isViewerMode ? (isDragging ? 'grabbing' : 'grab') : 'default',
-                zIndex: isActive ? zIndex + 100 : zIndex,
-                opacity: map.data.isHidden ? 0.4 : 1, // Show hidden maps as semi-transparent
+                left: `${displayPos.x}px`,
+                top: `${displayPos.y}px`,
+                transform: `rotate(${rotation}deg) scale(${mapScale * scale})`,
+                transformOrigin: 'center',
+                zIndex,
+                opacity: map.data.isHidden ? 0 : 1,
+                pointerEvents: map.data.isHidden ? 'none' : 'auto'
             }}
             onMouseDown={handleMouseDown}
             onWheel={handleWheel}

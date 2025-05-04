@@ -6,6 +6,7 @@ export interface MapData {
             x: number;
             y: number;
         };
+        useGridCoordinates?: boolean;
         scale: number;
         rotation: number;
         isHidden: boolean;
@@ -40,6 +41,7 @@ export interface AoEMarker {
         x: number;
         y: number;
     };
+    useGridCoordinates?: boolean;
     rotation: number;
     opacity: number;
     label?: string;
