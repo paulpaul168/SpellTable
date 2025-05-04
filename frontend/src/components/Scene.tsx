@@ -857,17 +857,19 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             {/* Map List Sidebar */}
             {!isViewerMode && showMapList && (
-                <MapListSidebar
-                    scene={scene}
-                    onMapSelect={handleMapSelect}
-                    onMapVisibilityToggle={handleMapVisibilityToggle}
-                    onMapAdd={() => setIsUploadOpen(true)}
-                    onMapsReorder={handleMapsReorder}
-                    onMapDelete={handleDeleteMap}
-                    onClose={() => setShowMapList(false)}
-                    onMapRefresh={handleMapRefresh}
-                    onMapRename={handleMapRename}
-                />
+                <div className="!z-[9999]">
+                    <MapListSidebar
+                        scene={scene}
+                        onMapSelect={handleMapSelect}
+                        onMapVisibilityToggle={handleMapVisibilityToggle}
+                        onMapAdd={() => setIsUploadOpen(true)}
+                        onMapsReorder={handleMapsReorder}
+                        onMapDelete={handleDeleteMap}
+                        onClose={() => setShowMapList(false)}
+                        onMapRefresh={handleMapRefresh}
+                        onMapRename={handleMapRename}
+                    />
+                </div>
             )}
 
             {/* Show Map List Button - Only show when hidden and not in clean layout */}
@@ -906,22 +908,26 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             {/* Current Player Indicator - Only show in viewer mode */}
             {!isAdmin && (
-                <InitiativeIndicator
-                    initiativeOrder={scene.initiativeOrder}
-                    showCurrentPlayer={scene.showCurrentPlayer}
-                />
+                <div className="!z-[9999]">
+                    <InitiativeIndicator
+                        initiativeOrder={scene.initiativeOrder}
+                        showCurrentPlayer={scene.showCurrentPlayer}
+                    />
+                </div>
             )}
 
             {/* Initiative Sidebar */}
             {showInitiative && (
-                <InitiativeSidebar
-                    isAdmin={isAdmin}
-                    entries={scene.initiativeOrder}
-                    onUpdate={handleInitiativeUpdate}
-                    showCurrentPlayer={scene.showCurrentPlayer}
-                    onToggleCurrentPlayer={handleToggleCurrentPlayer}
-                    onClose={() => setShowInitiative(false)}
-                />
+                <div className="!z-[9999]">
+                    <InitiativeSidebar
+                        isAdmin={isAdmin}
+                        entries={scene.initiativeOrder}
+                        onUpdate={handleInitiativeUpdate}
+                        showCurrentPlayer={scene.showCurrentPlayer}
+                        onToggleCurrentPlayer={handleToggleCurrentPlayer}
+                        onClose={() => setShowInitiative(false)}
+                    />
+                </div>
             )}
 
             {/* Show Initiative Button - Only show when hidden and not in clean layout */}
@@ -978,7 +984,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             </div>
 
                             <DropdownMenuSeparator className="bg-zinc-800" />
-
+                          
                             {/* Layout Toggle */}
                             <DropdownMenuItem
                                 onClick={() => setIsCleanLayout(!isCleanLayout)}

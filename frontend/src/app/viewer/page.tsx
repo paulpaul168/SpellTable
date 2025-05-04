@@ -25,6 +25,7 @@ export default function ViewerPage() {
     const [scene, setScene] = useState<SceneType>(initialScene);
     const [connectionStatus, setConnectionStatus] = useState('connecting');
 
+
     // Use fixed 1.0 scale to match admin view exactly
     const displayScale = 1.0;
 
@@ -44,6 +45,13 @@ export default function ViewerPage() {
                 });
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
+              
+            } else if (data.type === 'display_scale_update') {
+                console.log('Received display scale update:', data.scale);
+                if (typeof data.scale === 'number') {
+                    // Use the scale directly as sent by the admin
+                    setDisplayScale(data.scale);
+                }
             }
             // Ignore display_scale_update messages - we're using fixed 1.0 scale
         });
@@ -143,6 +151,15 @@ export default function ViewerPage() {
                     )}
                 </div>
             </div>
+
+            {/* Display Scale Indicator */}
+            {displayScale !== 1.0 && (
+                <div className="absolute bottom-4 right-16 px-2 py-1 bg-zinc-900/80 backdrop-blur-sm rounded text-xs text-zinc-400 z-50">
+                    <div className="flex items-center gap-2">
+                        <span>Scaling: {(displayScale * 100).toFixed(1)}%</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 } 
