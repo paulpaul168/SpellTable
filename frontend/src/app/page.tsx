@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Scene } from '../components/Scene';
 import { Scene as SceneType } from '../types/map';
 
@@ -18,8 +18,6 @@ const initialScene: SceneType = {
 };
 
 export default function Home() {
-    // Exact ratio for 2K (2560x1440) to 4K (3840x2160)
-    const [initialDisplayScale] = useState(0.56);
-
-    return <Scene initialScene={initialScene} isAdmin={true} initialDisplayScale={initialDisplayScale} />;
+    // Use native 1:1 scaling to match viewer
+    return <Scene initialScene={initialScene} isAdmin={true} initialDisplayScale={1.0} />;
 }

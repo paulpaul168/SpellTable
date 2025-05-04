@@ -276,7 +276,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                 </Button>
             )}
             {isVisible && (
-                <div className="fixed bottom-0 left-0 w-[320px] min-h-[200px] max-h-[80%] bg-zinc-900/50 backdrop-blur-sm border-t border-zinc-800/50 flex flex-col rounded-tr-lg z-50">
+                <div className="fixed bottom-0 left-0 w-[320px] min-h-[200px] max-h-[80%] bg-zinc-900/50 backdrop-blur-sm border-t border-zinc-800/50 flex flex-col rounded-tr-lg z-[1000]">
                     <div className="p-4 border-b border-zinc-800/50">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-sm font-medium text-zinc-300">Initiative</h3>

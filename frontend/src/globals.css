@@ -99,13 +99,33 @@ body {
   }
 }
 
-
-
 @layer base {
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Z-index layering system */
+/* Fix z-index for all dialogs and UI elements */
+/* This ensures all dialogs and UI are above maps */
+[data-radix-popper-content-wrapper],
+[role="dialog"],
+.dialog-content,
+.fixed.inset-0,
+[data-state="open"]>div {
+  z-index: 10000 !important;
+}
+
+/* Ensure dropdown menus are always on top */
+.dropdown-menu-content {
+  z-index: 10000 !important;
+}
+
+/* Ensure toasts are visible */
+.toast-viewport {
+  z-index: 10001 !important;
 }

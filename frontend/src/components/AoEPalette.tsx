@@ -117,7 +117,7 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 bg-zinc-900/90 backdrop-blur-sm rounded-lg border border-zinc-800 shadow-xl transition-all duration-200 w-72">
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-[1001] bg-zinc-900/90 backdrop-blur-sm rounded-lg border border-zinc-800 shadow-xl transition-all duration-200 w-72">
             {/* Header */}
             <div className="flex items-center justify-between p-2 border-b border-zinc-800">
                 <h3 className="text-sm font-medium text-zinc-300">AoE Markers</h3>
