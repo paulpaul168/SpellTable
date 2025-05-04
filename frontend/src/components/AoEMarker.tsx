@@ -56,7 +56,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
 
     // Apply scaling adjustment for better grid alignment and visibility
     // This compensates for the grid transform scale while maintaining correct proportions
-    const scalingFactor = 1.2; // Increase the size by 20% to make markers more visible
+    const scalingFactor = 1.0; // optional scaling factor
     const adjustedSizeInPixels = sizeInPixels * scalingFactor;
 
     // Keep the position ref updated with the latest state
