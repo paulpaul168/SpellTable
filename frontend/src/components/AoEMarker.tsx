@@ -17,6 +17,13 @@ interface AoEMarkerProps {
     };
 }
 
+// Define drag offset reference type
+interface DragOffset {
+    startX: number;
+    startY: number;
+    startPosition: { x: number; y: number };
+}
+
 export const AoEMarker: React.FC<AoEMarkerProps> = ({
     marker,
     gridSize,
@@ -33,7 +40,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const [showSizeIndicator, setShowSizeIndicator] = useState(false);
     const lastUpdateRef = useRef<number>(0);
     const pendingUpdateRef = useRef<AoEMarkerType | null>(null);
-    const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+    const dragOffsetRef = useRef<DragOffset>({ startX: 0, startY: 0, startPosition: { x: 0, y: 0 } });
+    const mouseDragOffsetRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
     const markerRef = useRef<HTMLDivElement>(null);
     const positionRef = useRef(marker.position);
     const isDraggingRef = useRef(false);
@@ -148,53 +156,68 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         }
     }, [onUpdate]);
 
-    // Handle mouse movement 
+    // Handle mouse movement - completely rewritten to position under mouse pointer
     const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!isDraggingRef.current) return;
 
         e.preventDefault();
         e.stopPropagation();
 
-        // Get raw client coordinates
+        // Get current mouse position
         const mouseX = e.clientX;
         const mouseY = e.clientY;
 
-        // Calculate new position, accounting for drag offset
-        let newPosition = {
-            x: mouseX - dragOffsetRef.current.x,
-            y: mouseY - dragOffsetRef.current.y
-        };
+        // Apply the offset to keep the marker at the same relative position under the cursor
+        const offsetMouseX = mouseX - mouseDragOffsetRef.current.x;
+        const offsetMouseY = mouseY - mouseDragOffsetRef.current.y;
 
-        // Convert to grid coordinates
-        const gridPos = pixelToGridCoords(newPosition);
+        // Calculate new position with the offset
+        let newPosition;
 
-        // Floor to get the cell index, not the nearest grid line
-        const cellGridPos = {
-            x: Math.floor(gridPos.x),
-            y: Math.floor(gridPos.y)
-        };
+        if (marker.useGridCoordinates) {
+            // Convert offset mouse position to grid coordinates
+            const rawGridPos = {
+                x: offsetMouseX / cellWidth,
+                y: offsetMouseY / cellHeight
+            };
 
-        // For display, convert back to pixels using the cell-centered conversion
-        const pixelPos = gridCoordsToPixel(cellGridPos);
+            // Calculate the position in grid coordinates (floor to snap to grid)
+            newPosition = {
+                x: Math.floor(rawGridPos.x),
+                y: Math.floor(rawGridPos.y)
+            };
+        } else {
+            // For non-grid coordinates, use offset mouse position directly
+            newPosition = {
+                x: offsetMouseX,
+                y: offsetMouseY
+            };
+        }
+
+        // For display, convert to pixels
+        const pixelPos = marker.useGridCoordinates
+            ? gridCoordsToPixel(newPosition)
+            : newPosition;
+
         setCurrentPos(pixelPos);
         positionRef.current = pixelPos;
 
-        // Store in grid coordinates but display in pixels
-        throttledUpdate({
+        // Update the marker position
+        onUpdate({
             ...marker,
-            position: cellGridPos,
-            useGridCoordinates: true
+            position: newPosition,
+            useGridCoordinates: marker.useGridCoordinates
         });
-    }, [marker, throttledUpdate, pixelToGridCoords, gridCoordsToPixel]);
+    }, [marker, cellWidth, cellHeight, onUpdate, gridCoordsToPixel]);
 
     // Handle mouse up - end dragging
     const handleMouseUp = useCallback((e: MouseEvent) => {
         if (isDraggingRef.current) {
             e.preventDefault();
 
-            // Get the EXACT current grid position
-            const gridPos = pixelToGridCoords(positionRef.current);
-            const cellGridPos = {
+            // Final position should be snapped to grid
+            const gridPos = pixelToGridCoords({ x: e.clientX, y: e.clientY });
+            const snappedGridPos = {
                 x: Math.floor(gridPos.x),
                 y: Math.floor(gridPos.y)
             };
@@ -202,7 +225,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             // Ensure final position is stored in grid coordinates
             onUpdate({
                 ...marker,
-                position: cellGridPos,
+                position: snappedGridPos,
                 useGridCoordinates: true
             });
 
@@ -262,19 +285,16 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         e.stopPropagation();
         e.preventDefault();
 
-        const rect = markerRef.current?.getBoundingClientRect();
-        if (rect) {
-            // Calculate drag offset
-            dragOffsetRef.current = {
-                x: e.clientX - currentPos.x,
-                y: e.clientY - currentPos.y
-            };
-        } else {
-            dragOffsetRef.current = { x: 0, y: 0 };
-        }
+        // Calculate the offset between mouse and marker center
+        mouseDragOffsetRef.current = {
+            x: e.clientX - currentPos.x,
+            y: e.clientY - currentPos.y
+        };
 
+        // Start dragging
         setIsDragging(true);
         isDraggingRef.current = true;
+        document.body.classList.add('dragging-aoe');
     };
 
     const handleWheel = (e: React.WheelEvent) => {

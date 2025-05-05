@@ -60,6 +60,28 @@ export default function ViewerPage() {
         };
     }, []);
 
+    // Add window resize handler to keep viewer and admin views in sync
+    useEffect(() => {
+        // Function to handle window resize
+        const handleResize = () => {
+            // Force a re-render to recalculate grid and positions
+            setScene(prevScene => ({ ...prevScene }));
+
+            // Request a fresh scene update from the server
+            websocketService.send({
+                type: 'request_scene_update'
+            });
+        };
+
+        // Add resize listener
+        window.addEventListener('resize', handleResize);
+
+        // Remove listener on cleanup
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
+    }, []);
+
     const currentPlayer = scene.initiativeOrder?.find(entry => entry.isCurrentTurn);
 
     return (
@@ -120,7 +142,7 @@ export default function ViewerPage() {
             {/* Grid Overlay - Always on top of maps and markers but below UI */}
             {scene.gridSettings?.showGrid && (
                 <div
-                    className="fixed inset-0 pointer-events-none"
+                    className="absolute inset-0 pointer-events-none"
                     style={{
                         backgroundImage: `
                             linear-gradient(to right, ${scene.gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)'} 1px, transparent 1px),

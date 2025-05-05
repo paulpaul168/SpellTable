@@ -7,6 +7,7 @@ export interface MapData {
             y: number;
         };
         useGridCoordinates?: boolean;
+        useGridScaling?: boolean;
         scale: number;
         rotation: number;
         isHidden: boolean;

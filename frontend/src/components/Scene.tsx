@@ -251,22 +251,22 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
                 if (!mapInfo) throw new Error(`Map ${mapName} not found`);
 
-                // Determine grid dimensions for positioning
-                const gridCellsX = scene.gridSettings.gridCellsX || 25;
-                const gridCellsY = scene.gridSettings.gridCellsY || 13;
+                // Determine grid dimensions and calculate center cell
+                const gridCellsX = scene.gridSettings.gridCellsX || 18;
+                const gridCellsY = scene.gridSettings.gridCellsY || 32;
 
-                // Position in grid coordinates - use integer coordinates
+                // Calculate center position in grid cells
                 // The gridCoordsToPixel function will add the 0.5 offset to center in cells
-                const gridX = Math.floor(gridCellsX / 2);
-                const gridY = Math.floor(gridCellsY / 2);
+                const centerGridX = Math.floor(gridCellsX / 2);
+                const centerGridY = Math.floor(gridCellsY / 2);
 
-                // Create a new map object with grid coordinates
                 const newMap: MapData = {
                     name: mapName,
                     folder: mapInfo.folder,
                     data: {
-                        position: { x: gridX, y: gridY },
+                        position: { x: centerGridX, y: centerGridY },
                         useGridCoordinates: true,
+                        useGridScaling: true, // Enable grid scaling for new maps
                         scale: 1,
                         rotation: 0,
                         isHidden: false
@@ -321,20 +321,21 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             const data = await response.json();
 
-            // Determine grid dimensions for positioning
-            const gridCellsX = scene.gridSettings.gridCellsX || 25;
-            const gridCellsY = scene.gridSettings.gridCellsY || 13;
+            // Determine grid dimensions and calculate center cell
+            const gridCellsX = scene.gridSettings.gridCellsX || 18;
+            const gridCellsY = scene.gridSettings.gridCellsY || 32;
 
-            // Position in grid coordinates - use integer coordinates
+            // Calculate center position in grid cells
             // The gridCoordsToPixel function will add the 0.5 offset to center in cells
-            const gridX = Math.floor(gridCellsX / 2);
-            const gridY = Math.floor(gridCellsY / 2);
+            const centerGridX = Math.floor(gridCellsX / 2);
+            const centerGridY = Math.floor(gridCellsY / 2);
 
             const newMap: MapData = {
                 name: data.filename,
                 data: {
-                    position: { x: gridX, y: gridY },
+                    position: { x: centerGridX, y: centerGridY },
                     useGridCoordinates: true,
+                    useGridScaling: true, // Enable grid scaling for new maps
                     scale: 1,
                     rotation: 0,
                     isHidden: false
@@ -504,6 +505,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const handleUpdateGridSettings = (newGridSettings: any) => {
         // Check if useFixedGrid is being enabled
         const isEnablingFixedGrid = !scene.gridSettings.useFixedGrid && newGridSettings.useFixedGrid;
+        // Check if grid size is being changed
+        const isChangingGridSize = scene.gridSettings.gridSize !== newGridSettings.gridSize;
 
         // If enabling fixed grid, convert all positions to grid coordinates
         if (isEnablingFixedGrid) {
@@ -528,11 +531,19 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                         data: {
                             ...map.data,
                             position: gridPos,
-                            useGridCoordinates: true
+                            useGridCoordinates: true,
+                            useGridScaling: true // Enable grid scaling for better consistency
                         }
                     };
                 }
-                return map;
+                // Enable grid scaling for all maps when switching to fixed grid
+                return {
+                    ...map,
+                    data: {
+                        ...map.data,
+                        useGridScaling: true
+                    }
+                };
             });
 
             // Convert all AoE markers to use grid coordinates
@@ -576,7 +587,41 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 description: "All objects converted to grid coordinates for consistent scaling",
                 duration: 3000,
             });
-        } else {
+        }
+        // If just changing grid size, ensure maps use grid scaling
+        else if (isChangingGridSize) {
+            // Enable grid scaling for all maps when changing grid size
+            const updatedMaps = scene.maps.map(map => ({
+                ...map,
+                data: {
+                    ...map.data,
+                    useGridScaling: true // Enable grid scaling for better consistency
+                }
+            }));
+
+            // Update scene with the new grid settings and map scaling
+            const updatedScene = {
+                ...scene,
+                gridSettings: {
+                    ...scene.gridSettings,
+                    ...newGridSettings
+                },
+                maps: updatedMaps
+            };
+
+            setScene(updatedScene);
+            websocketService.send({
+                type: 'scene_update',
+                scene: updatedScene
+            });
+
+            toast({
+                title: "Grid Size Updated",
+                description: "Maps will scale with the grid for consistency",
+                duration: 3000,
+            });
+        }
+        else {
             // Just update grid settings without conversion
             const updatedScene = {
                 ...scene,
@@ -806,21 +851,21 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
     // Handler for adding a new AoE marker
     const handleAddAoEMarker = (markerData: Omit<AoEMarkerType, 'id' | 'position'>) => {
-        // Determine grid dimensions for positioning
-        const gridCellsX = scene.gridSettings.gridCellsX || 25;
-        const gridCellsY = scene.gridSettings.gridCellsY || 13;
+        // Determine grid dimensions and calculate center cell
+        const gridCellsX = scene.gridSettings.gridCellsX || 18;
+        const gridCellsY = scene.gridSettings.gridCellsY || 32;
 
-        // Position in grid coordinates - use integer coordinates
+        // Calculate center position in grid cells
         // The gridCoordsToPixel function will add the 0.5 offset to center in cells
-        const gridX = Math.floor(gridCellsX / 2);
-        const gridY = Math.floor(gridCellsY / 2);
+        const centerGridX = Math.floor(gridCellsX / 2);
+        const centerGridY = Math.floor(gridCellsY / 2);
 
         const newMarker: AoEMarkerType = {
             ...markerData,
             id: Date.now().toString(),
             position: {
-                x: gridX,
-                y: gridY
+                x: centerGridX,
+                y: centerGridY
             },
             useGridCoordinates: true
         };

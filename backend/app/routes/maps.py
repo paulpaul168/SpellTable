@@ -448,6 +448,7 @@ async def load_map_data(map_name: str) -> dict[str, Any]:
                 "data": {
                     "position": {"x": 9, "y": 16},  # Default to center of 18x32 grid
                     "useGridCoordinates": True,  # Use grid coordinates by default
+                    "useGridScaling": True,  # Enable grid-relative scaling by default
                     "scale": 1,
                     "rotation": 0,
                     "isHidden": True,
