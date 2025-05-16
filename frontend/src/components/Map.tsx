@@ -63,6 +63,12 @@ export const Map: React.FC<MapProps> = ({
     const dragRef = useRef<HTMLDivElement>(null);
     const imageRef = useRef<HTMLImageElement>(null);
     const mouseDragOffsetRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
+    const positionRef = useRef(position);
+
+    // Track the map name and folder to detect changes
+    const mapNameRef = useRef(map.name);
+    const mapFolderRef = useRef(map.folder);
+    const lastMapDataStringRef = useRef(JSON.stringify(map.data));
 
     // Determine grid cell size in pixels
     const useFixedGrid = gridSettings?.useFixedGrid || false;
@@ -79,11 +85,45 @@ export const Map: React.FC<MapProps> = ({
     // Calculate the grid scaling factor (how much the current grid differs from base)
     const gridScaleFactor = cellWidth / baseGridSize;
 
-    // Use existing positions if not null/undefined, otherwise use default values
-    const currentPosition = {
-        x: position?.x ?? 0,
-        y: position?.y ?? 0
-    };
+    // Update local state when props change (including external updates in viewer mode)
+    useEffect(() => {
+        // Check if this is a real map change using name and folder
+        const isNewMap = map.name !== mapNameRef.current ||
+            JSON.stringify(map.folder) !== JSON.stringify(mapFolderRef.current);
+
+        // Also check if map data has changed by comparing serialized versions
+        const currentMapDataString = JSON.stringify(map.data);
+        const dataChanged = currentMapDataString !== lastMapDataStringRef.current;
+
+        // Update refs for map identification
+        mapNameRef.current = map.name;
+        mapFolderRef.current = map.folder;
+        lastMapDataStringRef.current = currentMapDataString;
+
+        // Only update position if it has changed or it's a new map
+        const positionChanged = JSON.stringify(map.data.position) !== JSON.stringify(position);
+        if (map.data.position && (isNewMap || positionChanged || dataChanged)) {
+            setPosition(map.data.position);
+            positionRef.current = map.data.position;
+        }
+
+        // Only update rotation if it has changed or it's a new map
+        const rotationChanged = map.data.rotation !== rotation;
+        if (map.data.rotation !== undefined && (isNewMap || rotationChanged || dataChanged)) {
+            setRotation(map.data.rotation);
+        }
+
+        // Only update scale if it has changed or it's a new map
+        const scaleChanged = map.data.scale !== mapScale;
+        if (map.data.scale !== undefined && (isNewMap || scaleChanged || dataChanged)) {
+            setMapScale(map.data.scale);
+        }
+    }, [map, position, rotation, mapScale]);
+
+    // Update position ref when position state changes
+    useEffect(() => {
+        positionRef.current = position;
+    }, [position]);
 
     // Convert pixel coordinates to grid coordinates (without snapping)
     const pixelToGridCoords = useCallback((pixelPos: { x: number, y: number }) => {
@@ -103,12 +143,16 @@ export const Map: React.FC<MapProps> = ({
 
     // Calculate display position based on storage format
     const calculateDisplayPosition = useCallback(() => {
+        // Use the current position from the ref to avoid dependency cycles
+        const currentPos = positionRef.current;
+        if (!currentPos) return { x: 0, y: 0 };
+
         if (map.data.useGridCoordinates) {
             // Convert from grid coordinates to pixels for display
-            return gridCoordsToPixel(currentPosition);
+            return gridCoordsToPixel(currentPos);
         }
-        return currentPosition;
-    }, [currentPosition, map.data.useGridCoordinates, gridCoordsToPixel]);
+        return currentPos;
+    }, [map.data.useGridCoordinates, gridCoordsToPixel]);
 
     // Calculate the effective map scale, considering grid size
     const getEffectiveScale = useCallback(() => {
@@ -152,14 +196,7 @@ export const Map: React.FC<MapProps> = ({
         }
     }, [map, onUpdate]);
 
-    // Update local state when props change
-    useEffect(() => {
-        if (map.data.position) setPosition(map.data.position);
-        if (map.data.rotation !== undefined) setRotation(map.data.rotation);
-        if (map.data.scale !== undefined) setMapScale(map.data.scale);
-    }, [map.data.position, map.data.rotation, map.data.scale]);
-
-    // Update display position when position changes or on mount
+    // Update display position whenever relevant data changes
     useEffect(() => {
         const newDisplayPos = calculateDisplayPosition();
         setCurrentDisplayPos(newDisplayPos);
@@ -168,6 +205,7 @@ export const Map: React.FC<MapProps> = ({
     // Handle window resize
     useEffect(() => {
         const handleResize = () => {
+            // Only recalculate display position on resize, don't update state that would trigger another render
             const newDisplayPos = calculateDisplayPosition();
             setCurrentDisplayPos(newDisplayPos);
         };
@@ -196,6 +234,8 @@ export const Map: React.FC<MapProps> = ({
 
         // Update position state with exact non-rounded grid coordinates
         setPosition(gridPos);
+        // Update position ref directly to avoid dependency on position state
+        positionRef.current = gridPos;
 
         // Update display position immediately for smooth dragging
         const pixelPos = gridCoordsToPixel(gridPos);
@@ -217,14 +257,14 @@ export const Map: React.FC<MapProps> = ({
         if (isDraggingRef.current) {
             // Keep exact non-snapped position but ensure it's stored as grid coordinates
             throttledUpdate({
-                position,
+                position: positionRef.current,
                 useGridCoordinates: true
             });
 
             isDraggingRef.current = false;
             document.body.style.cursor = 'default';
         }
-    }, [position, throttledUpdate]);
+    }, [throttledUpdate]);
 
     // Handle escape key to cancel dragging
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
