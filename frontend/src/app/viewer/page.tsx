@@ -28,7 +28,6 @@ export default function ViewerPage() {
     const [scene, setScene] = useState<SceneType>(initialScene);
     const [connectionStatus, setConnectionStatus] = useState('connecting');
 
-
     // Use fixed 1.0 scale to match admin view exactly
     const displayScale = 1.0;
 
@@ -37,7 +36,8 @@ export default function ViewerPage() {
 
         const unsubscribe = websocketService.addListener((data) => {
             if (data.type === 'scene_update' && data.scene) {
-                setScene({
+                // Make sure we preserve map positioning data exactly as it comes from admin
+                const updatedScene = {
                     ...data.scene,
                     initiativeOrder: data.scene.initiativeOrder || [],
                     gridSettings: data.scene.gridSettings || {
@@ -45,7 +45,22 @@ export default function ViewerPage() {
                         gridSize: 50
                     },
                     aoeMarkers: data.scene.aoeMarkers || []
-                });
+                };
+
+                // Ensure maps have proper position data
+                if (updatedScene.maps && updatedScene.maps.length > 0) {
+                    updatedScene.maps = updatedScene.maps.map(map => ({
+                        ...map,
+                        data: {
+                            ...map.data,
+                            // Ensure position and transform origin are consistent with admin
+                            useGridCoordinates: map.data.useGridCoordinates !== undefined ?
+                                map.data.useGridCoordinates : true
+                        }
+                    }));
+                }
+
+                setScene(updatedScene);
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
             } else if (data.type === 'display_scale_update') {
@@ -104,17 +119,17 @@ export default function ViewerPage() {
                     {scene.maps
                         .filter(map => !map.data.isHidden)
                         .map((map, index) => (
-                        <Map
-                            key={map.name}
-                            map={map}
-                            isActive={map.name === scene.activeMapId}
-                            onUpdate={() => { }} // No updates in viewer mode
-                            isViewerMode={true}
-                            zIndex={scene.maps.length - index} // Match admin's z-index calculation
-                            scale={displayScale}
-                            gridSettings={scene.gridSettings} // Pass grid settings to Map component
-                        />
-                    ))}
+                            <Map
+                                key={map.name}
+                                map={map}
+                                isActive={map.name === scene.activeMapId}
+                                onUpdate={() => { }} // No updates in viewer mode
+                                isViewerMode={true}
+                                zIndex={scene.maps.length - index} // Match admin's z-index calculation
+                                scale={displayScale}
+                                gridSettings={scene.gridSettings} // Pass grid settings to Map component
+                            />
+                        ))}
                 </div>
 
                 {/* AoE Markers - View Only - Ensure they're above maps but below UI */}

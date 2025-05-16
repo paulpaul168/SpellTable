@@ -120,6 +120,22 @@ export const Map: React.FC<MapProps> = ({
         return mapScale;
     }, [mapScale, gridScaleFactor, map.data.useGridScaling]);
 
+    // Make sure image is consistently positioned in both admin and viewer modes
+    // Use the same positioning logic regardless of mode
+    const getImageStyle = useCallback(() => {
+        const effectiveScale = getEffectiveScale() * (scale || 1);
+        return {
+            position: 'absolute',
+            left: `${currentDisplayPos.x}px`,
+            top: `${currentDisplayPos.y}px`,
+            transform: `rotate(${rotation}deg) scale(${effectiveScale})`,
+            transformOrigin: 'top left', // Use top left as transform origin consistently
+            zIndex,
+            opacity: map.data.isHidden ? (isViewerMode ? 0 : 0.4) : 1,
+            pointerEvents: map.data.isHidden ? 'none' : 'auto'
+        } as React.CSSProperties;
+    }, [currentDisplayPos, rotation, getEffectiveScale, scale, zIndex, map.data.isHidden, isViewerMode]);
+
     // Create a throttled update function to reduce number of updates
     const throttledUpdate = useCallback((updateData: Partial<MapData['data']>) => {
         const now = Date.now();
@@ -297,16 +313,7 @@ export const Map: React.FC<MapProps> = ({
         <div
             ref={dragRef}
             className={`absolute ${isActive ? 'cursor-grab' : ''} ${isDraggingRef.current ? 'cursor-grabbing' : ''}`}
-            style={{
-                position: 'absolute',
-                left: `${currentDisplayPos.x}px`,
-                top: `${currentDisplayPos.y}px`,
-                transform: `rotate(${rotation}deg) scale(${effectiveScale * scale})`,
-                transformOrigin: 'center',
-                zIndex,
-                opacity: map.data.isHidden ? (isViewerMode ? 0 : 0.4) : 1,
-                pointerEvents: map.data.isHidden ? 'none' : 'auto'
-            }}
+            style={getImageStyle()}
             onMouseDown={handleMouseDown}
             onWheel={handleWheel}
         >
