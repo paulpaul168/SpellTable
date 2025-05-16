@@ -72,7 +72,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
 
     // Calculation for optimal grid size based on viewport
     useEffect(() => {
-        if (isOpen && useFixedGrid) {
+        if (isOpen && useFixedGrid && typeof window !== 'undefined') {
             // Calculate the best grid size to fit the specified grid cells
             const optimalGridSizeX = Math.floor(window.innerWidth / gridCellsX);
             const optimalGridSizeY = Math.floor(window.innerHeight / gridCellsY);
@@ -114,8 +114,8 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
     // Calculate grid size based on fixed grid if enabled
     const calculatedGridSize = useFixedGrid
         ? Math.floor(Math.min(
-            window.innerWidth / gridCellsX,
-            window.innerHeight / gridCellsY
+            typeof window !== 'undefined' ? window.innerWidth / gridCellsX : 50,
+            typeof window !== 'undefined' ? window.innerHeight / gridCellsY : 50
         ))
         : gridSize;
 
@@ -129,12 +129,14 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
         setGridCellsY(height);
 
         // Calculate optimal grid size
-        const optimalGridSizeX = Math.floor(window.innerWidth / width);
-        const optimalGridSizeY = Math.floor(window.innerHeight / height);
-        const optimal = Math.min(optimalGridSizeX, optimalGridSizeY);
+        if (typeof window !== 'undefined') {
+            const optimalGridSizeX = Math.floor(window.innerWidth / width);
+            const optimalGridSizeY = Math.floor(window.innerHeight / height);
+            const optimal = Math.min(optimalGridSizeX, optimalGridSizeY);
 
-        if (optimal > 0) {
-            setGridSize(optimal);
+            if (optimal > 0) {
+                setGridSize(optimal);
+            }
         }
     };
 
