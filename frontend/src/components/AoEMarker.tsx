@@ -216,7 +216,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 y: offsetMouseY / cellHeight
             };
 
-            // Calculate the position in grid coordinates (floor to snap to grid)
+            // Calculate the position in grid coordinates - snap to grid
             newPosition = {
                 x: Math.floor(rawGridPos.x),
                 y: Math.floor(rawGridPos.y)
@@ -229,7 +229,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             };
         }
 
-        // For display, convert to pixels
+        // For display, convert to pixels - ensure preview matches final position
         const pixelPos = marker.useGridCoordinates
             ? gridCoordsToPixel(newPosition)
             : newPosition;
@@ -241,7 +241,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         onUpdate({
             ...marker,
             position: newPosition,
-            useGridCoordinates: marker.useGridCoordinates
+            useGridCoordinates: true // Always use grid coordinates for consistency
         });
     }, [marker, cellWidth, cellHeight, onUpdate, gridCoordsToPixel]);
 
@@ -250,25 +250,13 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         if (isDraggingRef.current) {
             e.preventDefault();
 
-            // Final position should be snapped to grid
-            const gridPos = pixelToGridCoords({ x: e.clientX, y: e.clientY });
-            const snappedGridPos = {
-                x: Math.floor(gridPos.x),
-                y: Math.floor(gridPos.y)
-            };
-
-            // Ensure final position is stored in grid coordinates
-            onUpdate({
-                ...marker,
-                position: snappedGridPos,
-                useGridCoordinates: true
-            });
-
+            // The marker position was already updated during dragging,
+            // so we only need to ensure consistency
             setIsDragging(false);
             isDraggingRef.current = false;
             document.body.classList.remove('dragging-aoe');
         }
-    }, [marker, onUpdate, pixelToGridCoords]);
+    }, [marker, onUpdate]);
 
     // Set up global drag event handling
     useEffect(() => {
