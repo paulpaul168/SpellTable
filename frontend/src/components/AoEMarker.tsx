@@ -385,16 +385,39 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 );
             case 'cone':
                 return (
-                    <div
+                    <svg
+                        width={adjustedSizeInPixels}
+                        height={adjustedSizeInPixels + 30}
                         style={{
-                            width: 0,
-                            height: 0,
-                            borderLeft: `${adjustedSizeInPixels / 2}px solid transparent`,
-                            borderRight: `${adjustedSizeInPixels / 2}px solid transparent`,
-                            borderBottom: `${adjustedSizeInPixels}px solid ${marker.color}`,
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            transform: 'translateX(-50%)',
                             opacity: marker.opacity
                         }}
-                    />
+                        viewBox={`0 0 ${adjustedSizeInPixels} ${adjustedSizeInPixels + 30}`}
+                    >
+                        <polygon
+                            points={`${adjustedSizeInPixels / 2},0 0,${adjustedSizeInPixels} ${adjustedSizeInPixels},${adjustedSizeInPixels}`}
+                            fill={marker.color}
+                        />
+                        {marker.label && (
+                            <text
+                                x={adjustedSizeInPixels / 2}
+                                y={adjustedSizeInPixels + 20}
+                                textAnchor="middle"
+                                fill="white"
+                                className="text-xs"
+                                style={{
+                                    fontSize: '12px',
+                                    fontFamily: 'sans-serif',
+                                    textShadow: '0 0 3px rgba(0,0,0,0.8)'
+                                }}
+                            >
+                                {marker.label}
+                            </text>
+                        )}
+                    </svg>
                 );
             case 'line':
                 return (
@@ -457,17 +480,19 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     return (
         <div
             ref={markerRef}
-            className={`absolute select-none flex flex-col items-center ${highlightAnimation ? 'highlighted-marker' : ''}`}
+            className={`absolute select-none ${marker.shape !== 'cone' ? 'flex flex-col items-center' : ''} ${highlightAnimation ? 'highlighted-marker' : ''}`}
             style={{
                 position: 'absolute',
                 left: `${currentPos.x}px`,
                 top: `${currentPos.y}px`,
-                transform: `translate(-50%, -50%) rotate(${marker.rotation}deg)`, // Center the marker at its position
+                transform: marker.shape === 'cone'
+                    ? `rotate(${marker.rotation}deg)`
+                    : `translate(-50%, -50%) rotate(${marker.rotation}deg)`,
+                transformOrigin: marker.shape === 'cone' ? 'center top' : 'center',
                 cursor: isActive && isAdmin ? (isDragging ? 'grabbing' : 'grab') : 'default',
-                transformOrigin: 'center',
                 pointerEvents: isActive ? 'auto' : 'none',
-                zIndex: isDragging ? 900 : 500, // High z-index to stay above maps but below UI (1000)
-                touchAction: 'none' // Disable browser touch actions
+                zIndex: isDragging ? 900 : 500,
+                touchAction: 'none'
             }}
             onMouseDown={handleMouseDown}
             onWheel={handleWheel}
@@ -521,14 +546,14 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
 
             {/* Size indicator - shows when resizing */}
             {isAdmin && showSizeIndicator && (
-                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full mt-1 px-2 py-1 bg-black/80 text-white text-xs rounded pointer-events-none">
+                <div className={`absolute ${marker.shape === 'cone' ? 'bottom-0 left-0 translate-y-full ml-2' : 'bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full'} mt-1 px-2 py-1 bg-black/80 text-white text-xs rounded pointer-events-none`}>
                     {marker.sizeInFeet}′
                 </div>
             )}
 
             {renderShape()}
 
-            {marker.label && (
+            {marker.label && marker.shape !== 'cone' && (
                 <div
                     className="mt-1 px-2 py-1 bg-black/70 text-white text-xs rounded pointer-events-none"
                     style={{ whiteSpace: 'nowrap' }}
