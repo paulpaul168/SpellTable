@@ -293,7 +293,8 @@ export const Soundboard: React.FC<SoundboardProps> = ({ isOpen, onClose }) => {
     // Recursive component to render folder structure
     const renderFolder = (folder: AudioFolder, path: string, type: 'music' | 'effect') => {
         const folderPath = path ? `${path}/${folder.name}` : folder.name;
-        const isExpanded = expandedFolders[folderPath] !== false; // Default to expanded
+        // Keep Music and Effects categories expanded, but collapse others by default
+        const isExpanded = folder.name === 'Music' || folder.name === 'Effects' || expandedFolders[folderPath] === true;
 
         return (
             <div key={folderPath} className="ml-1">
