@@ -49,6 +49,7 @@ import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { DisplayCalculator } from './DisplayCalculator';
 import { BackupDialog } from './BackupDialog';
+import { GameboardMenu } from './GameboardMenu';
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -181,6 +182,14 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 });
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
+            } else if (data.type === 'ripple_viewer_ready') {
+                // Log that a viewer is ready to receive ripple events
+                console.log('Viewer is ready to receive ripple effects');
+                toast({
+                    title: "Viewer Connected",
+                    description: "A viewer is ready to receive ripple effects",
+                    duration: 3000,
+                });
             }
         });
 
@@ -1046,23 +1055,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 </div>
             )}
 
-            {/* Connection Status Indicator - Only show in normal layout */}
+            {/* GameboardMenu - Only show in normal layout */}
             {!isCleanLayout && (
-                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000]">
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800">
-                        {connectionStatus === 'connected' ? (
-                            <>
-                                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                                <span className="text-xs text-emerald-500">Connected</span>
-                            </>
-                        ) : (
-                            <>
-                                <div className="h-2 w-2 rounded-full bg-zinc-600" />
-                                <span className="text-xs text-zinc-600 capitalize">{connectionStatus}</span>
-                            </>
-                        )}
-                    </div>
-                </div>
+                <GameboardMenu connectionStatus={connectionStatus} />
             )}
 
             {/* Current Player Indicator - Only show in viewer mode */}

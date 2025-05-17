@@ -6,6 +6,7 @@ import { Map } from '../../components/Map';
 import { websocketService } from '../../services/websocket';
 import { InitiativeIndicator } from '../../components/InitiativeIndicator';
 import { AoEMarker } from '../../components/AoEMarker';
+import { RippleViewer } from '../../components/RippleViewer';
 
 const initialScene: SceneType = {
     id: 'default',
@@ -185,6 +186,8 @@ export default function ViewerPage() {
                     }}
                 />
             )}
+
+            <RippleViewer />
 
             {/* Connection Status */}
             <div className="absolute top-4 right-4 px-2 py-1.5 rounded-md bg-zinc-900/80 backdrop-blur-sm z-[1000]">
