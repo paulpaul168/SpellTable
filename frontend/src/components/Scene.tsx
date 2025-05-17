@@ -1243,6 +1243,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                     <ExternalLink className="h-4 w-4 mr-2" />
                                     Open Viewer Page
                                 </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className="text-xs cursor-pointer"
+                                    onClick={() => window.open('/initiative', '_blank')}
+                                >
+                                    <ExternalLink className="h-4 w-4 mr-2" />
+                                    Open Initiative Page
+                                </DropdownMenuItem>
                             </div>
 
                             <DropdownMenuSeparator className="bg-zinc-800" />
