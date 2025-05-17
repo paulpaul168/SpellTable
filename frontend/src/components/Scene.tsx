@@ -130,6 +130,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isDisplayCalculatorOpen, setIsDisplayCalculatorOpen] = useState(false);
     const [isGridSettingsOpen, setIsGridSettingsOpen] = useState(false);
     const [isBackupDialogOpen, setIsBackupDialogOpen] = useState(false);
+    const [highlightedMarkerId, setHighlightedMarkerId] = useState<string | null>(null);
 
     // Remove display scale functionality, using fixed 1.0 scale
     const displayScale = 1.0;
@@ -967,6 +968,11 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             zIndex={scene.maps.length - index} // Higher index = higher in stack (last map = top)
                             scale={displayScale}
                             gridSettings={scene.gridSettings}
+                            onOpenAoEPalette={() => setIsAoEPaletteOpen(true)}
+                            aoeMarkers={scene.aoeMarkers || []}
+                            onUpdateMarker={handleUpdateAoEMarker}
+                            onDeleteMarker={handleDeleteAoEMarker}
+                            onAddMarker={handleAddAoEMarker}
                         />
                     ))}
                 </div>
@@ -984,6 +990,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             onDelete={handleDeleteAoEMarker}
                             scale={displayScale}
                             gridSettings={scene.gridSettings}
+                            isHighlighted={marker.id === highlightedMarkerId}
                         />
                     ))}
                 </div>
@@ -1341,6 +1348,33 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 isOpen={isAoEPaletteOpen}
                 onClose={() => setIsAoEPaletteOpen(false)}
                 onAddMarker={handleAddAoEMarker}
+                activeMarkers={scene.aoeMarkers || []}
+                onDeleteMarker={handleDeleteAoEMarker}
+                onHighlightMarker={(markerId) => {
+                    // Find the marker and highlight it
+                    const marker = scene.aoeMarkers?.find(m => m.id === markerId);
+                    if (marker) {
+                        // Set the highlighted marker ID to trigger the animation
+                        setHighlightedMarkerId(markerId);
+
+                        // Clear the highlight after a short delay
+                        setTimeout(() => {
+                            setHighlightedMarkerId(null);
+                        }, 2100); // Slightly longer than the animation duration
+
+                        // Broadcast the highlight to viewers
+                        websocketService.send({
+                            type: 'highlight_marker',
+                            markerId: markerId
+                        });
+
+                        toast({
+                            title: "Marker Highlighted",
+                            description: marker.label || `${marker.shape} marker highlighted`,
+                            duration: 2000,
+                        });
+                    }
+                }}
             />
 
             {/* Add Display Calculator Dialog */}

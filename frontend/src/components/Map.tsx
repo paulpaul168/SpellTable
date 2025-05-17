@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MapData } from '../types/map';
+import { MapData, AoEMarker as AoEMarkerType } from '../types/map';
 import { EyeOff } from 'lucide-react';
+import { AoEMarker } from './AoEMarker';
+import { AoEPalette } from './AoEPalette';
 
 interface MapProps {
     map: MapData;
@@ -16,6 +18,11 @@ interface MapProps {
         gridCellsX?: number;
         gridCellsY?: number;
     };
+    aoeMarkers?: AoEMarkerType[];
+    onUpdateMarker?: (marker: AoEMarkerType) => void;
+    onDeleteMarker?: (markerId: string) => void;
+    onAddMarker?: (marker: Omit<AoEMarkerType, 'id' | 'position'>) => void;
+    onOpenAoEPalette?: () => void;
 }
 
 // Update image source URL to include folder path if available
@@ -50,12 +57,18 @@ export const Map: React.FC<MapProps> = ({
     isViewerMode,
     zIndex,
     scale = 1,
-    gridSettings
+    gridSettings,
+    aoeMarkers = [],
+    onUpdateMarker,
+    onDeleteMarker,
+    onAddMarker,
+    onOpenAoEPalette
 }) => {
     const [position, setPosition] = useState(map.data.position);
     const [rotation, setRotation] = useState(map.data.rotation || 0);
     const [mapScale, setMapScale] = useState(map.data.scale);
     const [currentDisplayPos, setCurrentDisplayPos] = useState({ x: 0, y: 0 });
+    const [highlightedMarkerId, setHighlightedMarkerId] = useState<string | null>(null);
 
     // Use refs for tracking state that shouldn't trigger re-renders
     const lastUpdateRef = useRef<number>(0);
@@ -346,32 +359,93 @@ export const Map: React.FC<MapProps> = ({
         return `http://localhost:8010/maps/file/${folderPrefix}/${encodeURIComponent(map.name)}`;
     };
 
+    // Handler for adding a marker at the current mouse position
+    const handleAddMarker = useCallback((markerData: Omit<AoEMarkerType, 'id' | 'position'>) => {
+        if (onAddMarker) {
+            // Get center of the screen as default position
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+
+            // Convert to grid coordinates
+            const gridPos = pixelToGridCoords({ x: centerX, y: centerY });
+
+            // Pass the marker data to the parent component
+            // The parent component will add position and id
+            onAddMarker(markerData);
+        }
+    }, [onAddMarker, pixelToGridCoords]);
+
+    // Handler for highlighting a marker
+    const handleHighlightMarker = useCallback((markerId: string) => {
+        setHighlightedMarkerId(markerId);
+
+        // Clear the highlight after a short delay
+        setTimeout(() => {
+            setHighlightedMarkerId(null);
+        }, 2100); // Slightly longer than the animation duration
+    }, []);
+
     // For rendering, use the calculated display position
     const effectiveScale = getEffectiveScale();
 
-    return (
-        <div
-            ref={dragRef}
-            className={`absolute ${isActive ? 'cursor-grab' : ''} ${isDraggingRef.current ? 'cursor-grabbing' : ''}`}
-            style={getImageStyle()}
-            onMouseDown={handleMouseDown}
-            onWheel={handleWheel}
-        >
-            <img
-                ref={imageRef}
-                src={getMapUrl()}
-                alt={map.name}
-                className="max-w-none pointer-events-none"
-                style={{ display: 'block' }}
-                onDragStart={e => e.preventDefault()}
-            />
+    // Handle double click to open AoE palette
+    const handleDoubleClick = (e: React.MouseEvent) => {
+        if (isViewerMode || !onOpenAoEPalette) return;
 
-            {/* Show a visual indicator for hidden maps */}
-            {map.data.isHidden && (
-                <div className="absolute top-2 right-2 bg-black/60 p-1 rounded-full">
-                    <EyeOff className="h-4 w-4 text-white" />
-                </div>
-            )}
-        </div>
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Use the parent's AoE palette open function
+        onOpenAoEPalette();
+    };
+
+    return (
+        <>
+            <div
+                ref={dragRef}
+                className={`absolute ${isActive ? 'cursor-grab' : ''} ${isDraggingRef.current ? 'cursor-grabbing' : ''}`}
+                style={getImageStyle()}
+                onMouseDown={handleMouseDown}
+                onWheel={handleWheel}
+                onDoubleClick={handleDoubleClick}
+            >
+                <img
+                    ref={imageRef}
+                    src={getMapUrl()}
+                    alt={map.name}
+                    className="max-w-none pointer-events-none"
+                    style={{ display: 'block' }}
+                    onDragStart={e => e.preventDefault()}
+                />
+
+                {/* Show a visual indicator for hidden maps */}
+                {map.data.isHidden && (
+                    <div className="absolute top-2 right-2 bg-black/60 p-1 rounded-full">
+                        <EyeOff className="h-4 w-4 text-white" />
+                    </div>
+                )}
+            </div>
+
+            {/* Render AoE markers */}
+            {aoeMarkers.map((marker) => (
+                <AoEMarker
+                    key={marker.id}
+                    marker={marker}
+                    gridSize={gridSettings?.gridSize || 50}
+                    isActive={isActive}
+                    isAdmin={!isViewerMode}
+                    onUpdate={onUpdateMarker || (() => { })}
+                    onDelete={onDeleteMarker || (() => { })}
+                    scale={scale}
+                    gridSettings={{
+                        useFixedGrid: gridSettings?.useFixedGrid || false,
+                        gridCellsX: gridSettings?.gridCellsX || 25,
+                        gridCellsY: gridSettings?.gridCellsY || 13,
+                        gridSize: gridSettings?.gridSize || 50
+                    }}
+                    isHighlighted={marker.id === highlightedMarkerId}
+                />
+            ))}
+        </>
     );
 }; 

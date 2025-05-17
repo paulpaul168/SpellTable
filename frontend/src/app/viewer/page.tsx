@@ -27,6 +27,7 @@ const initialScene: SceneType = {
 export default function ViewerPage() {
     const [scene, setScene] = useState<SceneType>(initialScene);
     const [connectionStatus, setConnectionStatus] = useState('connecting');
+    const [highlightedMarkerId, setHighlightedMarkerId] = useState<string | null>(null);
 
     // Use fixed 1.0 scale to match admin view exactly
     const displayScale = 1.0;
@@ -66,6 +67,16 @@ export default function ViewerPage() {
             } else if (data.type === 'display_scale_update') {
                 console.log('Received display scale update:', data.scale);
                 // Fixed scale, ignoring scale updates from server
+            } else if (data.type === 'highlight_marker' && data.markerId) {
+                // Handle marker highlight from admin
+                const markerId = data.markerId as string;
+                console.log("Received highlight marker:", markerId);
+                setHighlightedMarkerId(markerId);
+
+                // Clear the highlight after a delay
+                setTimeout(() => {
+                    setHighlightedMarkerId(null);
+                }, 2100); // Match the same duration used in admin view
             }
         });
 
@@ -145,6 +156,7 @@ export default function ViewerPage() {
                             onDelete={() => { }} // No-op in viewer mode
                             scale={displayScale}
                             gridSettings={scene.gridSettings}
+                            isHighlighted={marker.id === highlightedMarkerId}
                         />
                     ))}
                 </div>

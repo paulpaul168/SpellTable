@@ -80,6 +80,31 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
                     # Broadcast the scene update to all connected clients
                     await broadcast_scene_update(scene_data)
+
+                elif message.get("type") == "highlight_marker":
+                    # Broadcast the marker highlight to all connected clients
+                    marker_id = message.get("markerId")
+                    if marker_id:
+                        async with clients_lock:
+                            disconnected_clients = set()
+                            for client in clients:
+                                if client != websocket:  # Don't send back to the sender
+                                    try:
+                                        await client.send_json(
+                                            {"type": "highlight_marker", "markerId": marker_id}
+                                        )
+                                    except (
+                                        WebSocketDisconnect,
+                                        RuntimeError,
+                                        ConnectionError,
+                                    ) as e:
+                                        logger.exception(
+                                            f"Error broadcasting highlight to client: {e}"
+                                        )
+                                        disconnected_clients.add(client)
+
+                            # Remove disconnected clients
+                            clients.difference_update(disconnected_clients)
             except WebSocketDisconnect:
                 break
             except (json.JSONDecodeError, ConnectionError) as e:

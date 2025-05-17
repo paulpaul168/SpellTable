@@ -16,6 +16,8 @@ import {
     ChevronDown,
     ChevronUp,
     PanelLeftClose,
+    Trash2,
+    EyeIcon,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -46,6 +48,9 @@ interface AoEPaletteProps {
     isOpen: boolean;
     onClose: () => void;
     onAddMarker: (marker: Omit<AoEMarker, 'id' | 'position'>) => void;
+    activeMarkers?: AoEMarker[];
+    onDeleteMarker?: (id: string) => void;
+    onHighlightMarker?: (id: string) => void;
 }
 
 // Common D&D spell AoEs with their typical sizes
@@ -82,8 +87,11 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
     isOpen,
     onClose,
     onAddMarker,
+    activeMarkers = [],
+    onDeleteMarker,
+    onHighlightMarker,
 }) => {
-    const [activeTab, setActiveTab] = useState<'shapes' | 'spells' | 'custom'>('shapes');
+    const [activeTab, setActiveTab] = useState<'shapes' | 'spells' | 'custom' | 'markers'>('shapes');
     const [customShape, setCustomShape] = useState<AoEShape>('circle');
     const [customSize, setCustomSize] = useState(20);
     const [customColor, setCustomColor] = useState('#FF5A5A');
@@ -112,6 +120,26 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
             opacity,
             label: customLabel || undefined
         });
+    };
+
+    // Helper function to render shape preview
+    const renderShapePreview = (shape: AoEShape, color: string, size: number = 16) => {
+        switch (shape) {
+            case 'circle':
+                return <div className="rounded-full" style={{ width: size, height: size, backgroundColor: color }} />;
+            case 'cone':
+                return <Triangle className="h-4 w-4" style={{ color }} />;
+            case 'line':
+                return <Minus className="h-4 w-4" style={{ color }} />;
+            case 'square':
+                return <Square className="h-4 w-4" style={{ color }} />;
+            case 'cube':
+                return <Box className="h-4 w-4" style={{ color }} />;
+            case 'cylinder':
+                return <CylinderIcon className="h-4 w-4" style={{ color }} />;
+            default:
+                return <Circle className="h-4 w-4" style={{ color }} />;
+        }
     };
 
     if (!isOpen) return null;
@@ -161,22 +189,32 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                     >
                         Custom
                     </Button>
+                    <Button
+                        variant={activeTab === 'markers' ? 'default' : 'ghost'}
+                        size="sm"
+                        className="text-xs flex-1"
+                        onClick={() => setActiveTab('markers')}
+                    >
+                        Markers
+                    </Button>
                 </div>
 
-                {/* Opacity control - common to all tabs */}
-                <div className="px-3 pt-2">
-                    <div className="flex items-center justify-between">
-                        <Label className="text-xs text-zinc-400">Opacity: {Math.round(opacity * 100)}%</Label>
+                {/* Opacity control - common to all tabs except markers */}
+                {activeTab !== 'markers' && (
+                    <div className="px-3 pt-2">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-xs text-zinc-400">Opacity: {Math.round(opacity * 100)}%</Label>
+                        </div>
+                        <SimpleSlider
+                            value={[opacity * 100]}
+                            min={10}
+                            max={90}
+                            step={5}
+                            onValueChange={(values) => setOpacity(values[0] / 100)}
+                            className="mt-1.5"
+                        />
                     </div>
-                    <SimpleSlider
-                        value={[opacity * 100]}
-                        min={10}
-                        max={90}
-                        step={5}
-                        onValueChange={(values) => setOpacity(values[0] / 100)}
-                        className="mt-1.5"
-                    />
-                </div>
+                )}
 
                 {/* Shapes Tab */}
                 {activeTab === 'shapes' && (
@@ -372,6 +410,53 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                             <PlusCircle className="h-4 w-4 mr-2" />
                             Add Marker
                         </Button>
+                    </div>
+                )}
+
+                {/* Markers Tab - List of active markers */}
+                {activeTab === 'markers' && (
+                    <div className="max-h-80 overflow-y-auto p-2">
+                        {activeMarkers.length === 0 ? (
+                            <div className="text-center py-4 text-zinc-500 text-sm">
+                                No active markers
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {activeMarkers.map((marker) => (
+                                    <div
+                                        key={marker.id}
+                                        className="flex items-center justify-between p-2 bg-zinc-800/50 rounded-md"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            {renderShapePreview(marker.shape, marker.color)}
+                                            <span className="text-xs text-zinc-300">
+                                                {marker.label || `${marker.shape} (${marker.sizeInFeet}')`}
+                                            </span>
+                                        </div>
+                                        <div className="flex gap-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 w-7 p-0"
+                                                onClick={() => onHighlightMarker?.(marker.id)}
+                                                title="Highlight"
+                                            >
+                                                <EyeIcon className="h-3.5 w-3.5 text-zinc-400" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                                                onClick={() => onDeleteMarker?.(marker.id)}
+                                                title="Delete"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

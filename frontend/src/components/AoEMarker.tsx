@@ -15,6 +15,7 @@ interface AoEMarkerProps {
         gridCellsY?: number;
         gridSize: number;
     };
+    isHighlighted?: boolean;
 }
 
 // Define drag offset reference type
@@ -32,12 +33,14 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     onUpdate,
     onDelete,
     scale = 1,
-    gridSettings
+    gridSettings,
+    isHighlighted = false,
 }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
     const [showSizeIndicator, setShowSizeIndicator] = useState(false);
+    const [highlightAnimation, setHighlightAnimation] = useState(false);
     const lastUpdateRef = useRef<number>(0);
     const pendingUpdateRef = useRef<AoEMarkerType | null>(null);
     const dragOffsetRef = useRef<DragOffset>({ startX: 0, startY: 0, startPosition: { x: 0, y: 0 } });
@@ -46,6 +49,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const positionRef = useRef(marker.position);
     const isDraggingRef = useRef(false);
     const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const highlightTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // Determine if using fixed grid and get necessary values
     const useFixedGrid = gridSettings?.useFixedGrid || false;
@@ -64,6 +68,37 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     // Scale for sizing (5ft = 1 grid cell)
     const sizeInPixels = marker.sizeInFeet * effectiveGridSize / 5;
     const adjustedSizeInPixels = sizeInPixels;
+
+    // Watch for highlight prop changes
+    useEffect(() => {
+        if (isHighlighted) {
+            // Start the highlight animation
+            setHighlightAnimation(true);
+
+            // Clear any existing timer
+            if (highlightTimerRef.current) {
+                clearTimeout(highlightTimerRef.current);
+            }
+
+            // Set a timer to end the animation after 2 seconds
+            highlightTimerRef.current = setTimeout(() => {
+                setHighlightAnimation(false);
+                highlightTimerRef.current = null;
+            }, 2000);
+        }
+    }, [isHighlighted]);
+
+    // Clean up timers on unmount
+    useEffect(() => {
+        return () => {
+            if (resizeTimerRef.current) {
+                clearTimeout(resizeTimerRef.current);
+            }
+            if (highlightTimerRef.current) {
+                clearTimeout(highlightTimerRef.current);
+            }
+        };
+    }, []);
 
     // Converting positions between grid coordinates and screen pixels
     // Grid coordinates: where (0,0) is top-left cell, (1,1) is the cell to the right and down, etc.
@@ -269,15 +304,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         }
     }, [isDragging]);
 
-    // Clean up resize indicator timer on unmount
-    useEffect(() => {
-        return () => {
-            if (resizeTimerRef.current) {
-                clearTimeout(resizeTimerRef.current);
-            }
-        };
-    }, []);
-
     // Handle mouse down - start dragging
     const handleMouseDown = (e: React.MouseEvent) => {
         if (!isActive || !isAdmin) return;
@@ -431,7 +457,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     return (
         <div
             ref={markerRef}
-            className="absolute select-none flex flex-col items-center"
+            className={`absolute select-none flex flex-col items-center ${highlightAnimation ? 'highlighted-marker' : ''}`}
             style={{
                 position: 'absolute',
                 left: `${currentPos.x}px`,
@@ -449,6 +475,50 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             onMouseEnter={() => !isDragging && setIsHovered(true)}
             onMouseLeave={() => !isDragging && setIsHovered(false)}
         >
+            {/* Highlight ripple animation */}
+            {highlightAnimation && (
+                <>
+                    <div
+                        className="absolute rounded-full animate-ripple-1"
+                        style={{
+                            width: `${adjustedSizeInPixels * 1.2}px`,
+                            height: `${adjustedSizeInPixels * 1.2}px`,
+                            border: `2px solid ${marker.color}`,
+                            transform: 'translate(-50%, -50%)',
+                            left: '50%',
+                            top: '50%',
+                            opacity: 0.8,
+                        }}
+                    />
+                    <div
+                        className="absolute rounded-full animate-ripple-2"
+                        style={{
+                            width: `${adjustedSizeInPixels * 1.4}px`,
+                            height: `${adjustedSizeInPixels * 1.4}px`,
+                            border: `2px solid ${marker.color}`,
+                            transform: 'translate(-50%, -50%)',
+                            left: '50%',
+                            top: '50%',
+                            opacity: 0.6,
+                            animationDelay: '0.2s',
+                        }}
+                    />
+                    <div
+                        className="absolute rounded-full animate-ripple-3"
+                        style={{
+                            width: `${adjustedSizeInPixels * 1.6}px`,
+                            height: `${adjustedSizeInPixels * 1.6}px`,
+                            border: `2px solid ${marker.color}`,
+                            transform: 'translate(-50%, -50%)',
+                            left: '50%',
+                            top: '50%',
+                            opacity: 0.4,
+                            animationDelay: '0.4s',
+                        }}
+                    />
+                </>
+            )}
+
             {/* Size indicator - shows when resizing */}
             {isAdmin && showSizeIndicator && (
                 <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full mt-1 px-2 py-1 bg-black/80 text-white text-xs rounded pointer-events-none">
@@ -466,6 +536,32 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                     {marker.label}
                 </div>
             )}
+
+            {/* Add a style tag for ripple animations */}
+            <style jsx>{`
+                @keyframes ripple {
+                    0% {
+                        transform: translate(-50%, -50%) scale(1);
+                        opacity: 0.8;
+                    }
+                    100% {
+                        transform: translate(-50%, -50%) scale(1.5);
+                        opacity: 0;
+                    }
+                }
+                .animate-ripple-1 {
+                    animation: ripple 1.5s ease-out infinite;
+                }
+                .animate-ripple-2 {
+                    animation: ripple 1.5s ease-out 0.2s infinite;
+                }
+                .animate-ripple-3 {
+                    animation: ripple 1.5s ease-out 0.4s infinite;
+                }
+                .highlighted-marker {
+                    z-index: 800;
+                }
+            `}</style>
         </div>
     );
 }; 
