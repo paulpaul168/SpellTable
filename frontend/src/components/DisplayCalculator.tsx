@@ -421,9 +421,9 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => applyViewportOptimizedGrid(18, 32)}
+                                        onClick={() => applyViewportOptimizedGrid(32, 18)}
                                     >
-                                        18×32 Grid
+                                        32×18 Grid
                                     </Button>
                                     <Button
                                         variant="outline"
