@@ -6,6 +6,7 @@ import os
 import shutil
 import tempfile
 import zipfile
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile
@@ -33,6 +34,27 @@ class ImportStats(BaseModel):
     extracted_files: int = 0
     processed_files: Dict[str, int] = {"maps": 0, "scenes": 0, "sounds": 0, "other": 0}
     total_size: int = 0
+
+
+@dataclass
+class ProcessingContext:
+    """Context object for file processing operations."""
+
+    zip_file: zipfile.ZipFile
+    temp_dir: str
+    options: Dict[str, bool]
+    stats: ImportStats
+    total_files: int
+
+
+@dataclass
+class ExtractionContext:
+    """Context object for file extraction operations."""
+
+    zip_file: zipfile.ZipFile
+    temp_dir: str
+    dest_dir: str
+    stats: ImportStats
 
 
 def remove_file(path: str) -> None:
@@ -73,18 +95,15 @@ def _process_zip_file(
     total_files = len(file_list)
     logger.info(f"Found {total_files} files in zip archive")
 
+    context = ProcessingContext(
+        zip_file=zip_file, temp_dir=temp_dir, options=options, stats=stats, total_files=total_files
+    )
+
     for file_path in file_list:
-        _process_single_file(zip_file, temp_dir, file_path, options, stats, total_files)
+        _process_single_file(context, file_path)
 
 
-def _process_single_file(
-    zip_file: zipfile.ZipFile,
-    temp_dir: str,
-    file_path: str,
-    options: Dict[str, bool],
-    stats: ImportStats,
-    total_files: int,
-) -> None:
+def _process_single_file(context: ProcessingContext, file_path: str) -> None:
     """Process a single file from the zip archive."""
     parts = file_path.split("/")
     if not parts:
@@ -93,58 +112,56 @@ def _process_single_file(
     content_type = parts[0]
 
     # Skip if this content type is not selected
-    if _should_skip_content_type(content_type, options):
+    if _should_skip_content_type(content_type, context.options):
         return
 
     # Get destination directory
     dest_dir = _get_destination_directory(content_type)
     if not dest_dir:
-        stats.processed_files["other"] += 1
+        context.stats.processed_files["other"] += 1
         return
 
     # Update stats
-    if content_type in stats.processed_files:
-        stats.processed_files[content_type] += 1
+    if content_type in context.stats.processed_files:
+        context.stats.processed_files[content_type] += 1
+
+    # Create extraction context
+    extraction_context = ExtractionContext(
+        zip_file=context.zip_file, temp_dir=context.temp_dir, dest_dir=dest_dir, stats=context.stats
+    )
 
     # Extract and copy the file
-    _extract_and_copy_file(zip_file, temp_dir, file_path, dest_dir, parts, stats)
+    _extract_and_copy_file(extraction_context, file_path, parts)
 
     # Log progress
-    if stats.extracted_files % 10 == 0:
+    if context.stats.extracted_files % 10 == 0:
         logger.info(
-            f"Imported {stats.extracted_files}/{total_files} files "
-            f"({stats.total_size / 1024:.2f} KB)"
+            f"Imported {context.stats.extracted_files}/{context.total_files} files "
+            f"({context.stats.total_size / 1024:.2f} KB)"
         )
 
 
-def _extract_and_copy_file(
-    zip_file: zipfile.ZipFile,
-    temp_dir: str,
-    file_path: str,
-    dest_dir: str,
-    parts: List[str],
-    stats: ImportStats,
-) -> None:
+def _extract_and_copy_file(context: ExtractionContext, file_path: str, parts: List[str]) -> None:
     """Extract a file from zip and copy it to destination."""
     # Extract the file
-    extract_path = os.path.join(temp_dir, file_path)
-    zip_file.extract(file_path, temp_dir)
+    extract_path = os.path.join(context.temp_dir, file_path)
+    context.zip_file.extract(file_path, context.temp_dir)
 
     # Count size for logging
     if os.path.isfile(extract_path):
         file_size = os.path.getsize(extract_path)
-        stats.total_size += file_size
+        context.stats.total_size += file_size
 
     # Determine the destination path
     rel_path = "/".join(parts[1:])  # Skip the content type part
-    dest_path = os.path.join(dest_dir, rel_path)
+    dest_path = os.path.join(context.dest_dir, rel_path)
 
     # Create the destination directory if it doesn't exist
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
 
     # Copy the extracted file to the destination
     shutil.copy2(extract_path, dest_path)
-    stats.extracted_files += 1
+    context.stats.extracted_files += 1
 
 
 def _save_uploaded_file(backup_file: UploadFile, temp_dir: str) -> Tuple[str, int]:
