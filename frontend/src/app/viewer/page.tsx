@@ -17,8 +17,8 @@ const initialScene: SceneType = {
         showGrid: true,
         gridSize: 50,
         useFixedGrid: true,
-        gridCellsX: 18,
-        gridCellsY: 32
+        gridCellsX: 32,
+        gridCellsY: 18
     },
     initiativeOrder: [],
     showCurrentPlayer: false,
@@ -78,6 +78,12 @@ export default function ViewerPage() {
                 setTimeout(() => {
                     setHighlightedMarkerId(null);
                 }, 2100); // Match the same duration used in admin view
+            } else if (data.type === 'scene_event') {
+                // Handle special visual effects
+                console.log('Received scene event:', data);
+
+                // The RippleViewer component will handle these events directly
+                // This ensures the viewer page also processes these events
             }
         });
 
@@ -115,7 +121,7 @@ export default function ViewerPage() {
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
             <div className="flex-1 relative w-full h-full overflow-hidden" style={{ height: '100%', width: '100%', margin: 0, padding: 0 }}>
-                {scene.maps.length === 0 && (
+                {(!scene.maps || scene.maps.length === 0) && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-4">
                         <div className="p-4 rounded-xl bg-zinc-900/30">
                             <div className="h-8 w-8 text-zinc-700" />
@@ -128,7 +134,7 @@ export default function ViewerPage() {
                 )}
                 {/* Maps container - Allow individual z-indices from the admin's sorting order */}
                 <div className="absolute inset-0">
-                    {scene.maps
+                    {scene.maps && scene.maps
                         .filter(map => !map.data.isHidden)
                         .map((map, index) => (
                             <Map
@@ -137,7 +143,7 @@ export default function ViewerPage() {
                                 isActive={map.name === scene.activeMapId}
                                 onUpdate={() => { }} // No updates in viewer mode
                                 isViewerMode={true}
-                                zIndex={scene.maps.length - index} // Match admin's z-index calculation
+                                zIndex={(scene.maps?.length || 0) - index} // Match admin's z-index calculation
                                 scale={displayScale}
                                 gridSettings={scene.gridSettings} // Pass grid settings to Map component
                             />
@@ -145,7 +151,7 @@ export default function ViewerPage() {
                 </div>
 
                 {/* AoE Markers - View Only - Ensure they're above maps but below UI */}
-                <div style={{ zIndex: scene.maps.length + 100 }}>
+                <div style={{ zIndex: (scene.maps?.length || 0) + 100 }}>
                     {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
                         <AoEMarker
                             key={marker.id}
@@ -182,7 +188,7 @@ export default function ViewerPage() {
                             ? `calc(100% / ${scene.gridSettings.gridCellsX || 25}) calc(100% / ${scene.gridSettings.gridCellsY || 13})`
                             : `${scene.gridSettings?.gridSize}px ${scene.gridSettings?.gridSize}px`,
                         opacity: scene.gridSettings.gridOpacity || 0.5,
-                        zIndex: scene.maps.length + 200,
+                        zIndex: (scene.maps?.length || 0) + 200,
                     }}
                 />
             )}
