@@ -36,21 +36,24 @@ if (typeof document !== 'undefined') {
         @keyframes ripple {
             0% {
                 transform: translate(-50%, -50%) scale(1);
-                opacity: 0.8;
+                opacity: 0.9;
+            }
+            50% {
+                opacity: 0.5;
             }
             100% {
-                transform: translate(-50%, -50%) scale(1.5);
+                transform: translate(-50%, -50%) scale(2);
                 opacity: 0;
             }
         }
         .animate-ripple-1 {
-            animation: ripple 1.5s ease-out infinite;
+            animation: ripple 3s ease-out infinite;
         }
         .animate-ripple-2 {
-            animation: ripple 1.5s ease-out 0.2s infinite;
+            animation: ripple 3s ease-out 0.5s infinite;
         }
         .animate-ripple-3 {
-            animation: ripple 1.5s ease-out 0.4s infinite;
+            animation: ripple 3s ease-out 1s infinite;
         }
         
         @keyframes shake {
@@ -83,12 +86,17 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
     // Listen for remote ripple effects from admin
     useEffect(() => {
         const handleRemoteEvents = (data: any) => {
-            if (data.type === 'ripple_effect') {
-                createRippleEffect(data.x, data.y);
-            } else if (data.type === 'lightning_effect') {
-                toggleLightningEffect();
-            } else if (data.type === 'shake_effect') {
-                toggleShakeEffect();
+            if (data.type === 'scene_update' && data.scene) {
+                //console.log('scene update', data);
+                // Handle scene updates if needed
+            } else if (data.type === 'scene_event') {
+                if (data.eventType === 'ripple_effect') {
+                    createRippleEffect(data.x, data.y, false); // Add false parameter to avoid re-broadcasting
+                } else if (data.eventType === 'lightning_effect') {
+                    toggleLightningEffect(false);
+                } else if (data.eventType === 'shake_effect') {
+                    toggleShakeEffect(false);
+                }
             }
         };
 
@@ -147,7 +155,8 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
 
                 // Broadcast the ripple effect to all viewers
                 websocketService.send({
-                    type: 'ripple_effect',
+                    type: 'scene_event',
+                    eventType: 'ripple_effect',
                     x: e.clientX,
                     y: e.clientY
                 });
@@ -167,21 +176,31 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
     }, [activeTool, justActivatedMarker]);
 
     // Methods for various effects
-    const createRippleEffect = (x: number, y: number) => {
+    const createRippleEffect = (x: number, y: number, broadcast = true) => {
         setRipplePosition({ x, y });
         setShowRipple(true);
 
         // Remove ripple effect after animation completes
         setTimeout(() => {
             setShowRipple(false);
-        }, 1500);
+        }, 3000); // Increased to match the longer animation
+
+        // Broadcast the ripple effect to all viewers
+        if (broadcast) {
+            websocketService.send({
+                type: 'scene_event',
+                eventType: 'ripple_effect',
+                x,
+                y
+            });
+        }
     };
 
     const handlePointerClick = (e: React.MouseEvent) => {
         // Function no longer needed, we use document-level click handler instead
     };
 
-    const toggleLightningEffect = () => {
+    const toggleLightningEffect = (broadcast = true) => {
         // Flash the screen briefly with lightning effect
         if (typeof document !== 'undefined') {
             const lightning = document.createElement('div');
@@ -203,19 +222,25 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
             }, 40);
 
             // Broadcast the lightning effect to viewers
-            websocketService.send({
-                type: 'lightning_effect'
-            });
+            if (broadcast) {
+                websocketService.send({
+                    type: 'scene_event',
+                    eventType: 'lightning_effect'
+                });
+            }
         }
     };
 
-    const toggleShakeEffect = () => {
+    const toggleShakeEffect = (broadcast = true) => {
         setIsShaking(true);
 
         // Broadcast the shake effect to viewers
-        websocketService.send({
-            type: 'shake_effect'
-        });
+        if (broadcast) {
+            websocketService.send({
+                type: 'scene_event',
+                eventType: 'shake_effect'
+            });
+        }
     };
 
     const toggleDayNight = () => {
@@ -318,7 +343,7 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
 
                         <DropdownMenuItem
                             className="text-xs cursor-pointer"
-                            onClick={toggleLightningEffect}
+                            onClick={() => toggleLightningEffect()}
                         >
                             <CloudLightning className="h-4 w-4 mr-2" />
                             Lightning Flash
@@ -326,7 +351,7 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
 
                         <DropdownMenuItem
                             className="text-xs cursor-pointer"
-                            onClick={toggleShakeEffect}
+                            onClick={() => toggleShakeEffect()}
                         >
                             <ZapIcon className="h-4 w-4 mr-2" />
                             Shake Board
@@ -398,21 +423,6 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
                 </div>
             )}
 
-            {/* Exit Ripple Mode Button - Visible when in ripple mode */}
-            {activeTool === 'marker' && (
-                <div className="fixed top-16 left-1/2 transform -translate-x-1/2 z-[1002]">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-zinc-900/80 backdrop-blur-sm border border-zinc-800 px-3 py-1"
-                        onClick={exitRippleMode}
-                    >
-                        <MousePointer className="h-3 w-3 mr-2" />
-                        <span className="text-xs">Exit Marker Mode</span>
-                    </Button>
-                </div>
-            )}
-
             {/* Overlay Elements */}
             {/* Measuring Grid */}
             {showMeasuringGrid && (
@@ -447,33 +457,33 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
                     <div
                         className="absolute rounded-full animate-ripple-1"
                         style={{
-                            width: '60px',
-                            height: '60px',
+                            width: '80px',
+                            height: '80px',
                             border: '2px solid #4ade80',
                             transform: 'translate(-50%, -50%)',
-                            opacity: 0.8,
+                            opacity: 0.9,
                         }}
                     />
                     <div
                         className="absolute rounded-full animate-ripple-2"
                         style={{
-                            width: '80px',
-                            height: '80px',
+                            width: '110px',
+                            height: '110px',
                             border: '2px solid #4ade80',
                             transform: 'translate(-50%, -50%)',
-                            opacity: 0.6,
-                            animationDelay: '0.2s',
+                            opacity: 0.7,
+                            animationDelay: '0.5s',
                         }}
                     />
                     <div
                         className="absolute rounded-full animate-ripple-3"
                         style={{
-                            width: '100px',
-                            height: '100px',
+                            width: '140px',
+                            height: '140px',
                             border: '2px solid #4ade80',
                             transform: 'translate(-50%, -50%)',
-                            opacity: 0.4,
-                            animationDelay: '0.4s',
+                            opacity: 0.5,
+                            animationDelay: '1s',
                         }}
                     />
                 </div>
