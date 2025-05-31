@@ -7,9 +7,8 @@ import shutil
 import tempfile
 import zipfile
 from typing import Dict, List, Optional
-import asyncio
 
-from fastapi import APIRouter, Body, File, HTTPException, UploadFile, Query, BackgroundTasks, Form
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from loguru import logger
 from pydantic import BaseModel
@@ -32,7 +31,7 @@ def remove_file(path: str) -> None:
     """Remove a file after it has been sent."""
     try:
         os.unlink(path)
-    except Exception as e:
+    except (FileNotFoundError, PermissionError, OSError) as e:
         logger.error(f"Error removing temporary file {path}: {e}")
 
 
@@ -72,15 +71,15 @@ async def export_backup(
             # Add selected content to the zip
             if options.maps:
                 logger.info("Adding maps to backup")
-                _add_directory_to_zip(zip_file, MAPS_DIR, "maps", options.include_folders)
+                _add_directory_to_zip(zip_file, str(MAPS_DIR), "maps", options.include_folders)
 
             if options.scenes:
                 logger.info("Adding scenes to backup")
-                _add_directory_to_zip(zip_file, SCENES_DIR, "scenes", options.include_folders)
+                _add_directory_to_zip(zip_file, str(SCENES_DIR), "scenes", options.include_folders)
 
             if options.audio:
                 logger.info("Adding audio to backup")
-                _add_directory_to_zip(zip_file, SOUNDS_DIR, "sounds", options.include_folders)
+                _add_directory_to_zip(zip_file, str(SOUNDS_DIR), "sounds", options.include_folders)
 
         logger.info(
             f"Backup zip file created successfully, size: {os.path.getsize(zip_path)} bytes"
@@ -123,7 +122,7 @@ def _add_directory_to_zip(
         # Skip this folder if it's not in the include list
         if include_folders is not None:
             rel_path = os.path.relpath(root, source_dir)
-            folder = rel_path.split(os.path.sep)[0] if rel_path != "." else ""
+            folder = rel_path.split(os.path.sep, maxsplit=1)[0] if rel_path != "." else ""
             if folder and folder not in include_folders:
                 continue
 
@@ -252,7 +251,8 @@ async def import_backup(
                     # Log progress every 10 files
                     if extracted_files % 10 == 0:
                         logger.info(
-                            f"Imported {extracted_files}/{total_files} files ({total_size / 1024:.2f} KB)"
+                            f"Imported {extracted_files}/{total_files} files "
+                            f"({total_size / 1024:.2f} KB)"
                         )
 
         # Log final statistics

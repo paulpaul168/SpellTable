@@ -11,9 +11,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
-router = APIRouter()
-
 from app.core.constants import SOUNDS_DIR
+
+router = APIRouter()
 
 
 def stream_file(file_path: Path) -> Generator[bytes, None, None]:
