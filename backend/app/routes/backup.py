@@ -6,7 +6,7 @@ import os
 import shutil
 import tempfile
 import zipfile
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
@@ -27,12 +27,162 @@ class BackupOptions(BaseModel):
     include_folders: Optional[List[str]] = None
 
 
+class ImportStats(BaseModel):
+    """Statistics for import operations."""
+
+    extracted_files: int = 0
+    processed_files: Dict[str, int] = {"maps": 0, "scenes": 0, "sounds": 0, "other": 0}
+    total_size: int = 0
+
+
 def remove_file(path: str) -> None:
     """Remove a file after it has been sent."""
     try:
         os.unlink(path)
     except (FileNotFoundError, PermissionError, OSError) as e:
         logger.error(f"Error removing temporary file {path}: {e}")
+
+
+def _should_skip_content_type(content_type: str, options: Dict[str, bool]) -> bool:
+    """Check if a content type should be skipped based on options."""
+    skip_maps = content_type == "maps" and not options.get("maps", True)
+    skip_scenes = content_type == "scenes" and not options.get("scenes", True)
+    skip_audio = content_type == "sounds" and not options.get("audio", True)
+
+    return skip_maps or skip_scenes or skip_audio
+
+
+def _get_destination_directory(content_type: str) -> Optional[str]:
+    """Get the destination directory for a given content type."""
+    content_map = {
+        "maps": str(MAPS_DIR),
+        "scenes": str(SCENES_DIR),
+        "sounds": str(SOUNDS_DIR),
+    }
+    return content_map.get(content_type)
+
+
+def _process_zip_file(
+    zip_file: zipfile.ZipFile,
+    temp_dir: str,
+    options: Dict[str, bool],
+    stats: ImportStats,
+) -> None:
+    """Process all files in the zip archive."""
+    file_list = zip_file.namelist()
+    total_files = len(file_list)
+    logger.info(f"Found {total_files} files in zip archive")
+
+    for file_path in file_list:
+        _process_single_file(zip_file, temp_dir, file_path, options, stats, total_files)
+
+
+def _process_single_file(
+    zip_file: zipfile.ZipFile,
+    temp_dir: str,
+    file_path: str,
+    options: Dict[str, bool],
+    stats: ImportStats,
+    total_files: int,
+) -> None:
+    """Process a single file from the zip archive."""
+    parts = file_path.split("/")
+    if not parts:
+        return
+
+    content_type = parts[0]
+
+    # Skip if this content type is not selected
+    if _should_skip_content_type(content_type, options):
+        return
+
+    # Get destination directory
+    dest_dir = _get_destination_directory(content_type)
+    if not dest_dir:
+        stats.processed_files["other"] += 1
+        return
+
+    # Update stats
+    if content_type in stats.processed_files:
+        stats.processed_files[content_type] += 1
+
+    # Extract and copy the file
+    _extract_and_copy_file(zip_file, temp_dir, file_path, dest_dir, parts, stats)
+
+    # Log progress
+    if stats.extracted_files % 10 == 0:
+        logger.info(
+            f"Imported {stats.extracted_files}/{total_files} files "
+            f"({stats.total_size / 1024:.2f} KB)"
+        )
+
+
+def _extract_and_copy_file(
+    zip_file: zipfile.ZipFile,
+    temp_dir: str,
+    file_path: str,
+    dest_dir: str,
+    parts: List[str],
+    stats: ImportStats,
+) -> None:
+    """Extract a file from zip and copy it to destination."""
+    # Extract the file
+    extract_path = os.path.join(temp_dir, file_path)
+    zip_file.extract(file_path, temp_dir)
+
+    # Count size for logging
+    if os.path.isfile(extract_path):
+        file_size = os.path.getsize(extract_path)
+        stats.total_size += file_size
+
+    # Determine the destination path
+    rel_path = "/".join(parts[1:])  # Skip the content type part
+    dest_path = os.path.join(dest_dir, rel_path)
+
+    # Create the destination directory if it doesn't exist
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+
+    # Copy the extracted file to the destination
+    shutil.copy2(extract_path, dest_path)
+    stats.extracted_files += 1
+
+
+def _save_uploaded_file(backup_file: UploadFile, temp_dir: str) -> Tuple[str, int]:
+    """Save the uploaded file to temp directory and return path and size."""
+    zip_path = os.path.join(temp_dir, "backup.zip")
+    logger.info(f"Saving uploaded file to {zip_path}")
+
+    with open(zip_path, "wb") as f:
+        content = backup_file.file.read()
+        f.write(content)
+
+    file_size = os.path.getsize(zip_path)
+    logger.info(f"Backup file size: {file_size / 1024:.2f} KB")
+    return zip_path, file_size
+
+
+async def _save_uploaded_file_async(backup_file: UploadFile, temp_dir: str) -> Tuple[str, int]:
+    """Save the uploaded file to temp directory and return path and size."""
+    zip_path = os.path.join(temp_dir, "backup.zip")
+    logger.info(f"Saving uploaded file to {zip_path}")
+
+    content = await backup_file.read()
+    with open(zip_path, "wb") as f:
+        f.write(content)
+
+    file_size = os.path.getsize(zip_path)
+    logger.info(f"Backup file size: {file_size / 1024:.2f} KB")
+    return zip_path, file_size
+
+
+def _log_import_statistics(stats: ImportStats) -> None:
+    """Log the final import statistics."""
+    logger.info("Import completed successfully:")
+    logger.info(f"- Maps: {stats.processed_files['maps']} files")
+    logger.info(f"- Scenes: {stats.processed_files['scenes']} files")
+    logger.info(f"- Sounds: {stats.processed_files['sounds']} files")
+    logger.info(f"- Skipped/Other: {stats.processed_files['other']} files")
+    logger.info(f"- Total size: {stats.total_size / 1024:.2f} KB")
 
 
 @router.get("/export")
@@ -164,8 +314,8 @@ async def import_backup(
     Returns:
         Dictionary with success message
     """
-    # Create options dictionary from form parameters
     options = {"maps": maps, "scenes": scenes, "audio": audio}
+    stats = ImportStats()
 
     try:
         logger.info(f"Starting import of backup file: {backup_file.filename}")
@@ -173,95 +323,15 @@ async def import_backup(
         # Create a temporary directory to extract the zip
         with tempfile.TemporaryDirectory() as temp_dir:
             # Save the uploaded zip file to the temp directory
-            zip_path = os.path.join(temp_dir, "backup.zip")
-            logger.info(f"Saving uploaded file to {zip_path}")
-
-            with open(zip_path, "wb") as f:
-                content = await backup_file.read()
-                f.write(content)
-
-            file_size = os.path.getsize(zip_path)
-            logger.info(f"Backup file size: {file_size / 1024:.2f} KB")
+            zip_path, _ = await _save_uploaded_file_async(backup_file, temp_dir)
 
             # Extract the zip file
             logger.info("Opening zip file for extraction")
             with zipfile.ZipFile(zip_path, "r") as zip_file:
-                # Get the list of files in the zip
-                file_list = zip_file.namelist()
-                total_files = len(file_list)
-                logger.info(f"Found {total_files} files in zip archive")
-
-                # Track statistics
-                extracted_files = 0
-                processed_files = {"maps": 0, "scenes": 0, "sounds": 0, "other": 0}
-                total_size = 0
-
-                # Extract selected content
-                for file_path in file_list:
-                    parts = file_path.split("/")
-                    if not parts:
-                        continue
-
-                    # Determine which type of content this is
-                    content_type = parts[0]
-
-                    # Skip if this content type is not selected
-                    if (
-                        (content_type == "maps" and not options.get("maps", True))
-                        or (content_type == "scenes" and not options.get("scenes", True))
-                        or (content_type == "sounds" and not options.get("audio", True))
-                    ):
-                        continue
-
-                    # Map the content type to the correct destination directory
-                    if content_type == "maps":
-                        dest_dir = MAPS_DIR
-                        processed_files["maps"] += 1
-                    elif content_type == "scenes":
-                        dest_dir = SCENES_DIR
-                        processed_files["scenes"] += 1
-                    elif content_type == "sounds":
-                        dest_dir = SOUNDS_DIR
-                        processed_files["sounds"] += 1
-                    else:
-                        # Skip unknown content types
-                        processed_files["other"] += 1
-                        continue
-
-                    # Extract the file
-                    extract_path = os.path.join(temp_dir, file_path)
-                    zip_file.extract(file_path, temp_dir)
-
-                    # Count size for logging
-                    if os.path.isfile(extract_path):
-                        file_size = os.path.getsize(extract_path)
-                        total_size += file_size
-
-                    # Determine the destination path
-                    rel_path = "/".join(parts[1:])  # Skip the content type part
-                    dest_path = os.path.join(dest_dir, rel_path)
-
-                    # Create the destination directory if it doesn't exist
-                    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-
-                    # Copy the extracted file to the destination
-                    shutil.copy2(extract_path, dest_path)
-
-                    extracted_files += 1
-                    # Log progress every 10 files
-                    if extracted_files % 10 == 0:
-                        logger.info(
-                            f"Imported {extracted_files}/{total_files} files "
-                            f"({total_size / 1024:.2f} KB)"
-                        )
+                _process_zip_file(zip_file, temp_dir, options, stats)
 
         # Log final statistics
-        logger.info("Import completed successfully:")
-        logger.info(f"- Maps: {processed_files['maps']} files")
-        logger.info(f"- Scenes: {processed_files['scenes']} files")
-        logger.info(f"- Sounds: {processed_files['sounds']} files")
-        logger.info(f"- Skipped/Other: {processed_files['other']} files")
-        logger.info(f"- Total size: {total_size / 1024:.2f} KB")
+        _log_import_statistics(stats)
 
         return {"message": "Backup imported successfully"}
 
