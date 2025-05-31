@@ -262,8 +262,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 if (!mapInfo) throw new Error(`Map ${mapName} not found`);
 
                 // Determine grid dimensions and calculate center cell
-                const gridCellsX = scene.gridSettings.gridCellsX || 18;
-                const gridCellsY = scene.gridSettings.gridCellsY || 32;
+                const gridCellsX = scene.gridSettings.gridCellsX || 32;
+                const gridCellsY = scene.gridSettings.gridCellsY || 18;
 
                 // Calculate center position in grid cells
                 // The gridCoordsToPixel function will add the 0.5 offset to center in cells
@@ -946,7 +946,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
             <div className="flex-1 relative w-full h-full overflow-hidden" style={{ height: '100%', width: '100%', margin: 0, padding: 0 }}>
-                {scene.maps.length === 0 && (
+                {(!scene.maps || scene.maps.length === 0) && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-4">
                         <div className="p-4 rounded-xl bg-zinc-900/30">
                             <ImageIcon className="h-8 w-8 text-zinc-700" />
@@ -967,14 +967,14 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 )}
                 {/* Maps Container - Allow individual map z-indices based on their order */}
                 <div className="absolute inset-0">
-                    {scene.maps.map((map, index) => (
+                    {scene.maps && scene.maps.map((map, index) => (
                         <Map
                             key={map.name}
                             map={map}
                             isActive={map.name === scene.activeMapId}
                             onUpdate={handleMapUpdate}
                             isViewerMode={isViewerMode}
-                            zIndex={scene.maps.length - index} // Higher index = higher in stack (last map = top)
+                            zIndex={(scene.maps?.length || 0) - index} // Higher index = higher in stack (last map = top)
                             scale={displayScale}
                             gridSettings={scene.gridSettings}
                             onOpenAoEPalette={() => setIsAoEPaletteOpen(true)}
@@ -987,7 +987,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 </div>
 
                 {/* AoE Markers - Ensure they're above maps but below UI */}
-                <div style={{ zIndex: scene.maps.length + 100 }}>
+                <div style={{ zIndex: (scene.maps?.length || 0) + 100 }}>
                     {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
                         <AoEMarker
                             key={marker.id}
@@ -1005,7 +1005,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 </div>
 
                 {/* Grid Overlay - Always on top of maps and markers but below UI */}
-                {scene.gridSettings.showGrid && (
+                {scene.gridSettings?.showGrid && (
                     <div
                         className="absolute inset-0 pointer-events-none"
                         style={{
@@ -1015,9 +1015,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             `,
                             backgroundSize: scene.gridSettings.useFixedGrid
                                 ? `calc(100% / ${scene.gridSettings.gridCellsX || 25}) calc(100% / ${scene.gridSettings.gridCellsY || 13})`
-                                : `${scene.gridSettings.gridSize}px ${scene.gridSettings.gridSize}px`,
+                                : `${scene.gridSettings?.gridSize}px ${scene.gridSettings?.gridSize}px`,
                             opacity: scene.gridSettings.gridOpacity || 0.5,
-                            zIndex: scene.maps.length + 200,
+                            zIndex: (scene.maps?.length || 0) + 200,
                         }}
                     />
                 )}
