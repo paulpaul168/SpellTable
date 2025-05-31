@@ -1,4 +1,7 @@
 # 🔮 SpellTable
+![GitHub contributors](https://img.shields.io/github/contributors/paulpaul168/SpellTable)
+![GitHub issues](https://img.shields.io/github/issues/paulpaul168/SpellTable)
+![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/paulpaul168/SpellTable)
 
 A modern, local web-based virtual tabletop designed for in-person D&D sessions with a physical screen on the table. Built to give Dungeon Masters full control while providing players with an immersive experience on a 4K display.
 
