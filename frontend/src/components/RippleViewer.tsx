@@ -8,21 +8,24 @@ if (typeof document !== 'undefined') {
         @keyframes ripple {
             0% {
                 transform: translate(-50%, -50%) scale(1);
-                opacity: 0.8;
+                opacity: 0.9;
+            }
+            50% {
+                opacity: 0.5;
             }
             100% {
-                transform: translate(-50%, -50%) scale(1.5);
+                transform: translate(-50%, -50%) scale(2);
                 opacity: 0;
             }
         }
         .animate-ripple-1 {
-            animation: ripple 1.5s ease-out infinite;
+            animation: ripple 3s ease-out infinite;
         }
         .animate-ripple-2 {
-            animation: ripple 1.5s ease-out 0.2s infinite;
+            animation: ripple 3s ease-out 0.5s infinite;
         }
         .animate-ripple-3 {
-            animation: ripple 1.5s ease-out 0.4s infinite;
+            animation: ripple 3s ease-out 1s infinite;
         }
         
         @keyframes shake {
@@ -45,12 +48,23 @@ export const RippleViewer: React.FC = () => {
     // Listen for ripple effects from admin
     useEffect(() => {
         const handleRemoteEvents = (data: any) => {
-            if (data.type === 'ripple_effect') {
-                createRippleEffect(data.x, data.y);
-            } else if (data.type === 'lightning_effect') {
-                createLightningEffect();
-            } else if (data.type === 'shake_effect') {
-                createShakeEffect();
+            // Handle both the old and new formats to ensure compatibility 
+            if (data.type === 'scene_update' && data.event) {
+                if (data.event.type === 'ripple_effect') {
+                    createRippleEffect(data.event.x, data.event.y);
+                } else if (data.event.type === 'lightning_effect') {
+                    createLightningEffect();
+                } else if (data.event.type === 'shake_effect') {
+                    createShakeEffect();
+                }
+            } else if (data.type === 'scene_event') {
+                if (data.eventType === 'ripple_effect') {
+                    createRippleEffect(data.x, data.y);
+                } else if (data.eventType === 'lightning_effect') {
+                    createLightningEffect();
+                } else if (data.eventType === 'shake_effect') {
+                    createShakeEffect();
+                }
             }
         };
 
@@ -97,7 +111,7 @@ export const RippleViewer: React.FC = () => {
         // Remove ripple effect after animation completes
         setTimeout(() => {
             setShowRipple(false);
-        }, 1500);
+        }, 3000); // Increased to match animation duration
     };
 
     const createLightningEffect = () => {
@@ -135,33 +149,33 @@ export const RippleViewer: React.FC = () => {
                     <div
                         className="absolute rounded-full animate-ripple-1"
                         style={{
-                            width: '60px',
-                            height: '60px',
+                            width: '80px',
+                            height: '80px',
                             border: '2px solid #4ade80',
                             transform: 'translate(-50%, -50%)',
-                            opacity: 0.8,
+                            opacity: 0.9,
                         }}
                     />
                     <div
                         className="absolute rounded-full animate-ripple-2"
                         style={{
-                            width: '80px',
-                            height: '80px',
+                            width: '110px',
+                            height: '110px',
                             border: '2px solid #4ade80',
                             transform: 'translate(-50%, -50%)',
-                            opacity: 0.6,
-                            animationDelay: '0.2s',
+                            opacity: 0.7,
+                            animationDelay: '0.5s',
                         }}
                     />
                     <div
                         className="absolute rounded-full animate-ripple-3"
                         style={{
-                            width: '100px',
-                            height: '100px',
+                            width: '140px',
+                            height: '140px',
                             border: '2px solid #4ade80',
                             transform: 'translate(-50%, -50%)',
-                            opacity: 0.4,
-                            animationDelay: '0.4s',
+                            opacity: 0.5,
+                            animationDelay: '1s',
                         }}
                     />
                 </div>
