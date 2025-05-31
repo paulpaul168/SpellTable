@@ -2,8 +2,27 @@
 
 A modern, local web-based virtual tabletop designed for in-person D&D sessions with a physical screen on the table. Built to give Dungeon Masters full control while providing players with an immersive experience on a 4K display.
 
+## 📸 Screenshots
+
+### Player View (TV/Table Display)
+![Player View](screenshots/screenshot_viewer.png)
+*The main player view showing a dungeon map with AoE markers and grid overlay - perfect for displaying on a 4K TV or table screen*
+
+### Admin View (Dungeon Master Controls)
+![Admin View](screenshots/screenshot_admin.png)
+*The comprehensive admin interface with initiative tracker, AoE markers, soundboard, map management, and real-time preview*
+
+### Clean Admin Interface
+![Clean Admin View](screenshots/screenshot_admin_clean.png)
+*The clean admin interface with all menus and panels closed, showing the unobstructed map view with grid overlay*
+
+### Initiative Tracker
+![Initiative Order](screenshots/screenshot_ini.png)
+*Clean, organized initiative order display showing players and monsters with their initiative values*
+
 ## 📋 Table of Contents
 
+- [Screenshots](#-screenshots)
 - [Features](#-features)
 - [Project Status](#-project-status)
 - [Getting Started](#-getting-started)
@@ -16,65 +35,74 @@ A modern, local web-based virtual tabletop designed for in-person D&D sessions w
 
 ### Core Features
 
-- Grid-aligned map display on a 4K TV
-- Admin view for Dungeon Master with map preview and controls
-- Player view for full-screen display (TV/table)
-- Initiative tracker (text-based)
-- Load, scale and position maps easily
-- Hide/reveal maps and elements at will
+- **Grid-aligned map display** on a 4K TV with precise positioning
+- **Dual-view system**: Admin view for Dungeon Master with map preview and controls, Player view for full-screen display (TV/table)
+- **Initiative tracker** with sortable text-based list (see [Initiative screenshot](#initiative-tracker))
+- **Area of Effect markers** with cones, circles, and custom templates (visible in [Player View](#player-view-tvtable-display))
+- **Interactive soundboard** with ambient music and sound effects
+- **Map management**: Load, scale, position, and layer multiple maps easily
+- **Real-time synchronization** via WebSocket - changes in admin view instantly appear on player display
+- **Hide/reveal maps** and elements at will for dramatic reveals
+- **Multiple map layers** with proper z-index management
 
 ### Planned Features
 
-- Area of Effect markers (cones, circles, templates)
 - Distance measurement tools
 - Camera-based mini tracking
 - Animated effects (fire, fog, magic circles)
 - Interactive rulers
 - Fog of War / hidden regions
-- Multiple map layers
 - Player journal web app
 
 ## 📊 Project Status
 
-### MVP Checklist
+### MVP Checklist ✅
 
 - [X] Upload and manage maps (scale, position)
 - [X] Toggle grid overlay on maps
-- [X] Initiative tracker (text-based list)
+- [X] Initiative tracker (text-based list with sorting)
 - [X] Separate Admin and Player views
-  - [X] Admin preview mode
+  - [X] Admin preview mode with comprehensive controls
   - [X] Player full-screen display mode
 - [X] Show/hide maps and overlays on player screen
-- [X] Sync state via WebSocket
+- [X] Sync state via WebSocket (real-time updates)
+- [X] Area of Effect markers (cones, circles, custom templates)
+- [X] Interactive soundboard with ambient music
+- [X] Multiple map layers with z-index management
+- [X] Modern, touch-friendly UI design
+
+*All core MVP features are complete and functional as shown in the screenshots above!*
 
 ### Development Roadmap
 
-#### 🟢 MVP Phase
+#### ✅ MVP Phase (Complete)
 
-- Local web app (Next.js + FastAPI backend)
-- Basic file system for storing maps and sessions
-- UI for uploading and positioning maps
-- Toggleable grid overlay
-- Initiative order list
-- Admin/Player view sync
-- WebSocket communication
+- ✅ Local web app (Next.js + FastAPI backend)
+- ✅ Basic file system for storing maps and sessions
+- ✅ UI for uploading and positioning maps
+- ✅ Toggleable grid overlay
+- ✅ Initiative order list with real-time updates
+- ✅ Admin/Player view sync via WebSocket
+- ✅ AoE Markers (cones, circles, custom templates)
+- ✅ Interactive soundboard with ambient music
+- ✅ Multiple map layers with proper z-index management
 
-#### 🔵 Post-MVP Phase
+#### 🔵 Enhancement Phase (In Progress)
 
-- [X] AoE Markers
-- [X] Soundboard
 - [ ] Distance measuring tool
-- [ ] Fog of War
-- [X] Multiple map layers
+- [ ] Fog of War implementation
 - [ ] UI polish for touch/table usage
+- [ ] Advanced marker templates
+- [ ] Session management improvements
 
 #### 🔮 Future Phase
 
 - [ ] Camera-based tracking for minis
 - [ ] Automatic status/effect display
-- [ ] Animated effects
+- [ ] Animated effects (fire, fog, magic circles)
 - [ ] Player journal web app
 - [ ] Multi-session management
+- [ ] Advanced combat automation
 
 ## 🚀 Getting Started
 
@@ -103,6 +131,14 @@ A modern, local web-based virtual tabletop designed for in-person D&D sessions w
 3. Access the application:
    - Backend API: <http://localhost:8010>
    - Frontend: <http://localhost:3000>
+
+#### Application Views
+
+- **Admin View** (`http://localhost:3000`): Full DM interface with all controls (see [Admin screenshot](#admin-view-dungeon-master-controls))
+- **Player View** (`http://localhost:3000/viewer`): Clean display for your TV/table (see [Player screenshot](#player-view-tvtable-display))
+- **Initiative Tracker** (accessible from admin view): Manage turn order (see [Initiative screenshot](#initiative-tracker))
+
+> **Tip**: Open the admin view on your laptop/DM screen and the player view on your TV or table display for the optimal setup!
 
 ### Manual Setup
 
@@ -148,25 +184,46 @@ npm run dev
 
 ```tree
 spelltable/
+├── README.md                # Project documentation
+├── LICENSE.md               # Licensing information
+├── run.sh                   # Development startup script
+├── docker-compose.yml       # Docker container orchestration
+├── screenshots/             # Application screenshots
+│   ├── screenshot_viewer.png
+│   ├── screenshot_admin.png
+│   ├── screenshot_admin_clean.png
+│   └── screenshot_ini.png
+│
 ├── backend/                 # FastAPI backend
-│   ├── main.py              # Entry point
-│   ├── routes/              # API routes
-│   ├── services/            # Business logic
-│   ├── models/              # Pydantic models
-│   ├── maps/                # Map storage
-│   ├── sessions/            # Session files
-│   └── config.py            # Configuration
-|   
+│   ├── main.py              # Application entry point
+│   ├── app/                 # Core application code
+│   │   ├── routes/          # API route handlers
+│   │   ├── models/          # Pydantic data models
+│   │   └── core/            # Core functionality
+│   ├── maps/                # Uploaded map storage
+│   ├── scenes/              # Scene/session data
+│   ├── sounds/              # Audio files for soundboard
+│   ├── requirements.txt     # Python dependencies
+│   ├── requirements-dev.txt # Development dependencies
+│   ├── pyproject.toml       # Python project configuration
+│   └── Dockerfile           # Backend container config
 │
 ├── frontend/                # Next.js frontend
-│   ├── pages/               # React pages
-│   ├── components/          # UI components
-│   ├── styles/              # Tailwind config
-│   ├── public/              # Static files
-│   └── utils/               # Utilities
+│   ├── src/                 # Source code
+│   │   ├── app/             # Next.js app router pages
+│   │   ├── components/      # React components
+│   │   ├── pages/           # Additional pages
+│   │   ├── services/        # API service layer
+│   │   ├── types/           # TypeScript type definitions
+│   │   ├── lib/             # Utility libraries
+│   │   └── config/          # Configuration files
+│   ├── public/              # Static assets
+│   ├── package.json         # Node.js dependencies
+│   ├── tailwind.config.js   # Tailwind CSS configuration
+│   ├── components.json      # UI component configuration
+│   └── Dockerfile           # Frontend container config
 │
-│
-└── runs.sh                  # Start script
+└── .github/                 # GitHub workflows and templates
 ```
 
 ### Z-Index Layering System
