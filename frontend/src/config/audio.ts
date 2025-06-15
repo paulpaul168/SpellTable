@@ -275,7 +275,8 @@ export const stopAllAudio = (): void => {
 // Function to fetch audio files from the backend
 export const fetchAudioFiles = async (): Promise<boolean> => {
     try {
-        const response = await fetch('http://localhost:8010/audio/list');
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+        const response = await fetch(`${API_BASE_URL}/audio/list`);
         if (!response.ok) {
             console.error('Failed to fetch audio files:', response.statusText);
             return false;
@@ -294,7 +295,7 @@ export const fetchAudioFiles = async (): Promise<boolean> => {
                     files.forEach((file: AudioTrack) => {
                         // Update URLs to use the correct port
                         if (file.url && file.url.startsWith('/')) {
-                            file.url = `http://localhost:8010${file.url}`;
+                            file.url = `${API_BASE_URL}${file.url}`;
                         }
                         audioTracks.push(file);
                     });
@@ -309,7 +310,7 @@ export const fetchAudioFiles = async (): Promise<boolean> => {
                     files.forEach((file: AudioTrack) => {
                         // Update URLs to use the correct port
                         if (file.url && file.url.startsWith('/')) {
-                            file.url = `http://localhost:8010${file.url}`;
+                            file.url = `${API_BASE_URL}${file.url}`;
                         }
                         soundEffects.push(file);
                     });

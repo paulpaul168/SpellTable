@@ -250,7 +250,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 console.log("Fetching data for new map:", mapName);
 
                 // First fetch all map details including folder structure
-                const listResponse = await fetch('http://localhost:8010/maps/list');
+                const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+                const listResponse = await fetch(`${API_BASE_URL}/maps/list`);
                 if (!listResponse.ok) throw new Error('Failed to fetch map list');
 
                 const listData = await listResponse.json();
@@ -320,7 +321,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         formData.append('file', file);
 
         try {
-            const response = await fetch('http://localhost:8010/maps/upload', {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/maps/upload`, {
                 method: 'POST',
                 body: formData,
             });
@@ -389,7 +391,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 showCurrentPlayer: scene.showCurrentPlayer ?? true
             };
 
-            const endpoint = isSaveAs ? 'http://localhost:8010/scenes/save' : `http://localhost:8010/scenes/${scene.id}`;
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const endpoint = isSaveAs ? `${API_BASE_URL}/scenes/save` : `${API_BASE_URL}/scenes/${scene.id}`;
             const method = isSaveAs ? 'POST' : 'PUT';
 
             const response = await fetch(endpoint, {
@@ -424,7 +427,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
     const handleLoadScene = async () => {
         try {
-            const response = await fetch('http://localhost:8010/scenes/list', {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/scenes/list`, {
                 method: 'GET',
             });
 
@@ -457,7 +461,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
     const handleSceneLoad = async (loadedScene: SceneType) => {
         try {
-            const response = await fetch(`http://localhost:8010/scenes/load/${loadedScene.id}`, {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/scenes/load/${loadedScene.id}`, {
                 method: 'GET',
             });
 
@@ -716,7 +721,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const handleMapRefresh = async () => {
         try {
             // Fetch all available maps
-            const response = await fetch('http://localhost:8010/maps/list');
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/maps/list`);
             if (!response.ok) throw new Error('Failed to load maps');
 
             const data = await response.json();

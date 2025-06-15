@@ -343,7 +343,8 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
     const loadAllMaps = async () => {
         try {
-            const response = await fetch('http://localhost:8010/maps/list');
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/maps/list`);
             if (!response.ok) throw new Error('Failed to load maps');
 
             const data = await response.json();
@@ -386,7 +387,8 @@ export const MapManagement: React.FC<MapManagementProps> = ({
     const loadMapFolders = async () => {
         try {
             console.log("Loading map folders...");
-            const response = await fetch('http://localhost:8010/maps/folders');
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/maps/folders`);
             if (!response.ok) throw new Error('Failed to load map folders');
 
             const data = await response.json();
@@ -434,7 +436,8 @@ export const MapManagement: React.FC<MapManagementProps> = ({
         }
 
         try {
-            const response = await fetch('http://localhost:8010/maps/folder', {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/maps/folder`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -468,7 +471,8 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
     const handleDeleteFolder = async (folderName: string) => {
         try {
-            const response = await fetch(`http://localhost:8010/maps/folder/${folderName}`, {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/maps/folder/${folderName}`, {
                 method: 'DELETE',
             });
 
@@ -498,7 +502,8 @@ export const MapManagement: React.FC<MapManagementProps> = ({
         }
 
         try {
-            const response = await fetch('http://localhost:8010/maps/upload', {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/maps/upload`, {
                 method: 'POST',
                 body: formData,
             });
@@ -525,7 +530,8 @@ export const MapManagement: React.FC<MapManagementProps> = ({
         try {
             console.log(`Renaming map from "${map.name}" to "${newName}"`);
 
-            const response = await fetch(`http://localhost:8010/maps/rename/${encodeURIComponent(map.name)}`, {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/maps/rename/${encodeURIComponent(map.name)}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -579,7 +585,8 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
     const handleDeleteMap = async (mapName: string) => {
         try {
-            const response = await fetch(`http://localhost:8010/maps/file/${mapName}`, {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/maps/file/${mapName}`, {
                 method: 'DELETE',
             });
 
@@ -602,7 +609,8 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
     const handleMoveMap = async (mapName: string, targetFolder: string | null) => {
         try {
-            const response = await fetch(`http://localhost:8010/maps/move/${mapName}`, {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/maps/move/${mapName}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

@@ -22,7 +22,9 @@ class WebSocketService {
         }
 
         this.isConnecting = true;
-        this.ws = new WebSocket('ws://localhost:8010/ws');
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+        const wsUrl = API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://') + '/ws';
+        this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
             console.log('WebSocket connected');

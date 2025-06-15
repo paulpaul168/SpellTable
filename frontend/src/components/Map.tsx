@@ -27,7 +27,8 @@ interface MapProps {
 
 // Update image source URL to include folder path if available
 const getMapImageUrl = (map: MapData) => {
-    const baseUrl = 'http://localhost:8010/maps/file';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+    const baseUrl = `${API_BASE_URL}/maps/file`;
 
     // Add debugging log
     console.log("Getting map URL for:", map);
@@ -356,7 +357,8 @@ export const Map: React.FC<MapProps> = ({
     const getMapUrl = () => {
         // Handle folder structure if present
         const folderPrefix = map.folder ? `/${map.folder.replace(/^\//, '')}` : '';
-        return `http://localhost:8010/maps/file/${folderPrefix}/${encodeURIComponent(map.name)}`;
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+        return `${API_BASE_URL}/maps/file/${folderPrefix}/${encodeURIComponent(map.name)}`;
     };
 
     // Handler for adding a marker at the current mouse position

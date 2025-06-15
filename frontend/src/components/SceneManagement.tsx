@@ -287,7 +287,8 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
 
     const loadScenes = async () => {
         try {
-            const response = await fetch('http://localhost:8010/scenes/list');
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/scenes/list`);
             if (!response.ok) throw new Error('Failed to load scenes');
             const data = await response.json();
             setScenes(data.scenes);
@@ -310,7 +311,8 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
 
     const handleCreateFolder = async () => {
         try {
-            const response = await fetch('http://localhost:8010/scenes/folder', {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/scenes/folder`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -346,7 +348,8 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
         if (!folderToDelete) return;
 
         try {
-            const response = await fetch(`http://localhost:8010/scenes/folder/${folderToDelete.path}`, {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/scenes/folder/${folderToDelete.path}`, {
                 method: 'DELETE',
             });
 
@@ -374,7 +377,8 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
         if (!sceneToDelete) return;
 
         try {
-            const response = await fetch(`http://localhost:8010/scenes/${sceneToDelete.id}`, {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/scenes/${sceneToDelete.id}`, {
                 method: 'DELETE',
             });
 
@@ -402,7 +406,8 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
         if (!folderToRename || !newRenameFolderName.trim()) return;
 
         try {
-            const response = await fetch(`http://localhost:8010/scenes/folder/${folderToRename.path}`, {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/scenes/folder/${folderToRename.path}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -442,7 +447,8 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                 name: newRenameSceneName
             };
 
-            const response = await fetch(`http://localhost:8010/scenes/${sceneToRename.id}`, {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/scenes/${sceneToRename.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -490,7 +496,8 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                 folder: targetFolder || undefined
             };
 
-            const response = await fetch(`http://localhost:8010/scenes/${scene.id}`, {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const response = await fetch(`${API_BASE_URL}/scenes/${scene.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
