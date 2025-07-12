@@ -113,6 +113,8 @@ interface MapListSidebarProps {
     onClose: () => void;
     onMapRefresh: () => void;
     onMapRename?: (oldName: string, newName: string) => void;
+    hideInvisibleMaps: boolean;
+    onToggleHideInvisibleMaps: () => void;
 }
 
 export const MapListSidebar: React.FC<MapListSidebarProps> = ({
@@ -124,7 +126,9 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
     onMapDelete,
     onClose,
     onMapRefresh,
-    onMapRename
+    onMapRename,
+    hideInvisibleMaps,
+    onToggleHideInvisibleMaps
 }) => {
     const [isMapManagementOpen, setIsMapManagementOpen] = useState(false);
 
@@ -166,6 +170,19 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-medium text-zinc-300">Maps</h3>
                     <div className="flex items-center gap-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={onToggleHideInvisibleMaps}
+                            title={hideInvisibleMaps ? 'Show hidden maps' : 'Hide hidden maps'}
+                        >
+                            {hideInvisibleMaps ? (
+                                <Eye className="h-4 w-4" />
+                            ) : (
+                                <EyeOff className="h-4 w-4" />
+                            )}
+                        </Button>
                         <Button
                             variant="ghost"
                             size="sm"

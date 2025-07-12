@@ -131,6 +131,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isDisplayCalculatorOpen, setIsDisplayCalculatorOpen] = useState(false);
     const [isGridSettingsOpen, setIsGridSettingsOpen] = useState(false);
     const [isBackupDialogOpen, setIsBackupDialogOpen] = useState(false);
+    const [hideInvisibleMaps, setHideInvisibleMaps] = useState(false);
     const [highlightedMarkerId, setHighlightedMarkerId] = useState<string | null>(null);
 
     // Remove display scale functionality, using fixed 1.0 scale
@@ -973,23 +974,25 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 )}
                 {/* Maps Container - Allow individual map z-indices based on their order */}
                 <div className="absolute inset-0">
-                    {scene.maps && scene.maps.map((map, index) => (
-                        <Map
-                            key={map.name}
-                            map={map}
-                            isActive={map.name === scene.activeMapId}
-                            onUpdate={handleMapUpdate}
-                            isViewerMode={isViewerMode}
-                            zIndex={(scene.maps?.length || 0) - index} // Higher index = higher in stack (last map = top)
-                            scale={displayScale}
-                            gridSettings={scene.gridSettings}
-                            onOpenAoEPalette={() => setIsAoEPaletteOpen(true)}
-                            aoeMarkers={scene.aoeMarkers || []}
-                            onUpdateMarker={handleUpdateAoEMarker}
-                            onDeleteMarker={handleDeleteAoEMarker}
-                            onAddMarker={handleAddAoEMarker}
-                        />
-                    ))}
+                    {scene.maps && scene.maps
+                        .filter(map => !hideInvisibleMaps || !map.data.isHidden)
+                        .map((map, index) => (
+                            <Map
+                                key={map.name}
+                                map={map}
+                                isActive={map.name === scene.activeMapId}
+                                onUpdate={handleMapUpdate}
+                                isViewerMode={isViewerMode}
+                                zIndex={(scene.maps?.length || 0) - index} // Higher index = higher in stack (last map = top)
+                                scale={displayScale}
+                                gridSettings={scene.gridSettings}
+                                onOpenAoEPalette={() => setIsAoEPaletteOpen(true)}
+                                aoeMarkers={scene.aoeMarkers || []}
+                                onUpdateMarker={handleUpdateAoEMarker}
+                                onDeleteMarker={handleDeleteAoEMarker}
+                                onAddMarker={handleAddAoEMarker}
+                            />
+                        ))}
                 </div>
 
                 {/* AoE Markers - Ensure they're above maps but below UI */}
@@ -1042,6 +1045,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                         onClose={() => setShowMapList(false)}
                         onMapRefresh={handleMapRefresh}
                         onMapRename={handleMapRename}
+                        hideInvisibleMaps={hideInvisibleMaps}
+                        onToggleHideInvisibleMaps={() => setHideInvisibleMaps(!hideInvisibleMaps)}
                     />
                 </div>
             )}
