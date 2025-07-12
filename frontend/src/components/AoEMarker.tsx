@@ -468,7 +468,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     return (
         <div
             ref={markerRef}
-            className={`absolute select-none ${marker.shape !== 'cone' ? 'flex flex-col items-center' : ''} ${highlightAnimation ? 'highlighted-marker' : ''}`}
+            className={`absolute select-none ${highlightAnimation ? 'highlighted-marker' : ''}`}
             style={{
                 position: 'absolute',
                 left: `${currentPos.x}px`,
@@ -539,12 +539,19 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 </div>
             )}
 
+            {/* The shape itself */}
             {renderShape()}
 
+            {/* Label positioned below the shape without affecting centering */}
             {marker.label && marker.shape !== 'cone' && (
                 <div
-                    className="mt-1 px-2 py-1 bg-black/70 text-white text-xs rounded pointer-events-none"
-                    style={{ whiteSpace: 'nowrap' }}
+                    className="absolute px-2 py-1 bg-black/70 text-white text-xs rounded pointer-events-none"
+                    style={{
+                        whiteSpace: 'nowrap',
+                        top: `${adjustedSizeInPixels}px`, // Position 50% of the size below the bottom edge
+                        left: '50%',
+                        transform: 'translateX(-50%)', // Center the label horizontally
+                    }}
                 >
                     {marker.label}
                 </div>
