@@ -993,10 +993,6 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                     scale={displayScale}
                                     gridSettings={scene.gridSettings}
                                     onOpenAoEPalette={() => setIsAoEPaletteOpen(true)}
-                                    aoeMarkers={scene.aoeMarkers || []}
-                                    onUpdateMarker={handleUpdateAoEMarker}
-                                    onDeleteMarker={handleDeleteAoEMarker}
-                                    onAddMarker={handleAddAoEMarker}
                                 />
                             );
                         })}

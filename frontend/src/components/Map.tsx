@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MapData, AoEMarker as AoEMarkerType } from '../types/map';
 import { EyeOff } from 'lucide-react';
-import { AoEMarker } from './AoEMarker';
-import { AoEPalette } from './AoEPalette';
 
 interface MapProps {
     map: MapData;
@@ -18,10 +16,6 @@ interface MapProps {
         gridCellsX?: number;
         gridCellsY?: number;
     };
-    aoeMarkers?: AoEMarkerType[];
-    onUpdateMarker?: (marker: AoEMarkerType) => void;
-    onDeleteMarker?: (markerId: string) => void;
-    onAddMarker?: (marker: Omit<AoEMarkerType, 'id' | 'position'>) => void;
     onOpenAoEPalette?: () => void;
 }
 
@@ -59,10 +53,6 @@ export const Map: React.FC<MapProps> = ({
     zIndex,
     scale = 1,
     gridSettings,
-    aoeMarkers = [],
-    onUpdateMarker,
-    onDeleteMarker,
-    onAddMarker,
     onOpenAoEPalette
 }) => {
     const [position, setPosition] = useState(map.data.position);
@@ -361,21 +351,7 @@ export const Map: React.FC<MapProps> = ({
         return `${API_BASE_URL}/maps/file/${folderPrefix}/${encodeURIComponent(map.name)}`;
     };
 
-    // Handler for adding a marker at the current mouse position
-    const handleAddMarker = useCallback((markerData: Omit<AoEMarkerType, 'id' | 'position'>) => {
-        if (onAddMarker) {
-            // Get center of the screen as default position
-            const centerX = window.innerWidth / 2;
-            const centerY = window.innerHeight / 2;
 
-            // Convert to grid coordinates
-            const gridPos = pixelToGridCoords({ x: centerX, y: centerY });
-
-            // Pass the marker data to the parent component
-            // The parent component will add position and id
-            onAddMarker(markerData);
-        }
-    }, [onAddMarker, pixelToGridCoords]);
 
     // Handler for highlighting a marker
     const handleHighlightMarker = useCallback((markerId: string) => {
@@ -428,26 +404,7 @@ export const Map: React.FC<MapProps> = ({
                 )}
             </div>
 
-            {/* Render AoE markers */}
-            {aoeMarkers.map((marker) => (
-                <AoEMarker
-                    key={marker.id}
-                    marker={marker}
-                    gridSize={gridSettings?.gridSize || 50}
-                    isActive={isActive}
-                    isAdmin={!isViewerMode}
-                    onUpdate={onUpdateMarker || (() => { })}
-                    onDelete={onDeleteMarker || (() => { })}
-                    scale={scale}
-                    gridSettings={{
-                        useFixedGrid: gridSettings?.useFixedGrid || false,
-                        gridCellsX: gridSettings?.gridCellsX || 25,
-                        gridCellsY: gridSettings?.gridCellsY || 13,
-                        gridSize: gridSettings?.gridSize || 50
-                    }}
-                    isHighlighted={marker.id === highlightedMarkerId}
-                />
-            ))}
+
         </>
     );
 }; 
