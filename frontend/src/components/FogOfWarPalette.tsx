@@ -80,6 +80,25 @@ export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
         }
     };
 
+    // Clean up duplicate points that are at the same position
+    const cleanupDuplicatePoints = (points: Array<{ x: number; y: number }>) => {
+        const cleanedPoints: Array<{ x: number; y: number }> = [];
+
+        for (let i = 0; i < points.length; i++) {
+            const currentPoint = points[i];
+            const isDuplicate = cleanedPoints.some(existingPoint =>
+                existingPoint.x === currentPoint.x && existingPoint.y === currentPoint.y
+            );
+
+            if (!isDuplicate) {
+                cleanedPoints.push(currentPoint);
+            }
+        }
+
+        // Ensure we have at least 3 points for a valid polygon
+        return cleanedPoints.length >= 3 ? cleanedPoints : points;
+    };
+
     // Function to handle adding fog of war from presets
     const handleAddFromPreset = (shape: string, color: string, opacity: number) => {
         // Create points for the shape at the center of the screen
@@ -91,7 +110,7 @@ export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
 
         if (points.length > 0) {
             onAddFogOfWar({
-                points,
+                points: cleanupDuplicatePoints(points),
                 useGridCoordinates: true,
                 color,
                 opacity
@@ -109,7 +128,7 @@ export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
         const points = createShapePoints('square', centerX, centerY, size);
 
         onAddFogOfWar({
-            points,
+            points: cleanupDuplicatePoints(points),
             useGridCoordinates: true,
             color: customColor,
             opacity
@@ -270,7 +289,7 @@ export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
 
                 <div className="flex justify-between items-center pt-4 border-t">
                     <div className="text-xs text-zinc-500">
-                        Tip: Ctrl+Drag to move, Shift+Left click to add points, Double-click points to remove
+                        Tip: Ctrl+Drag to move, Shift+Left click to add points, Double-click points to remove. Prevents overlapping points.
                     </div>
                     <Button onClick={onClose} variant="outline">
                         <X className="h-4 w-4 mr-2" />

@@ -124,15 +124,40 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
         return pathData;
     };
 
-    // Throttle updates
+    // Clean up duplicate points that are at the same position
+    const cleanupDuplicatePoints = useCallback((points: Array<{ x: number; y: number }>) => {
+        const cleanedPoints: Array<{ x: number; y: number }> = [];
+
+        for (let i = 0; i < points.length; i++) {
+            const currentPoint = points[i];
+            const isDuplicate = cleanedPoints.some(existingPoint =>
+                existingPoint.x === currentPoint.x && existingPoint.y === currentPoint.y
+            );
+
+            if (!isDuplicate) {
+                cleanedPoints.push(currentPoint);
+            }
+        }
+
+        // Ensure we have at least 3 points for a valid polygon
+        return cleanedPoints.length >= 3 ? cleanedPoints : points;
+    }, []);
+
+    // Throttle updates with automatic point cleanup
     const throttledUpdate = useCallback((newFogOfWar: FogOfWarType) => {
+        // Clean up duplicate points before updating
+        const cleanedFogOfWar = {
+            ...newFogOfWar,
+            points: cleanupDuplicatePoints(newFogOfWar.points)
+        };
+
         const now = performance.now();
         if (now - lastUpdateRef.current >= 32) { // ~30fps
-            onUpdate(newFogOfWar);
+            onUpdate(cleanedFogOfWar);
             lastUpdateRef.current = now;
             pendingUpdateRef.current = null;
         } else {
-            pendingUpdateRef.current = newFogOfWar;
+            pendingUpdateRef.current = cleanedFogOfWar;
             if (!lastUpdateRef.current) {
                 requestAnimationFrame(() => {
                     const pendingFogOfWar = pendingUpdateRef.current;
@@ -144,7 +169,7 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
                 });
             }
         }
-    }, [onUpdate]);
+    }, [onUpdate, cleanupDuplicatePoints]);
 
     // Handle mouse movement for dragging entire polygon
     const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -170,15 +195,25 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
                 newPosition = { x: mouseX, y: mouseY };
             }
 
-            const updatedPoints = fogOfWar.points.map((point, index) =>
-                index === editingPointIndex ? newPosition : point
+            // Check if the new position would overlap with any existing point (excluding the current point being edited)
+            const wouldOverlap = fogOfWar.points.some((point, index) =>
+                index !== editingPointIndex &&
+                point.x === newPosition.x &&
+                point.y === newPosition.y
             );
 
-            throttledUpdate({
-                ...fogOfWar,
-                points: updatedPoints,
-                useGridCoordinates: true
-            });
+            // Only update if the new position doesn't overlap with existing points
+            if (!wouldOverlap) {
+                const updatedPoints = fogOfWar.points.map((point, index) =>
+                    index === editingPointIndex ? newPosition : point
+                );
+
+                throttledUpdate({
+                    ...fogOfWar,
+                    points: updatedPoints,
+                    useGridCoordinates: true
+                });
+            }
         } else if (isDraggingRef.current) {
             // Drag entire polygon
             const deltaX = mouseX - dragOffsetRef.current.startX;
@@ -317,6 +352,16 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
             newPoint = { x: mouseX, y: mouseY };
         }
 
+        // Check if the new point would overlap with any existing point
+        const wouldOverlap = fogOfWar.points.some(point =>
+            point.x === newPoint.x && point.y === newPoint.y
+        );
+
+        // Don't add the point if it would overlap
+        if (wouldOverlap) {
+            return;
+        }
+
         // Find the best position to insert the new point
         let insertIndex = fogOfWar.points.length;
         let minDistance = Infinity;
@@ -360,11 +405,14 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
             ...fogOfWar.points.slice(insertIndex)
         ];
 
-        onUpdate({
+        // Clean up and update
+        const cleanedFogOfWar = {
             ...fogOfWar,
-            points: updatedPoints,
+            points: cleanupDuplicatePoints(updatedPoints),
             useGridCoordinates: true
-        });
+        };
+
+        onUpdate(cleanedFogOfWar);
     };
 
     // Remove point on double-click
@@ -376,10 +424,13 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
 
         const updatedPoints = fogOfWar.points.filter((_, index) => index !== pointIndex);
 
-        onUpdate({
+        // Clean up and update
+        const cleanedFogOfWar = {
             ...fogOfWar,
-            points: updatedPoints
-        });
+            points: cleanupDuplicatePoints(updatedPoints)
+        };
+
+        onUpdate(cleanedFogOfWar);
     };
 
     if (pixelPoints.length < 3) return null;
@@ -442,7 +493,7 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
             {/* Instructions overlay for admin */}
             {isAdmin && isActive && isHovered && (
                 <div className="absolute top-0 left-0 transform -translate-y-full bg-black/80 text-white text-xs rounded px-2 py-1 pointer-events-none whitespace-nowrap">
-                    Ctrl+Drag to move • Shift+Left click to add point • Double-click point to remove
+                    Ctrl+Drag to move • Shift+Left click to add point • Double-click point to remove • Prevents overlapping points
                 </div>
             )}
         </div>
