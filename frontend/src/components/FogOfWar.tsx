@@ -260,9 +260,12 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
         }
     }, [isDragging]);
 
-    // Handle mouse down on polygon - start dragging
+    // Handle mouse down on polygon - start dragging (only with Ctrl key)
     const handlePolygonMouseDown = (e: React.MouseEvent) => {
         if (!isActive || !isAdmin) return;
+
+        // Only allow dragging the entire polygon when Ctrl is held
+        if (!e.ctrlKey) return;
 
         e.stopPropagation();
         e.preventDefault();
@@ -291,16 +294,11 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
         document.body.classList.add('dragging-fog');
     };
 
-    // Double click to delete
-    const handleDoubleClick = (e: React.MouseEvent) => {
-        if (!isAdmin) return;
-        e.stopPropagation();
-        onDelete(fogOfWar.id);
-    };
 
-    // Add point on Ctrl+click
-    const handleCtrlClick = (e: React.MouseEvent) => {
-        if (!isAdmin || !e.ctrlKey) return;
+
+    // Add point on Shift+left click
+    const handleShiftLeftClick = (e: React.MouseEvent) => {
+        if (!isAdmin || !e.shiftKey || e.button !== 0) return;
 
         e.stopPropagation();
         e.preventDefault();
@@ -369,9 +367,9 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
         });
     };
 
-    // Remove point on Shift+click
-    const handleShiftClick = (e: React.MouseEvent, pointIndex: number) => {
-        if (!isAdmin || !e.shiftKey || fogOfWar.points.length <= 3) return;
+    // Remove point on double-click
+    const handlePointDoubleClick = (e: React.MouseEvent, pointIndex: number) => {
+        if (!isAdmin || fogOfWar.points.length <= 3) return;
 
         e.stopPropagation();
         e.preventDefault();
@@ -396,14 +394,13 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
                 top: `${boundingBox.minY}px`,
                 width: `${width}px`,
                 height: `${height}px`,
-                cursor: isActive && isAdmin ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                cursor: isActive && isAdmin ? (isDragging ? 'grabbing' : 'default') : 'default',
                 pointerEvents: isActive ? 'auto' : 'none',
                 zIndex: isDragging ? 900 : 600, // Above AoE markers (500-600 range)
                 touchAction: 'none'
             }}
             onMouseDown={handlePolygonMouseDown}
-            onDoubleClick={handleDoubleClick}
-            onClick={handleCtrlClick}
+            onClick={handleShiftLeftClick}
             onMouseEnter={() => !isDragging && setIsHovered(true)}
             onMouseLeave={() => !isDragging && setIsHovered(false)}
         >
@@ -437,7 +434,7 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
                             opacity: isHovered ? 1 : 0.3
                         }}
                         onMouseDown={(e) => handlePointMouseDown(e, index)}
-                        onClick={(e) => handleShiftClick(e, index)}
+                        onDoubleClick={(e) => handlePointDoubleClick(e, index)}
                     />
                 ))}
             </svg>
@@ -445,7 +442,7 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
             {/* Instructions overlay for admin */}
             {isAdmin && isActive && isHovered && (
                 <div className="absolute top-0 left-0 transform -translate-y-full bg-black/80 text-white text-xs rounded px-2 py-1 pointer-events-none whitespace-nowrap">
-                    Drag to move • Ctrl+Click to add point • Shift+Click point to remove • Double-click to delete
+                    Ctrl+Drag to move • Shift+Left click to add point • Double-click point to remove
                 </div>
             )}
         </div>

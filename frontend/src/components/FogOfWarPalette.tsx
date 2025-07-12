@@ -220,7 +220,7 @@ export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
 
                     <TabsContent value="active" className="space-y-4">
                         <div className="text-sm text-zinc-400">
-                            Manage active fog of war areas. Double-click any fog area on the map to delete it.
+                            Manage active fog of war areas. Use the delete button below to remove areas.
                         </div>
 
                         {activeFogOfWar.length === 0 ? (
@@ -270,7 +270,7 @@ export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
 
                 <div className="flex justify-between items-center pt-4 border-t">
                     <div className="text-xs text-zinc-500">
-                        Tip: Use Ctrl+Click to add points, Shift+Click to remove points
+                        Tip: Ctrl+Drag to move, Shift+Left click to add points, Double-click points to remove
                     </div>
                     <Button onClick={onClose} variant="outline">
                         <X className="h-4 w-4 mr-2" />
