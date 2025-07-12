@@ -369,9 +369,9 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
         });
     };
 
-    // Remove point on Alt+click
-    const handleAltClick = (e: React.MouseEvent, pointIndex: number) => {
-        if (!isAdmin || !e.altKey || fogOfWar.points.length <= 3) return;
+    // Remove point on Shift+click
+    const handleShiftClick = (e: React.MouseEvent, pointIndex: number) => {
+        if (!isAdmin || !e.shiftKey || fogOfWar.points.length <= 3) return;
 
         e.stopPropagation();
         e.preventDefault();
@@ -437,7 +437,7 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
                             opacity: isHovered ? 1 : 0.3
                         }}
                         onMouseDown={(e) => handlePointMouseDown(e, index)}
-                        onClick={(e) => handleAltClick(e, index)}
+                        onClick={(e) => handleShiftClick(e, index)}
                     />
                 ))}
             </svg>
@@ -445,7 +445,7 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
             {/* Instructions overlay for admin */}
             {isAdmin && isActive && isHovered && (
                 <div className="absolute top-0 left-0 transform -translate-y-full bg-black/80 text-white text-xs rounded px-2 py-1 pointer-events-none whitespace-nowrap">
-                    Drag to move • Ctrl+Click to add point • Alt+Click point to remove • Double-click to delete
+                    Drag to move • Ctrl+Click to add point • Shift+Click point to remove • Double-click to delete
                 </div>
             )}
         </div>

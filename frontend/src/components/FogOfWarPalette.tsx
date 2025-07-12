@@ -270,7 +270,7 @@ export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
 
                 <div className="flex justify-between items-center pt-4 border-t">
                     <div className="text-xs text-zinc-500">
-                        Tip: Use Ctrl+Click to add points, Alt+Click to remove points
+                        Tip: Use Ctrl+Click to add points, Shift+Click to remove points
                     </div>
                     <Button onClick={onClose} variant="outline">
                         <X className="h-4 w-4 mr-2" />
