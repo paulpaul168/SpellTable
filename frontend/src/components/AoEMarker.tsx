@@ -80,11 +80,11 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 clearTimeout(highlightTimerRef.current);
             }
 
-            // Set a timer to end the animation after 2 seconds
+            // Set a timer to end the animation after two full cycles (3.5 seconds)
             highlightTimerRef.current = setTimeout(() => {
                 setHighlightAnimation(false);
                 highlightTimerRef.current = null;
-            }, 2000);
+            }, 3500);
         }
     }, [isHighlighted]);
 
@@ -488,48 +488,117 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             onMouseEnter={() => !isDragging && setIsHovered(true)}
             onMouseLeave={() => !isDragging && setIsHovered(false)}
         >
-            {/* Highlight ripple animation */}
+            {/* Highlight ripple animation with correct shape outline */}
             {highlightAnimation && (
-                <>
-                    <div
-                        className="absolute rounded-full animate-ripple-1"
-                        style={{
-                            width: `${adjustedSizeInPixels * 1.2}px`,
-                            height: `${adjustedSizeInPixels * 1.2}px`,
-                            border: `2px solid ${marker.color}`,
-                            transform: 'translate(-50%, -50%)',
-                            left: '50%',
-                            top: '50%',
-                            opacity: 0.8,
-                        }}
-                    />
-                    <div
-                        className="absolute rounded-full animate-ripple-2"
-                        style={{
-                            width: `${adjustedSizeInPixels * 1.4}px`,
-                            height: `${adjustedSizeInPixels * 1.4}px`,
-                            border: `2px solid ${marker.color}`,
-                            transform: 'translate(-50%, -50%)',
-                            left: '50%',
-                            top: '50%',
-                            opacity: 0.6,
-                            animationDelay: '0.2s',
-                        }}
-                    />
-                    <div
-                        className="absolute rounded-full animate-ripple-3"
-                        style={{
-                            width: `${adjustedSizeInPixels * 1.6}px`,
-                            height: `${adjustedSizeInPixels * 1.6}px`,
-                            border: `2px solid ${marker.color}`,
-                            transform: 'translate(-50%, -50%)',
-                            left: '50%',
-                            top: '50%',
-                            opacity: 0.4,
-                            animationDelay: '0.4s',
-                        }}
-                    />
-                </>
+                <div key={Date.now()}>
+                    {/* First ripple */}
+                    {marker.shape === 'cone' ? (
+                        <svg
+                            className="animate-ripple-cone-1"
+                            width={adjustedSizeInPixels}
+                            height={adjustedSizeInPixels + 30}
+                            style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                transform: 'translateX(-50%)',
+                            }}
+                            viewBox={`${-adjustedSizeInPixels * 0.1} ${-adjustedSizeInPixels * 0.1} ${adjustedSizeInPixels * 1.2} ${adjustedSizeInPixels * 1.2 + 30}`}
+                        >
+                            <polygon
+                                points={`${adjustedSizeInPixels / 2},0 ${-adjustedSizeInPixels * 0.1},${adjustedSizeInPixels * 1.1} ${adjustedSizeInPixels * 1.1},${adjustedSizeInPixels * 1.1}`}
+                                fill="none"
+                                stroke={marker.color}
+                                strokeWidth="2"
+                            />
+                        </svg>
+                    ) : (
+                        <div
+                            className={`absolute animate-ripple-1 ${marker.shape === 'circle' || marker.shape === 'cylinder' ? 'rounded-full' : ''}`}
+                            style={{
+                                width: `${adjustedSizeInPixels * 1.2}px`,
+                                height: marker.shape === 'line' ? `${effectiveGridSize / 2 * 1.2}px` : `${adjustedSizeInPixels * 1.2}px`,
+                                border: `2px solid ${marker.color}`,
+                                transform: 'translate(-50%, -50%)',
+                                left: '50%',
+                                top: '50%',
+
+                            }}
+                        />
+                    )}
+
+                    {/* Second ripple */}
+                    {marker.shape === 'cone' ? (
+                        <svg
+                            className="animate-ripple-cone-2"
+                            width={adjustedSizeInPixels}
+                            height={adjustedSizeInPixels + 30}
+                            style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                transform: 'translateX(-50%)',
+                            }}
+                            viewBox={`${-adjustedSizeInPixels * 0.2} ${-adjustedSizeInPixels * 0.2} ${adjustedSizeInPixels * 1.4} ${adjustedSizeInPixels * 1.4 + 30}`}
+                        >
+                            <polygon
+                                points={`${adjustedSizeInPixels / 2},0 ${-adjustedSizeInPixels * 0.2},${adjustedSizeInPixels * 1.2} ${adjustedSizeInPixels * 1.2},${adjustedSizeInPixels * 1.2}`}
+                                fill="none"
+                                stroke={marker.color}
+                                strokeWidth="2"
+                            />
+                        </svg>
+                    ) : (
+                        <div
+                            className={`absolute animate-ripple-2 ${marker.shape === 'circle' || marker.shape === 'cylinder' ? 'rounded-full' : ''}`}
+                            style={{
+                                width: `${adjustedSizeInPixels * 1.4}px`,
+                                height: marker.shape === 'line' ? `${effectiveGridSize / 2 * 1.4}px` : `${adjustedSizeInPixels * 1.4}px`,
+                                border: `2px solid ${marker.color}`,
+                                transform: 'translate(-50%, -50%)',
+                                left: '50%',
+                                top: '50%',
+
+                            }}
+                        />
+                    )}
+
+                    {/* Third ripple */}
+                    {marker.shape === 'cone' ? (
+                        <svg
+                            className="animate-ripple-cone-3"
+                            width={adjustedSizeInPixels}
+                            height={adjustedSizeInPixels + 30}
+                            style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                transform: 'translateX(-50%)',
+                            }}
+                            viewBox={`${-adjustedSizeInPixels * 0.3} ${-adjustedSizeInPixels * 0.3} ${adjustedSizeInPixels * 1.6} ${adjustedSizeInPixels * 1.6 + 30}`}
+                        >
+                            <polygon
+                                points={`${adjustedSizeInPixels / 2},0 ${-adjustedSizeInPixels * 0.3},${adjustedSizeInPixels * 1.3} ${adjustedSizeInPixels * 1.3},${adjustedSizeInPixels * 1.3}`}
+                                fill="none"
+                                stroke={marker.color}
+                                strokeWidth="2"
+                            />
+                        </svg>
+                    ) : (
+                        <div
+                            className={`absolute animate-ripple-3 ${marker.shape === 'circle' || marker.shape === 'cylinder' ? 'rounded-full' : ''}`}
+                            style={{
+                                width: `${adjustedSizeInPixels * 1.6}px`,
+                                height: marker.shape === 'line' ? `${effectiveGridSize / 2 * 1.6}px` : `${adjustedSizeInPixels * 1.6}px`,
+                                border: `2px solid ${marker.color}`,
+                                transform: 'translate(-50%, -50%)',
+                                left: '50%',
+                                top: '50%',
+
+                            }}
+                        />
+                    )}
+                </div>
             )}
 
             {/* Size indicator - shows when resizing */}
@@ -559,7 +628,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
 
             {/* Add a style tag for ripple animations */}
             <style jsx>{`
-                @keyframes ripple {
+                @keyframes ripple-1 {
                     0% {
                         transform: translate(-50%, -50%) scale(1);
                         opacity: 0.8;
@@ -569,14 +638,73 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                         opacity: 0;
                     }
                 }
+                @keyframes ripple-2 {
+                    0% {
+                        transform: translate(-50%, -50%) scale(1);
+                        opacity: 0.6;
+                    }
+                    100% {
+                        transform: translate(-50%, -50%) scale(1.5);
+                        opacity: 0;
+                    }
+                }
+                @keyframes ripple-3 {
+                    0% {
+                        transform: translate(-50%, -50%) scale(1);
+                        opacity: 0.4;
+                    }
+                    100% {
+                        transform: translate(-50%, -50%) scale(1.5);
+                        opacity: 0;
+                    }
+                }
+                @keyframes ripple-cone-1 {
+                    0% {
+                        transform: translateX(-50%) scale(1);
+                        opacity: 0.8;
+                    }
+                    100% {
+                        transform: translateX(-50%) scale(1.5);
+                        opacity: 0;
+                    }
+                }
+                @keyframes ripple-cone-2 {
+                    0% {
+                        transform: translateX(-50%) scale(1);
+                        opacity: 0.6;
+                    }
+                    100% {
+                        transform: translateX(-50%) scale(1.5);
+                        opacity: 0;
+                    }
+                }
+                @keyframes ripple-cone-3 {
+                    0% {
+                        transform: translateX(-50%) scale(1);
+                        opacity: 0.4;
+                    }
+                    100% {
+                        transform: translateX(-50%) scale(1.5);
+                        opacity: 0;
+                    }
+                }
                 .animate-ripple-1 {
-                    animation: ripple 1.5s ease-out infinite;
+                    animation: ripple-1 1.5s ease-out 2 forwards;
                 }
                 .animate-ripple-2 {
-                    animation: ripple 1.5s ease-out 0.2s infinite;
+                    animation: ripple-2 1.5s ease-out 0.2s 2 forwards;
                 }
                 .animate-ripple-3 {
-                    animation: ripple 1.5s ease-out 0.4s infinite;
+                    animation: ripple-3 1.5s ease-out 0.4s 2 forwards;
+                }
+                .animate-ripple-cone-1 {
+                    animation: ripple-cone-1 1.5s ease-out 2 forwards;
+                }
+                .animate-ripple-cone-2 {
+                    animation: ripple-cone-2 1.5s ease-out 0.2s 2 forwards;
+                }
+                .animate-ripple-cone-3 {
+                    animation: ripple-cone-3 1.5s ease-out 0.4s 2 forwards;
                 }
                 .highlighted-marker {
                     z-index: 800;
