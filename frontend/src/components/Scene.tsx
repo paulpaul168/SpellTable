@@ -976,23 +976,30 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 <div className="absolute inset-0">
                     {scene.maps && scene.maps
                         .filter(map => !hideInvisibleMaps || !map.data.isHidden)
-                        .map((map, index) => (
-                            <Map
-                                key={map.name}
-                                map={map}
-                                isActive={map.name === scene.activeMapId}
-                                onUpdate={handleMapUpdate}
-                                isViewerMode={isViewerMode}
-                                zIndex={(scene.maps?.length || 0) - index} // Higher index = higher in stack (last map = top)
-                                scale={displayScale}
-                                gridSettings={scene.gridSettings}
-                                onOpenAoEPalette={() => setIsAoEPaletteOpen(true)}
-                                aoeMarkers={scene.aoeMarkers || []}
-                                onUpdateMarker={handleUpdateAoEMarker}
-                                onDeleteMarker={handleDeleteAoEMarker}
-                                onAddMarker={handleAddAoEMarker}
-                            />
-                        ))}
+                        .map((map, index) => {
+                            // Calculate z-index: active map gets highest, others get normal stacking
+                            const isActive = map.name === scene.activeMapId;
+                            const baseZIndex = (scene.maps?.length || 0) - index;
+                            const zIndex = isActive ? (scene.maps?.length || 0) + 1 : baseZIndex;
+
+                            return (
+                                <Map
+                                    key={map.name}
+                                    map={map}
+                                    isActive={isActive}
+                                    onUpdate={handleMapUpdate}
+                                    isViewerMode={isViewerMode}
+                                    zIndex={zIndex}
+                                    scale={displayScale}
+                                    gridSettings={scene.gridSettings}
+                                    onOpenAoEPalette={() => setIsAoEPaletteOpen(true)}
+                                    aoeMarkers={scene.aoeMarkers || []}
+                                    onUpdateMarker={handleUpdateAoEMarker}
+                                    onDeleteMarker={handleDeleteAoEMarker}
+                                    onAddMarker={handleAddAoEMarker}
+                                />
+                            );
+                        })}
                 </div>
 
                 {/* AoE Markers - Ensure they're above maps but below UI */}

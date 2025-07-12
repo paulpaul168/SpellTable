@@ -190,7 +190,7 @@ export const Map: React.FC<MapProps> = ({
             transformOrigin: 'top left', // Use top left as transform origin consistently
             zIndex,
             opacity: map.data.isHidden ? (isViewerMode ? 0 : 0.4) : 1,
-            pointerEvents: map.data.isHidden ? 'none' : 'auto'
+            pointerEvents: map.data.isHidden ? (isViewerMode ? 'none' : 'auto') : 'auto'
         } as React.CSSProperties;
     }, [currentDisplayPos, rotation, getEffectiveScale, scale, zIndex, map.data.isHidden, isViewerMode]);
 
