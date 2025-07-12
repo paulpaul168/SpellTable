@@ -48,6 +48,17 @@ export interface AoEMarker {
     label?: string;
 }
 
+export interface FogOfWar {
+    id: string;
+    points: Array<{
+        x: number;
+        y: number;
+    }>;
+    useGridCoordinates?: boolean;
+    color: string;
+    opacity: number;
+}
+
 export interface Scene {
     id: string;
     name: string;
@@ -66,4 +77,5 @@ export interface Scene {
     initiativeOrder: InitiativeEntry[];
     showCurrentPlayer: boolean;
     aoeMarkers?: AoEMarker[];
+    fogOfWar?: FogOfWar[];
 } 

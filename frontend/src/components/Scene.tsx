@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react';
-import { Scene as SceneType, MapData, AoEMarker as AoEMarkerType } from '../types/map';
+import { Scene as SceneType, MapData, AoEMarker as AoEMarkerType, FogOfWar as FogOfWarType } from '../types/map';
 import { Map } from './Map';
 import { websocketService } from '../services/websocket';
 import { UploadDialog } from './UploadDialog';
@@ -44,6 +44,8 @@ import { cn } from '@/lib/utils';
 import { InitiativeIndicator } from './InitiativeIndicator';
 import { AoEMarker } from './AoEMarker';
 import { AoEPalette } from './AoEPalette';
+import { FogOfWar } from './FogOfWar';
+import { FogOfWarPalette } from './FogOfWarPalette';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -111,6 +113,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         initiativeOrder: initialScene?.initiativeOrder || [],
         showCurrentPlayer: true,
         aoeMarkers: initialScene?.aoeMarkers || [],
+        fogOfWar: initialScene?.fogOfWar || [],
     });
     const [connectionStatus, setConnectionStatus] = useState('connecting');
     const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -128,6 +131,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isSoundboardOpen, setIsSoundboardOpen] = useState(false);
     const [isCleanLayout, setIsCleanLayout] = useState(false);
     const [isAoEPaletteOpen, setIsAoEPaletteOpen] = useState(false);
+    const [isFogOfWarPaletteOpen, setIsFogOfWarPaletteOpen] = useState(false);
     const [isDisplayCalculatorOpen, setIsDisplayCalculatorOpen] = useState(false);
     const [isGridSettingsOpen, setIsGridSettingsOpen] = useState(false);
     const [isBackupDialogOpen, setIsBackupDialogOpen] = useState(false);
@@ -949,6 +953,75 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         });
     };
 
+    // Handler for adding a new fog of war
+    const handleAddFogOfWar = (fogOfWarData: Omit<FogOfWarType, 'id'>) => {
+        const newFogOfWar: FogOfWarType = {
+            ...fogOfWarData,
+            id: Date.now().toString()
+        };
+
+        const updatedScene = {
+            ...scene,
+            fogOfWar: [...(scene.fogOfWar || []), newFogOfWar]
+        };
+
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
+        });
+
+        toast({
+            title: "Fog of War Added",
+            description: "New fog area created",
+            duration: 3000,
+        });
+    };
+
+    // Handler for updating fog of war
+    const handleUpdateFogOfWar = (updatedFogOfWar: FogOfWarType) => {
+        if (!scene.fogOfWar) return;
+
+        const updatedFogOfWarList = scene.fogOfWar.map(fog =>
+            fog.id === updatedFogOfWar.id ? updatedFogOfWar : fog
+        );
+
+        const updatedScene = {
+            ...scene,
+            fogOfWar: updatedFogOfWarList
+        };
+
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
+        });
+    };
+
+    // Handler for deleting fog of war
+    const handleDeleteFogOfWar = (fogOfWarId: string) => {
+        if (!scene.fogOfWar) return;
+
+        const updatedFogOfWarList = scene.fogOfWar.filter(fog => fog.id !== fogOfWarId);
+
+        const updatedScene = {
+            ...scene,
+            fogOfWar: updatedFogOfWarList
+        };
+
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
+        });
+
+        toast({
+            title: "Fog of War Deleted",
+            description: "Fog area removed",
+            duration: 3000,
+        });
+    };
+
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
@@ -1012,6 +1085,24 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             scale={displayScale}
                             gridSettings={scene.gridSettings}
                             isHighlighted={marker.id === highlightedMarkerId}
+                        />
+                    ))}
+                </div>
+
+                {/* Fog of War - Above AoE markers but below grid */}
+                <div style={{ zIndex: (scene.maps?.length || 0) + 150 }}>
+                    {scene.fogOfWar && scene.fogOfWar.map((fog) => (
+                        <FogOfWar
+                            key={fog.id}
+                            fogOfWar={fog}
+                            gridSize={scene.gridSettings.gridSize}
+                            isActive={true}
+                            isAdmin={isAdmin}
+                            isViewerMode={isViewerMode}
+                            onUpdate={handleUpdateFogOfWar}
+                            onDelete={handleDeleteFogOfWar}
+                            scale={displayScale}
+                            gridSettings={scene.gridSettings}
                         />
                     ))}
                 </div>
@@ -1393,6 +1484,15 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 }}
             />
 
+            {/* Fog of War Palette Component */}
+            <FogOfWarPalette
+                isOpen={isFogOfWarPaletteOpen}
+                onClose={() => setIsFogOfWarPaletteOpen(false)}
+                onAddFogOfWar={handleAddFogOfWar}
+                activeFogOfWar={scene.fogOfWar || []}
+                onDeleteFogOfWar={handleDeleteFogOfWar}
+            />
+
             {/* Add Display Calculator Dialog */}
             <DisplayCalculator
                 isOpen={isDisplayCalculatorOpen || isGridSettingsOpen}
@@ -1412,9 +1512,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 onClose={() => setIsBackupDialogOpen(false)}
             />
 
-            {/* AoE Palette Toggle Button - Only show when not in clean layout */}
+            {/* AoE and Fog of War Palette Toggle Buttons - Only show when not in clean layout */}
             {!isViewerMode && !isCleanLayout && (
-                <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 z-[1000]">
+                <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 z-[1000] flex gap-2">
                     <Button
                         variant="outline"
                         size="sm"
@@ -1423,6 +1523,15 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     >
                         <Zap className="h-4 w-4" />
                         {isAoEPaletteOpen ? 'Hide AoE' : 'Show AoE'}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
+                        onClick={() => setIsFogOfWarPaletteOpen(!isFogOfWarPaletteOpen)}
+                    >
+                        <Eye className="h-4 w-4" />
+                        {isFogOfWarPaletteOpen ? 'Hide Fog' : 'Show Fog'}
                     </Button>
                 </div>
             )}

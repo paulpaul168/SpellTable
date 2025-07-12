@@ -6,6 +6,7 @@ import { Map } from '../../components/Map';
 import { websocketService } from '../../services/websocket';
 import { InitiativeIndicator } from '../../components/InitiativeIndicator';
 import { AoEMarker } from '../../components/AoEMarker';
+import { FogOfWar } from '../../components/FogOfWar';
 import { RippleViewer } from '../../components/RippleViewer';
 
 const initialScene: SceneType = {
@@ -22,7 +23,8 @@ const initialScene: SceneType = {
     },
     initiativeOrder: [],
     showCurrentPlayer: false,
-    aoeMarkers: []
+    aoeMarkers: [],
+    fogOfWar: []
 };
 
 export default function ViewerPage() {
@@ -46,7 +48,8 @@ export default function ViewerPage() {
                         showGrid: true,
                         gridSize: 50
                     },
-                    aoeMarkers: data.scene.aoeMarkers || []
+                    aoeMarkers: data.scene.aoeMarkers || [],
+                    fogOfWar: data.scene.fogOfWar || []
                 };
 
                 // Ensure maps have proper position data
@@ -164,6 +167,24 @@ export default function ViewerPage() {
                             scale={displayScale}
                             gridSettings={scene.gridSettings}
                             isHighlighted={marker.id === highlightedMarkerId}
+                        />
+                    ))}
+                </div>
+
+                {/* Fog of War - View Only - Renders as opaque black to hide content */}
+                <div style={{ zIndex: (scene.maps?.length || 0) + 150 }}>
+                    {scene.fogOfWar && scene.fogOfWar.map((fog) => (
+                        <FogOfWar
+                            key={fog.id}
+                            fogOfWar={fog}
+                            gridSize={scene.gridSettings.gridSize}
+                            isActive={false} // Not interactive in viewer mode
+                            isAdmin={false}  // Not admin in viewer mode
+                            isViewerMode={true} // This makes it render as opaque black
+                            onUpdate={() => { }} // No-op in viewer mode
+                            onDelete={() => { }} // No-op in viewer mode
+                            scale={displayScale}
+                            gridSettings={scene.gridSettings}
                         />
                     ))}
                 </div>

@@ -17,7 +17,9 @@ const initialScene: SceneType = {
         gridCellsY: 32
     },
     initiativeOrder: [],
-    showCurrentPlayer: true
+    showCurrentPlayer: true,
+    aoeMarkers: [],
+    fogOfWar: []
 };
 
 export default function Home() {
