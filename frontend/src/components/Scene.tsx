@@ -23,7 +23,8 @@ import {
     Music,
     Zap,
     X,
-    Database
+    Database,
+    Move
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -52,6 +53,7 @@ import { Input } from './ui/input';
 import { DisplayCalculator } from './DisplayCalculator';
 import { BackupDialog } from './BackupDialog';
 import { GameboardMenu } from './GameboardMenu';
+import { MoveEverythingDialog } from './MoveEverythingDialog';
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -137,6 +139,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isBackupDialogOpen, setIsBackupDialogOpen] = useState(false);
     const [hideInvisibleMaps, setHideInvisibleMaps] = useState(false);
     const [highlightedMarkerId, setHighlightedMarkerId] = useState<string | null>(null);
+    const [isMoveEverythingOpen, setIsMoveEverythingOpen] = useState(false);
 
     // Remove display scale functionality, using fixed 1.0 scale
     const displayScale = 1.0;
@@ -1022,6 +1025,50 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         });
     };
 
+    const handleMoveEverything = (dx: number, dy: number) => {
+        const updatedScene = {
+            ...scene,
+            maps: scene.maps.map(map => ({
+                ...map,
+                data: {
+                    ...map.data,
+                    position: {
+                        x: map.data.position.x + dx,
+                        y: map.data.position.y + dy
+                    }
+                }
+            })),
+            aoeMarkers: scene.aoeMarkers?.map(marker => ({
+                ...marker,
+                position: {
+                    x: marker.position.x + dx,
+                    y: marker.position.y + dy
+                }
+            })),
+            fogOfWar: scene.fogOfWar?.map(fog => ({
+                ...fog,
+                points: fog.points.map(point => ({
+                    x: point.x + dx,
+                    y: point.y + dy
+                }))
+            }))
+        };
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
+        });
+
+        // Show toast notification
+        const direction = dx > 0 ? 'right' : dx < 0 ? 'left' : dy > 0 ? 'down' : 'up';
+        const amount = Math.abs(dx || dy);
+        toast({
+            title: "Everything Moved",
+            description: `All elements moved ${amount} grid cell${amount > 1 ? 's' : ''} ${direction}`,
+            duration: 3000,
+        });
+    };
+
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
@@ -1389,6 +1436,14 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 <span>Backup & Restore</span>
                             </DropdownMenuItem>
 
+                            <DropdownMenuSeparator className="bg-zinc-800" />
+
+                            {/* Move Everything */}
+                            <DropdownMenuItem onClick={() => setIsMoveEverythingOpen(true)}>
+                                <Move className="mr-2 h-4 w-4" />
+                                <span>Move Everything</span>
+                            </DropdownMenuItem>
+
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -1510,6 +1565,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             <BackupDialog
                 isOpen={isBackupDialogOpen}
                 onClose={() => setIsBackupDialogOpen(false)}
+            />
+
+            {/* Move Everything Dialog */}
+            <MoveEverythingDialog
+                isOpen={isMoveEverythingOpen}
+                onClose={() => setIsMoveEverythingOpen(false)}
+                onMove={handleMoveEverything}
             />
 
             {/* AoE and Fog of War Palette Toggle Buttons - Only show when not in clean layout */}
