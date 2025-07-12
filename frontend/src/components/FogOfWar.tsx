@@ -64,11 +64,11 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
         };
     }, [cellWidth, cellHeight]);
 
-    // Convert grid coordinates to pixel position (centered in grid cell)
+    // Convert grid coordinates to pixel position (aligned with grid borders)
     const gridCoordsToPixel = useCallback((gridPos: { x: number, y: number }) => {
-        const cellCenterX = (gridPos.x + 0.5) * cellWidth;
-        const cellCenterY = (gridPos.y + 0.5) * cellHeight;
-        return { x: cellCenterX, y: cellCenterY };
+        const borderX = gridPos.x * cellWidth;
+        const borderY = gridPos.y * cellHeight;
+        return { x: borderX, y: borderY };
     }, [cellWidth, cellHeight]);
 
     // Convert points to pixel positions
