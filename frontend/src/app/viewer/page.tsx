@@ -31,6 +31,7 @@ export default function ViewerPage() {
     const [scene, setScene] = useState<SceneType>(initialScene);
     const [connectionStatus, setConnectionStatus] = useState('connecting');
     const [highlightedMarkerId, setHighlightedMarkerId] = useState<string | null>(null);
+    const [isViewerBlanked, setIsViewerBlanked] = useState(false);
 
     // Use fixed 1.0 scale to match admin view exactly
     const displayScale = 1.0;
@@ -69,12 +70,10 @@ export default function ViewerPage() {
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
             } else if (data.type === 'display_scale_update') {
-                console.log('Received display scale update:', data.scale);
                 // Fixed scale, ignoring scale updates from server
             } else if (data.type === 'highlight_marker' && data.markerId) {
                 // Handle marker highlight from admin
                 const markerId = data.markerId as string;
-                console.log("Received highlight marker:", markerId);
                 setHighlightedMarkerId(markerId);
 
                 // Clear the highlight after a delay
@@ -83,10 +82,18 @@ export default function ViewerPage() {
                 }, 2100); // Match the same duration used in admin view
             } else if (data.type === 'scene_event') {
                 // Handle special visual effects
-                console.log('Received scene event:', data);
-
                 // The RippleViewer component will handle these events directly
                 // This ensures the viewer page also processes these events
+            } else if (data.type === 'blank_viewer') {
+                console.log('Viewer received blank_viewer command');
+                setIsViewerBlanked(true);
+            } else if (data.type === 'unblank_viewer') {
+                console.log('Viewer received unblank_viewer command');
+                setIsViewerBlanked(false);
+            } else if (data.type === 'test_ping') {
+                // console.log('Viewer received test ping from admin:', data);
+            } else {
+                // console.log('Viewer received unhandled message type:', data.type, data);
             }
         });
 
@@ -95,6 +102,11 @@ export default function ViewerPage() {
             websocketService.disconnect();
         };
     }, []);
+
+    // Debug effect to track isViewerBlanked state changes
+    useEffect(() => {
+        // console.log('Viewer isViewerBlanked state changed to:', isViewerBlanked);
+    }, [isViewerBlanked]);
 
     // Add window resize handler to keep viewer and admin views in sync
     useEffect(() => {
@@ -238,6 +250,19 @@ export default function ViewerPage() {
                 <div className="absolute bottom-4 right-16 px-2 py-1 bg-zinc-900/80 backdrop-blur-sm rounded text-xs text-zinc-400 z-50">
                     <div className="flex items-center gap-2">
                         <span>Scaling: {(displayScale * 100).toFixed(1)}%</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Blank Overlay - Hide all content when admin blanks the viewer */}
+            {isViewerBlanked && (
+                <div
+                    className="absolute inset-0 bg-black z-[9999] flex items-center justify-center"
+                    style={{ height: '100vh', width: '100vw' }}
+                >
+                    <div className="text-center">
+                        <div className="w-8 h-8 border-2 border-gray-600 border-t-gray-400 rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-gray-400 text-sm">Waiting for presentation to resume...</p>
                     </div>
                 </div>
             )}

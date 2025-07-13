@@ -140,6 +140,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [hideInvisibleMaps, setHideInvisibleMaps] = useState(false);
     const [highlightedMarkerId, setHighlightedMarkerId] = useState<string | null>(null);
     const [isMoveEverythingOpen, setIsMoveEverythingOpen] = useState(false);
+    const [isViewerBlanked, setIsViewerBlanked] = useState(false);
 
     // Remove display scale functionality, using fixed 1.0 scale
     const displayScale = 1.0;
@@ -186,7 +187,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     gridSettings: data.scene.gridSettings || {
                         showGrid: true,
                         gridSize: 50
-                    }
+                    },
+                    aoeMarkers: data.scene.aoeMarkers || [],
+                    fogOfWar: data.scene.fogOfWar || []
                 });
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
@@ -198,6 +201,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     description: "A viewer is ready to receive ripple effects",
                     duration: 3000,
                 });
+            } else if (data.type === 'viewer_blank_status') {
+                // Update blank status from server (if we need server-side state sync)
+                setIsViewerBlanked(data.isBlank === true);
             }
         });
 
@@ -396,7 +402,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     gridSize: 50
                 },
                 initiativeOrder: scene.initiativeOrder || [],
-                showCurrentPlayer: scene.showCurrentPlayer ?? true
+                showCurrentPlayer: scene.showCurrentPlayer ?? true,
+                aoeMarkers: scene.aoeMarkers || [],
+                fogOfWar: scene.fogOfWar || []
             };
 
             const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
@@ -452,7 +460,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     gridSize: 50
                 },
                 initiativeOrder: scene.initiativeOrder || [],
-                showCurrentPlayer: scene.showCurrentPlayer ?? true
+                showCurrentPlayer: scene.showCurrentPlayer ?? true,
+                aoeMarkers: scene.aoeMarkers || [],
+                fogOfWar: scene.fogOfWar || []
             }));
             setSavedScenes(scenesWithDefaults);
             setIsLoadSceneOpen(true);
@@ -486,7 +496,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     gridSize: 50
                 },
                 initiativeOrder: sceneData.initiativeOrder || [],
-                showCurrentPlayer: sceneData.showCurrentPlayer ?? true
+                showCurrentPlayer: sceneData.showCurrentPlayer ?? true,
+                aoeMarkers: sceneData.aoeMarkers || [],
+                fogOfWar: sceneData.fogOfWar || []
             };
             setScene(sceneWithDefaults);
             websocketService.send({
@@ -1069,6 +1081,27 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         });
     };
 
+    const handleToggleViewerBlank = () => {
+        const newBlankState = !isViewerBlanked;
+        setIsViewerBlanked(newBlankState); // Only for tracking state in admin UI
+
+        console.log(`Admin ${newBlankState ? 'blanking' : 'unblanking'} viewer`);
+
+        // Send websocket command to blank/unblank viewers
+        const message = {
+            type: newBlankState ? 'blank_viewer' : 'unblank_viewer',
+            isBlank: newBlankState
+        };
+
+        websocketService.send(message);
+
+        toast({
+            title: newBlankState ? "Viewer Blanked" : "Viewer Unblanked",
+            description: newBlankState ? "Viewer screens are now blank" : "Viewer screens are now visible",
+            duration: 3000,
+        });
+    };
+
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
@@ -1212,7 +1245,17 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 <GameboardMenu connectionStatus={connectionStatus} />
             )}
 
-            {/* Current Player Indicator - Only show in viewer mode */}
+            {/* Viewer Status Indicator - Only show when viewer is blanked */}
+            {isViewerBlanked && (
+                <div className="absolute top-16 right-4 px-3 py-2 bg-red-900/80 backdrop-blur-sm rounded-md border border-red-700/50 z-[1000]">
+                    <div className="flex items-center gap-2">
+                        <EyeOff className="h-4 w-4 text-red-400" />
+                        <span className="text-xs text-red-400 font-medium">Viewer Blanked</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Current Player Indicator - Only show when not in clean layout */}
             {!isAdmin && (
                 <div className="!z-[9999]">
                     <InitiativeIndicator
@@ -1396,6 +1439,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 >
                                     <ExternalLink className="h-4 w-4 mr-2" />
                                     Open Initiative Page
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className="text-xs cursor-pointer"
+                                    onClick={handleToggleViewerBlank}
+                                >
+                                    <EyeOff className="h-4 w-4 mr-2" />
+                                    {isViewerBlanked ? 'Unblank Viewer' : 'Blank Viewer'}
                                 </DropdownMenuItem>
                             </div>
 

@@ -96,6 +96,18 @@ async def _handle_highlight_marker(websocket: WebSocket, message: Dict[str, Any]
         await _broadcast_to_others(websocket, highlight_message)
 
 
+async def _handle_blank_viewer(websocket: WebSocket, message: Dict[str, Any]) -> None:
+    """Handle blank viewer messages."""
+    blank_message = {"type": "blank_viewer", "isBlank": True}
+    await _broadcast_to_others(websocket, blank_message)
+
+
+async def _handle_unblank_viewer(websocket: WebSocket, message: Dict[str, Any]) -> None:
+    """Handle unblank viewer messages."""
+    unblank_message = {"type": "unblank_viewer", "isBlank": False}
+    await _broadcast_to_others(websocket, unblank_message)
+
+
 async def _handle_websocket_message(websocket: WebSocket, data: str) -> bool:
     """
     Handle a single websocket message.
@@ -112,6 +124,10 @@ async def _handle_websocket_message(websocket: WebSocket, data: str) -> bool:
             await _handle_scene_update(message)
         elif message_type == "highlight_marker":
             await _handle_highlight_marker(websocket, message)
+        elif message_type == "blank_viewer":
+            await _handle_blank_viewer(websocket, message)
+        elif message_type == "unblank_viewer":
+            await _handle_unblank_viewer(websocket, message)
 
         return True
 
