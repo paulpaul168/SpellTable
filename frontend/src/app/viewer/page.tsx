@@ -32,6 +32,7 @@ export default function ViewerPage() {
     const [connectionStatus, setConnectionStatus] = useState('connecting');
     const [highlightedMarkerId, setHighlightedMarkerId] = useState<string | null>(null);
     const [isViewerBlanked, setIsViewerBlanked] = useState(false);
+    const [isViewerRotated, setIsViewerRotated] = useState(false);
 
     // Use fixed 1.0 scale to match admin view exactly
     const displayScale = 1.0;
@@ -90,6 +91,12 @@ export default function ViewerPage() {
             } else if (data.type === 'unblank_viewer') {
                 console.log('Viewer received unblank_viewer command');
                 setIsViewerBlanked(false);
+            } else if (data.type === 'rotate_viewer') {
+                console.log('Viewer received rotate_viewer command');
+                setIsViewerRotated(true);
+            } else if (data.type === 'unrotate_viewer') {
+                console.log('Viewer received unrotate_viewer command');
+                setIsViewerRotated(false);
             } else if (data.type === 'test_ping') {
                 // console.log('Viewer received test ping from admin:', data);
             } else {
@@ -133,9 +140,27 @@ export default function ViewerPage() {
     const currentPlayer = scene.initiativeOrder?.find(entry => entry.isCurrentTurn);
 
     return (
-        <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
+        <div
+            className="flex h-screen bg-zinc-950 overflow-hidden"
+            style={{
+                height: '100vh',
+                width: '100vw',
+                margin: 0,
+                padding: 0,
+                transform: isViewerRotated ? 'rotate(180deg)' : 'none',
+                transformOrigin: 'center center'
+            }}
+        >
             {/* Main Content */}
-            <div className="flex-1 relative w-full h-full overflow-hidden" style={{ height: '100%', width: '100%', margin: 0, padding: 0 }}>
+            <div
+                className="flex-1 relative w-full h-full overflow-hidden"
+                style={{
+                    height: '100%',
+                    width: '100%',
+                    margin: 0,
+                    padding: 0
+                }}
+            >
                 {(!scene.maps || scene.maps.length === 0) && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-4">
                         <div className="p-4 rounded-xl bg-zinc-900/30">
@@ -200,33 +225,33 @@ export default function ViewerPage() {
                         />
                     ))}
                 </div>
-            </div>
 
-            {/* Current Player Indicator */}
-            <InitiativeIndicator
-                initiativeOrder={scene.initiativeOrder}
-                showCurrentPlayer={scene.showCurrentPlayer}
-            />
-
-            {/* Grid Overlay - Always on top of maps and markers but below UI */}
-            {scene.gridSettings?.showGrid && (
-                <div
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                        backgroundImage: `
-                            linear-gradient(to right, ${scene.gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)'} 1px, transparent 1px),
-                            linear-gradient(to bottom, ${scene.gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)'} 1px, transparent 1px)
-                        `,
-                        backgroundSize: scene.gridSettings.useFixedGrid
-                            ? `calc(100% / ${scene.gridSettings.gridCellsX || 25}) calc(100% / ${scene.gridSettings.gridCellsY || 13})`
-                            : `${scene.gridSettings?.gridSize}px ${scene.gridSettings?.gridSize}px`,
-                        opacity: scene.gridSettings.gridOpacity || 0.5,
-                        zIndex: (scene.maps?.length || 0) + 200,
-                    }}
+                {/* Current Player Indicator */}
+                <InitiativeIndicator
+                    initiativeOrder={scene.initiativeOrder}
+                    showCurrentPlayer={scene.showCurrentPlayer}
                 />
-            )}
 
-            <RippleViewer />
+                {/* Grid Overlay - Always on top of maps and markers but below UI */}
+                {scene.gridSettings?.showGrid && (
+                    <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                            backgroundImage: `
+                                linear-gradient(to right, ${scene.gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)'} 1px, transparent 1px),
+                                linear-gradient(to bottom, ${scene.gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)'} 1px, transparent 1px)
+                            `,
+                            backgroundSize: scene.gridSettings.useFixedGrid
+                                ? `calc(100% / ${scene.gridSettings.gridCellsX || 25}) calc(100% / ${scene.gridSettings.gridCellsY || 13})`
+                                : `${scene.gridSettings?.gridSize}px ${scene.gridSettings?.gridSize}px`,
+                            opacity: scene.gridSettings.gridOpacity || 0.5,
+                            zIndex: (scene.maps?.length || 0) + 200,
+                        }}
+                    />
+                )}
+
+                <RippleViewer />
+            </div>
 
             {/* Connection Status */}
             <div className="absolute top-4 right-4 px-2 py-1.5 rounded-md bg-zinc-900/80 backdrop-blur-sm z-[1000]">

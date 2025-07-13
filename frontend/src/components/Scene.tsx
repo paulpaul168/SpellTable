@@ -24,7 +24,8 @@ import {
     Zap,
     X,
     Database,
-    Move
+    Move,
+    RotateCw
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -142,6 +143,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [highlightedFogOfWarId, setHighlightedFogOfWarId] = useState<string | null>(null);
     const [isMoveEverythingOpen, setIsMoveEverythingOpen] = useState(false);
     const [isViewerBlanked, setIsViewerBlanked] = useState(false);
+    const [isViewerRotated, setIsViewerRotated] = useState(false);
 
     // Remove display scale functionality, using fixed 1.0 scale
     const displayScale = 1.0;
@@ -1103,6 +1105,27 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         });
     };
 
+    const handleToggleViewerRotate = () => {
+        const newRotateState = !isViewerRotated;
+        setIsViewerRotated(newRotateState); // Only for tracking state in admin UI
+
+        console.log(`Admin ${newRotateState ? 'rotating' : 'unrotating'} viewer`);
+
+        // Send websocket command to rotate/unrotate viewers
+        const message = {
+            type: newRotateState ? 'rotate_viewer' : 'unrotate_viewer',
+            isRotated: newRotateState
+        };
+
+        websocketService.send(message);
+
+        toast({
+            title: newRotateState ? "Viewer Rotated" : "Viewer Unrotated",
+            description: newRotateState ? "Entire viewer viewport is now rotated 180°" : "Viewer viewport is now upright",
+            duration: 3000,
+        });
+    };
+
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
@@ -1253,6 +1276,16 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     <div className="flex items-center gap-2">
                         <EyeOff className="h-4 w-4 text-red-400" />
                         <span className="text-xs text-red-400 font-medium">Viewer Blanked</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Viewer Rotation Status Indicator - Only show when viewer is rotated */}
+            {isViewerRotated && (
+                <div className="absolute top-16 right-4 px-3 py-2 bg-blue-900/80 backdrop-blur-sm rounded-md border border-blue-700/50 z-[1000]" style={{ top: isViewerBlanked ? '6rem' : '4rem' }}>
+                    <div className="flex items-center gap-2">
+                        <RotateCw className="h-4 w-4 text-blue-400" />
+                        <span className="text-xs text-blue-400 font-medium">Viewport Rotated 180°</span>
                     </div>
                 </div>
             )}
@@ -1448,6 +1481,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 >
                                     <EyeOff className="h-4 w-4 mr-2" />
                                     {isViewerBlanked ? 'Unblank Viewer' : 'Blank Viewer'}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className="text-xs cursor-pointer"
+                                    onClick={handleToggleViewerRotate}
+                                >
+                                    <RotateCw className="h-4 w-4 mr-2" />
+                                    {isViewerRotated ? 'Unrotate Viewer' : 'Rotate Viewer 180°'}
                                 </DropdownMenuItem>
                             </div>
 

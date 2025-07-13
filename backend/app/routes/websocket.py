@@ -108,6 +108,18 @@ async def _handle_unblank_viewer(websocket: WebSocket, message: Dict[str, Any]) 
     await _broadcast_to_others(websocket, unblank_message)
 
 
+async def _handle_rotate_viewer(websocket: WebSocket, message: Dict[str, Any]) -> None:
+    """Handle rotate viewer messages."""
+    rotate_message = {"type": "rotate_viewer", "isRotated": True}
+    await _broadcast_to_others(websocket, rotate_message)
+
+
+async def _handle_unrotate_viewer(websocket: WebSocket, message: Dict[str, Any]) -> None:
+    """Handle unrotate viewer messages."""
+    unrotate_message = {"type": "unrotate_viewer", "isRotated": False}
+    await _broadcast_to_others(websocket, unrotate_message)
+
+
 async def _handle_websocket_message(websocket: WebSocket, data: str) -> bool:
     """
     Handle a single websocket message.
@@ -128,6 +140,10 @@ async def _handle_websocket_message(websocket: WebSocket, data: str) -> bool:
             await _handle_blank_viewer(websocket, message)
         elif message_type == "unblank_viewer":
             await _handle_unblank_viewer(websocket, message)
+        elif message_type == "rotate_viewer":
+            await _handle_rotate_viewer(websocket, message)
+        elif message_type == "unrotate_viewer":
+            await _handle_unrotate_viewer(websocket, message)
 
         return True
 
