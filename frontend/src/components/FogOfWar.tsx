@@ -16,6 +16,7 @@ interface FogOfWarProps {
         gridCellsY?: number;
         gridSize: number;
     };
+    highlighted?: boolean;
 }
 
 // Define drag offset reference type
@@ -35,10 +36,12 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
     onDelete,
     scale = 1,
     gridSettings,
+    highlighted = false,
 }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
     const [editingPointIndex, setEditingPointIndex] = useState<number | null>(null);
+    const [highlightAnimation, setHighlightAnimation] = useState(false);
     const lastUpdateRef = useRef<number>(0);
     const pendingUpdateRef = useRef<FogOfWarType | null>(null);
     const dragOffsetRef = useRef<DragOffset>({ startX: 0, startY: 0, startPositions: [] });
@@ -46,6 +49,7 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
     const fogOfWarRef = useRef<HTMLDivElement>(null);
     const isDraggingRef = useRef(false);
     const isEditingPointRef = useRef(false);
+    const highlightTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // Determine if using fixed grid and get necessary values
     const useFixedGrid = gridSettings?.useFixedGrid || false;
@@ -55,6 +59,34 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
     // Calculate cell size based on viewport and grid dimensions
     const cellWidth = window.innerWidth / gridCellsX;
     const cellHeight = window.innerHeight / gridCellsY;
+
+    // Watch for highlight prop changes
+    useEffect(() => {
+        if (highlighted) {
+            // Start the highlight animation
+            setHighlightAnimation(true);
+
+            // Clear any existing timer
+            if (highlightTimerRef.current) {
+                clearTimeout(highlightTimerRef.current);
+            }
+
+            // Set a timer to end the animation after two full cycles (3.5 seconds)
+            highlightTimerRef.current = setTimeout(() => {
+                setHighlightAnimation(false);
+                highlightTimerRef.current = null;
+            }, 3500);
+        }
+    }, [highlighted]);
+
+    // Clean up timers on unmount
+    useEffect(() => {
+        return () => {
+            if (highlightTimerRef.current) {
+                clearTimeout(highlightTimerRef.current);
+            }
+        };
+    }, []);
 
     // Converting positions between grid coordinates and screen pixels
     const pixelToGridCoords = useCallback((pixelPos: { x: number, y: number }) => {
@@ -263,7 +295,7 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
     useEffect(() => {
         const handleGlobalMouseMove = (e: MouseEvent) => handleMouseMove(e);
         const handleGlobalMouseUp = (e: MouseEvent) => handleMouseUp(e);
-        const handleGlobalEscapeKey = (e: KeyboardEvent) => {
+        const handleGlobalKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && (isDraggingRef.current || isEditingPointRef.current)) {
                 setIsDragging(false);
                 setEditingPointIndex(null);
@@ -275,12 +307,12 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
 
         window.addEventListener('mousemove', handleGlobalMouseMove, { capture: true });
         window.addEventListener('mouseup', handleGlobalMouseUp, { capture: true });
-        window.addEventListener('keydown', handleGlobalEscapeKey);
+        window.addEventListener('keydown', handleGlobalKeyDown);
 
         return () => {
             window.removeEventListener('mousemove', handleGlobalMouseMove, { capture: true });
             window.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
-            window.removeEventListener('keydown', handleGlobalEscapeKey);
+            window.removeEventListener('keydown', handleGlobalKeyDown);
             document.body.classList.remove('dragging-fog');
         };
     }, [handleMouseMove, handleMouseUp]);
@@ -490,12 +522,98 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
                 ))}
             </svg>
 
+            {/* Highlight ripple animation */}
+            {highlightAnimation && (
+                <div key={Date.now()}>
+                    {/* First ripple */}
+                    <div
+                        className="absolute animate-ripple-1"
+                        style={{
+                            width: `${width * 1.2}px`,
+                            height: `${height * 1.2}px`,
+                            border: `2px solid #ffffff`,
+                            transform: 'translate(-50%, -50%)',
+                            left: '50%',
+                            top: '50%',
+                        }}
+                    />
+
+                    {/* Second ripple */}
+                    <div
+                        className="absolute animate-ripple-2"
+                        style={{
+                            width: `${width * 1.4}px`,
+                            height: `${height * 1.4}px`,
+                            border: `2px solid #ffffff`,
+                            transform: 'translate(-50%, -50%)',
+                            left: '50%',
+                            top: '50%',
+                        }}
+                    />
+
+                    {/* Third ripple */}
+                    <div
+                        className="absolute animate-ripple-3"
+                        style={{
+                            width: `${width * 1.6}px`,
+                            height: `${height * 1.6}px`,
+                            border: `2px solid #ffffff`,
+                            transform: 'translate(-50%, -50%)',
+                            left: '50%',
+                            top: '50%',
+                        }}
+                    />
+                </div>
+            )}
+
             {/* Instructions overlay for admin */}
             {isAdmin && isActive && isHovered && (
                 <div className="absolute top-0 left-0 transform -translate-y-full bg-black/80 text-white text-xs rounded px-2 py-1 pointer-events-none whitespace-nowrap">
-                    Ctrl+Drag to move • Shift+Left click to add point • Double-click point to remove • Prevents overlapping points
+                    Ctrl+Drag to move • Shift+Left click to add point • Double-click point to remove
                 </div>
             )}
+
+            <style jsx>{`
+                @keyframes ripple-1 {
+                    0% {
+                        transform: translate(-50%, -50%) scale(1);
+                        opacity: 0.8;
+                    }
+                    100% {
+                        transform: translate(-50%, -50%) scale(1.5);
+                        opacity: 0;
+                    }
+                }
+                @keyframes ripple-2 {
+                    0% {
+                        transform: translate(-50%, -50%) scale(1);
+                        opacity: 0.6;
+                    }
+                    100% {
+                        transform: translate(-50%, -50%) scale(1.5);
+                        opacity: 0;
+                    }
+                }
+                @keyframes ripple-3 {
+                    0% {
+                        transform: translate(-50%, -50%) scale(1);
+                        opacity: 0.4;
+                    }
+                    100% {
+                        transform: translate(-50%, -50%) scale(1.5);
+                        opacity: 0;
+                    }
+                }
+                .animate-ripple-1 {
+                    animation: ripple-1 1.5s ease-out 2 forwards;
+                }
+                .animate-ripple-2 {
+                    animation: ripple-2 1.5s ease-out 0.2s 2 forwards;
+                }
+                .animate-ripple-3 {
+                    animation: ripple-3 1.5s ease-out 0.4s 2 forwards;
+                }
+            `}</style>
         </div>
     );
 }; 

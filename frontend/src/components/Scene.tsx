@@ -139,6 +139,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isBackupDialogOpen, setIsBackupDialogOpen] = useState(false);
     const [hideInvisibleMaps, setHideInvisibleMaps] = useState(false);
     const [highlightedMarkerId, setHighlightedMarkerId] = useState<string | null>(null);
+    const [highlightedFogOfWarId, setHighlightedFogOfWarId] = useState<string | null>(null);
     const [isMoveEverythingOpen, setIsMoveEverythingOpen] = useState(false);
     const [isViewerBlanked, setIsViewerBlanked] = useState(false);
 
@@ -1183,6 +1184,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             onDelete={handleDeleteFogOfWar}
                             scale={displayScale}
                             gridSettings={scene.gridSettings}
+                            highlighted={fog.id === highlightedFogOfWarId}
                         />
                     ))}
                 </div>
@@ -1596,6 +1598,25 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 onAddFogOfWar={handleAddFogOfWar}
                 activeFogOfWar={scene.fogOfWar || []}
                 onDeleteFogOfWar={handleDeleteFogOfWar}
+                onHighlightFogOfWar={(fogOfWarId) => {
+                    // Find the fog of war and highlight it
+                    const fog = scene.fogOfWar?.find(f => f.id === fogOfWarId);
+                    if (fog) {
+                        // Set the highlighted fog of war ID to trigger the animation
+                        setHighlightedFogOfWarId(fogOfWarId);
+
+                        // Clear the highlight after a short delay
+                        setTimeout(() => {
+                            setHighlightedFogOfWarId(null);
+                        }, 2100); // Slightly longer than the animation duration
+
+                        toast({
+                            title: "Fog of War Highlighted",
+                            description: `Fog area highlighted`,
+                            duration: 2000,
+                        });
+                    }
+                }}
             />
 
             {/* Add Display Calculator Dialog */}

@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
-import { X, Eye, Square, Triangle, Circle, Pentagon, Hexagon, Trash2 } from 'lucide-react';
+import { X, Eye, Square, Triangle, Circle, Pentagon, Hexagon, Trash2, EyeIcon } from 'lucide-react';
 
 interface FogOfWarPaletteProps {
     isOpen: boolean;
@@ -14,6 +14,7 @@ interface FogOfWarPaletteProps {
     onAddFogOfWar: (fogOfWarData: Omit<FogOfWarType, 'id'>) => void;
     activeFogOfWar?: FogOfWarType[];
     onDeleteFogOfWar: (fogOfWarId: string) => void;
+    onHighlightFogOfWar?: (fogOfWarId: string) => void;
 }
 
 export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
@@ -22,6 +23,7 @@ export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
     onAddFogOfWar,
     activeFogOfWar = [],
     onDeleteFogOfWar,
+    onHighlightFogOfWar,
 }) => {
     const [activeTab, setActiveTab] = useState<'shapes' | 'custom' | 'active'>('shapes');
     const [customColor, setCustomColor] = useState('#000000');
@@ -274,6 +276,15 @@ export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
+                                                onClick={() => onHighlightFogOfWar?.(fog.id)}
+                                                className="h-8 w-8 p-0"
+                                                title="Highlight"
+                                            >
+                                                <EyeIcon className="h-4 w-4 text-zinc-400" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
                                                 onClick={() => onDeleteFogOfWar(fog.id)}
                                                 className="h-8 w-8 p-0 text-red-400 hover:text-red-300"
                                             >
@@ -289,7 +300,7 @@ export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
 
                 <div className="flex justify-between items-center pt-4 border-t">
                     <div className="text-xs text-zinc-500">
-                        Tip: Ctrl+Drag to move, Shift+Left click to add points, Double-click points to remove. Prevents overlapping points.
+                        Tip: Ctrl+Drag to move, Shift+Left click to add points, Double-click points to remove. Click eye icon to highlight.
                     </div>
                     <Button onClick={onClose} variant="outline">
                         <X className="h-4 w-4 mr-2" />
