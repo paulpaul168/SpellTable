@@ -67,7 +67,7 @@ interface DroppableFolderProps {
 }
 
 // Helper function to truncate text
-const truncateName = (name: string, maxLength: number = 15): string => {
+const truncateName = (name: string, maxLength: number = 50): string => {
     if (name.length <= maxLength) return name;
     return name.substring(0, maxLength - 3) + '...';
 };
@@ -100,14 +100,14 @@ const DroppableFolder: React.FC<DroppableFolderProps> = ({
             )}
             onClick={onToggle}
         >
-            <div className="flex items-center gap-2 flex-1">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
                 {isExpanded ? (
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-4 w-4 flex-shrink-0" />
                 ) : (
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 flex-shrink-0" />
                 )}
-                <Folder className="h-4 w-4 text-zinc-400" />
-                <span className="truncate" title={folder.name}>{truncateName(folder.name)}</span>
+                <Folder className="h-4 w-4 text-zinc-400 flex-shrink-0" />
+                <span className="break-words min-w-0 flex-1" title={folder.name}>{folder.name}</span>
             </div>
             <div className="flex gap-2">
                 <Button
@@ -241,10 +241,10 @@ const SortableMapItem: React.FC<SortableMapItemProps> = ({
             className="flex items-center justify-between p-2 hover:bg-zinc-800/50 rounded-md cursor-move"
             {...(!dragOverlay ? { ...attributes, ...listeners } : {})}
         >
-            <div className="flex items-center gap-2 flex-1">
-                <Map className="h-4 w-4 text-zinc-400" />
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+                <Map className="h-4 w-4 text-zinc-400 flex-shrink-0" />
                 {isRenaming && !dragOverlay ? (
-                    <form onSubmit={handleRenameSubmit} className="flex-1">
+                    <form onSubmit={handleRenameSubmit} className="flex-1 min-w-0">
                         <div className="flex items-center">
                             <Input
                                 className="h-7 py-1 text-xs"
@@ -254,11 +254,11 @@ const SortableMapItem: React.FC<SortableMapItemProps> = ({
                                 onBlur={handleRenameSubmit}
                                 onClick={(e) => e.stopPropagation()}
                             />
-                            <span className="text-xs text-zinc-400 ml-1">{extension}</span>
+                            <span className="text-xs text-zinc-400 ml-1 flex-shrink-0">{extension}</span>
                         </div>
                     </form>
                 ) : (
-                    <span className="truncate" title={map.name}>{truncateName(map.name)}</span>
+                    <span className="break-words min-w-0 flex-1" title={map.name}>{map.name}</span>
                 )}
             </div>
             {!isRenaming && !dragOverlay && (
@@ -874,7 +874,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[600px]">
+            <DialogContent className="sm:max-w-[90vw] max-h-[90vh]">
                 <DialogHeader>
                     <DialogTitle>Map Management</DialogTitle>
                     <DialogDescription>
@@ -942,7 +942,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                         <div
                             ref={setRootNodeRef}
                             className={cn(
-                                "border rounded-md p-2 max-h-[400px] overflow-y-auto",
+                                "border rounded-md p-2 max-h-[60vh] overflow-y-auto",
                                 isRootOver ? "bg-blue-500/20 border-blue-500" : "border-zinc-800"
                             )}
                         >
