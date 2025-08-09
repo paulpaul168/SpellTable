@@ -84,8 +84,15 @@ deploy() {
     docker compose -f "$compose_file" ps
     
     print_success "Deployment completed!"
-    print_status "Frontend is available at: http://localhost:3000"
-    print_status "Backend is running internally (not exposed to external network)"
+    print_status "Services are now running internally and ready for Apache proxy configuration"
+    print_status "Frontend is available internally at: http://localhost:3000"
+    print_status "Backend is available internally at: http://localhost:8010"
+    print_status ""
+    print_status "IMPORTANT: Make sure your Apache proxy is configured to:"
+    print_status "  - Proxy /api/ to http://localhost:8010/"
+    print_status "  - Proxy / to http://localhost:3000/"
+    print_status ""
+    print_status "Your application will be accessible at your domain (e.g., https://spelltable.paulhoeller.at)"
 }
 
 # Function to show logs
@@ -165,6 +172,9 @@ show_help() {
     echo "  $0 logs                      # Show logs"
     echo "  $0 stop                      # Stop application"
     echo "  $0 troubleshoot              # Troubleshoot build issues"
+    echo ""
+    echo "Note: This deployment assumes Apache proxy configuration for external access."
+    echo "Services run internally and are proxied by Apache to your domain."
 }
 
 # Main script logic

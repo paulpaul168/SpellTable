@@ -33,7 +33,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=http://backend:8010
+        - NEXT_PUBLIC_API_URL=/api
     ports:
       - "3000:3000"
     depends_on:
@@ -41,7 +41,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     environment:
-      - NEXT_PUBLIC_API_URL=http://backend:8010
+      - NEXT_PUBLIC_API_URL=/api
     networks:
       - spelltable-network
 
