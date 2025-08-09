@@ -54,7 +54,7 @@ class CampaignService {
     }
 
     static async createCampaign(campaign: CampaignCreate): Promise<Campaign> {
-        const response = await fetch(`${this.API_BASE_URL}/campaigns`, {
+        const response = await fetch(`${this.API_BASE_URL}/campaigns/`, {
             method: 'POST',
             headers: {
                 ...authService.getAuthHeader(),
