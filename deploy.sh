@@ -63,9 +63,17 @@ deploy() {
     print_status "Stopping existing containers..."
     docker compose -f "$compose_file" down --remove-orphans 2>/dev/null || true
     
-    # Build and start services
+    # Build and start services with timeout
     print_status "Building and starting services..."
-    docker compose -f "$compose_file" up -d --build
+    print_warning "This may take several minutes. If it hangs, press Ctrl+C and try again."
+    
+    # Set a timeout for the build process (30 minutes)
+    timeout 1800 docker compose -f "$compose_file" up -d --build || {
+        print_error "Build process timed out or failed. Trying to clean up..."
+        docker compose -f "$compose_file" down --remove-orphans 2>/dev/null || true
+        print_error "Please check the logs and try again."
+        exit 1
+    }
     
     # Wait for services to be healthy
     print_status "Waiting for services to be ready..."
@@ -110,6 +118,29 @@ status() {
     docker compose -f "$compose_file" ps
 }
 
+# Function to troubleshoot build issues
+troubleshoot() {
+    local compose_file=${1:-"docker-compose.yml"}
+    print_status "Troubleshooting build issues..."
+    
+    print_status "Cleaning up Docker resources..."
+    docker system prune -f
+    
+    print_status "Checking available disk space..."
+    df -h
+    
+    print_status "Checking Docker daemon status..."
+    docker info
+    
+    print_status "Showing recent Docker logs..."
+    docker compose -f "$compose_file" logs --tail=50
+    
+    print_warning "If the build is still hanging, try:"
+    print_warning "1. Restart Docker daemon: sudo systemctl restart docker"
+    print_warning "2. Increase Docker memory limit in Docker Desktop settings"
+    print_warning "3. Try building with: docker compose build --no-cache --progress=plain"
+}
+
 # Function to show help
 show_help() {
     echo "SpellTable Deployment Script"
@@ -122,6 +153,7 @@ show_help() {
     echo "  restart [file]   Restart the application"
     echo "  logs [file]      Show application logs"
     echo "  status [file]    Show application status"
+    echo "  troubleshoot [file]  Troubleshoot build issues"
     echo "  help             Show this help message"
     echo ""
     echo "Options:"
@@ -132,6 +164,7 @@ show_help() {
     echo "  $0 deploy docker-compose.prod.yml  # Deploy using production config"
     echo "  $0 logs                      # Show logs"
     echo "  $0 stop                      # Stop application"
+    echo "  $0 troubleshoot              # Troubleshoot build issues"
 }
 
 # Main script logic
@@ -155,6 +188,9 @@ main() {
             ;;
         "status")
             status "$2"
+            ;;
+        "troubleshoot")
+            troubleshoot "$2"
             ;;
         "help"|"-h"|"--help")
             show_help

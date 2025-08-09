@@ -17,18 +17,13 @@ FROM node:18-alpine AS production
 
 WORKDIR /app
 
-# Create a non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
-
+# Copy package files and install only production dependencies
 COPY --from=build /app/package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy built application
 COPY --from=build /app/.next ./.next
 COPY --from=build /app/public ./public
-COPY --from=build /app/node_modules ./node_modules
-
-# Change ownership to the nextjs user
-RUN chown -R nextjs:nodejs /app
-USER nextjs
 
 EXPOSE 3000
 
