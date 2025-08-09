@@ -25,6 +25,9 @@ RUN adduser -S nextjs -u 1001
 RUN npm install ws
 
 COPY --from=build /app/package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy built application
 COPY --from=build /app/.next ./.next
 COPY --from=build /app/public ./public
 COPY --from=build /app/node_modules ./node_modules
