@@ -29,10 +29,6 @@ COPY --from=build /app/.next ./.next
 COPY --from=build /app/public ./public
 COPY --from=build /app/node_modules ./node_modules
 
-# Change ownership to the nextjs user
-RUN chown -R nextjs:nodejs /app
-USER nextjs
-
 EXPOSE 3000
 
 CMD ["npm", "start"] 
