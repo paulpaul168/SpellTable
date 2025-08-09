@@ -285,7 +285,7 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
                 content: noteFormData.content,
             };
 
-            await CampaignNotesService.updateCampaignNote(campaign.id, editingNote.id, updateData);
+            await CampaignNotesService.updateCampaignNote(editingNote.id, updateData);
             toast({
                 title: "Success",
                 description: "Note updated successfully",
@@ -306,7 +306,7 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
         if (!confirm('Are you sure you want to delete this note?')) return;
 
         try {
-            await CampaignNotesService.deleteCampaignNote(campaign.id, noteId);
+            await CampaignNotesService.deleteCampaignNote(noteId);
             toast({
                 title: "Success",
                 description: "Note deleted successfully",
