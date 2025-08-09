@@ -38,7 +38,7 @@ class CampaignService {
     static API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
     static async getCampaigns(): Promise<Campaign[]> {
-        const response = await fetch(`${this.API_BASE_URL}/campaigns`, {
+        const response = await fetch(`${this.API_BASE_URL}/campaigns/`, {
             headers: {
                 ...authService.getAuthHeader(),
                 'Content-Type': 'application/json',

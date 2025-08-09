@@ -22,7 +22,7 @@ export default function CampaignsPage() {
     const loadCampaigns = async () => {
         try {
             setIsLoading(true);
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/campaigns`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/campaigns/`, {
                 headers: {
                     ...authService.getAuthHeader(),
                     'Content-Type': 'application/json',
