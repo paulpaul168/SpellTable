@@ -13,12 +13,14 @@ services:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
     volumes:
-      - spelltable-data:/app/data
-      - spelltable-logs:/app/logs
-      - spelltable-maps:/app/maps
-      - spelltable-scenes:/app/scenes
-      - spelltable-sounds:/app/sounds
-      - spelltable-campaign-images:/app/campaign_images
+      # Database and application data
+      - ./data:/app/data
+      - ./logs:/app/logs
+      # Content directories
+      - ./maps:/app/maps
+      - ./scenes:/app/scenes
+      - ./sounds:/app/sounds
+      - ./campaign_images:/app/campaign_images
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8010/health" ]
       interval: 30s
@@ -44,20 +46,6 @@ services:
       - NEXT_PUBLIC_API_URL=/api
     networks:
       - spelltable-network
-
-volumes:
-  spelltable-data:
-    driver: local
-  spelltable-logs:
-    driver: local
-  spelltable-maps:
-    driver: local
-  spelltable-scenes:
-    driver: local
-  spelltable-sounds:
-    driver: local
-  spelltable-campaign-images:
-    driver: local
 
 networks:
   spelltable-network:

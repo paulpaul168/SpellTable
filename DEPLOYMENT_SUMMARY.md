@@ -1,163 +1,233 @@
 # SpellTable Deployment Summary
 
-## Quick Start
+## Overview
 
-### 1. Simple Deployment (Development/Testing)
-
-```bash
-# Clone and deploy
-git clone <repository-url>
-cd SpellTable
-./deploy.sh deploy
-
-# Access the application
-# Frontend: http://localhost:3000
-# Backend: Internal only (not exposed)
-```
-
-### 2. Production Deployment
-
-```bash
-# Deploy with data persistence
-./deploy.sh deploy docker-compose.prod.yml
-
-# Set up Nginx reverse proxy (optional)
-sudo cp nginx.conf /etc/nginx/sites-available/spelltable
-sudo ln -s /etc/nginx/sites-available/spelltable /etc/nginx/sites-enabled/
-sudo systemctl restart nginx
-```
+SpellTable is a web-based virtual tabletop application with real-time collaboration features. This document provides a comprehensive guide for deploying SpellTable in various environments.
 
 ## Architecture
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Internet      │    │   Frontend      │    │   Backend       │
-│                 │    │   (Next.js)     │    │   (FastAPI)     │
-│   Port 3000     │───▶│   Port 3000     │───▶│   Port 8010     │
-│   (Public)      │    │   (Container)   │    │   (Internal)    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
+SpellTable consists of:
+- **Frontend**: Next.js React application
+- **Backend**: FastAPI Python application
+- **Database**: SQLite (embedded)
+- **Real-time**: WebSocket connections
+- **Proxy**: Apache/Nginx for SSL termination and routing
 
-## Key Features
+## Quick Start
 
-### Security
-- ✅ Backend isolated (not exposed to internet)
-- ✅ Internal Docker networking
-- ✅ Container isolation
-- ✅ Health checks implemented
+### Prerequisites
+- Docker and Docker Compose
+- Git
+- Apache (for production proxy setup)
 
-### Data Persistence
-- ✅ Volumes for all data types
-- ✅ Backup strategy provided
-- ✅ Production-ready configuration
-
-### Monitoring
-- ✅ Health check endpoints
-- ✅ Comprehensive logging
-- ✅ Status monitoring tools
-
-## Files Created/Modified
-
-### Configuration Files
-- `docker-compose.yml` - Updated for secure deployment
-- `docker-compose.prod.yml` - Production configuration with volumes
-- `nginx.conf` - Reverse proxy configuration
-- `deploy.sh` - Deployment script
-
-### Documentation
-- `DOCKER_README.md` - Docker deployment guide
-- `PRODUCTION_DEPLOYMENT.md` - Comprehensive production guide
-- `DEPLOYMENT_SUMMARY.md` - This file
-
-## Environment Variables
-
-### Frontend
-```env
-NEXT_PUBLIC_API_URL=http://backend:8010
-```
-
-### Backend
-```env
-PYTHONUNBUFFERED=1
-```
-
-## Commands
-
-### Deployment
+### 1. Clone and Setup
 ```bash
-# Simple deployment
-./deploy.sh deploy
-
-# Production deployment
-./deploy.sh deploy docker-compose.prod.yml
-
-# Stop application
-./deploy.sh stop
-
-# Restart application
-./deploy.sh restart
-
-# View logs
-./deploy.sh logs
-
-# Check status
-./deploy.sh status
+git clone <repository-url>
+cd SpellTable
+./setup-volumes.sh  # Create local volume directories
 ```
 
-### Manual Commands
+### 2. Start Application
 ```bash
-# Deploy
-docker compose up -d --build
+# Development
+docker-compose up -d
 
-# View logs
-docker compose logs -f
-
-# Check status
-docker compose ps
-
-# Stop
-docker compose down
+# Production
+docker-compose -f docker-compose.prod.yml up -d
 ```
+
+### 3. Access Application
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8010
+
+## Data Persistence
+
+SpellTable now uses **local path volumes** for data persistence:
+
+```
+SpellTable/
+├── data/              # Database and application data
+├── logs/              # Application logs  
+├── maps/              # Map files
+├── scenes/            # Scene files
+├── sounds/            # Audio files
+└── campaign_images/   # Campaign images
+```
+
+**Benefits:**
+- ✅ Data survives container restarts
+- ✅ Easy backup and restore
+- ✅ Transparent data storage
+- ✅ Better performance than Docker volumes
+
+## Environment Configurations
+
+### Development Environment
+- **File**: `docker-compose.yml`
+- **Features**: 
+  - Hot reloading
+  - Debug logging
+  - Direct port access
+  - Local volume mounts
+
+### Production Environment  
+- **File**: `docker-compose.prod.yml`
+- **Features**:
+  - Optimized builds
+  - Health checks
+  - Local volume mounts
+  - Production logging
+
+## Proxy Configuration
+
+### Apache Proxy Setup
+For production deployments, use Apache as a reverse proxy:
+
+```apache
+# Backend API routes
+ProxyPass        /api/  http://localhost:8010/
+ProxyPassReverse /api/  http://localhost:8010/
+
+# Frontend routes  
+ProxyPass        /       http://localhost:3000/
+ProxyPassReverse /       http://localhost:3000/
+```
+
+### SSL Configuration
+- Use Let's Encrypt for SSL certificates
+- Configure automatic redirects from HTTP to HTTPS
+- Set appropriate security headers
+
+## Backup and Restore
+
+### Manual Backup
+```bash
+# Create backup archive
+tar -czf spelltable-backup-$(date +%Y%m%d).tar.gz \
+  data/ maps/ scenes/ sounds/ campaign_images/
+
+# Restore from backup
+tar -xzf spelltable-backup-20231201.tar.gz
+```
+
+### Built-in Backup System
+SpellTable includes a comprehensive backup system accessible via the web interface:
+- Export/import maps, scenes, audio
+- Campaign data and diary content
+- User accounts with passwords
+- Selective backup options
+
+## Monitoring and Logs
+
+### Application Logs
+- Location: `./logs/`
+- Format: Structured JSON logs
+- Rotation: Automatic log rotation
+
+### Health Checks
+- Backend: `GET /health`
+- Frontend: Built-in health monitoring
+- Docker: Container health checks
+
+## Security Considerations
+
+### Data Protection
+- User passwords are hashed and included in backups
+- File uploads are validated and sanitized
+- API endpoints require authentication
+- CORS policies are properly configured
+
+### Network Security
+- No direct container exposure in production
+- All traffic routed through Apache proxy
+- SSL/TLS encryption for all connections
+- Proper firewall configuration recommended
+
+## Performance Optimization
+
+### Storage
+- Use SSD storage for better I/O performance
+- Monitor disk space usage
+- Implement log rotation
+
+### Network
+- Configure proper caching headers
+- Use gzip compression
+- Optimize image delivery
+
+### Application
+- Database connection pooling
+- Efficient file handling
+- Memory usage monitoring
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Frontend can't connect to backend**
-   - Check if both services are running: `docker compose ps`
-   - Verify backend health: `docker compose exec backend curl http://localhost:8010/health`
-   - Check logs: `docker compose logs backend frontend`
+1. **Permission Errors**
+   ```bash
+   chmod 755 data/ logs/ maps/ scenes/ sounds/ campaign_images/
+   ```
 
-2. **Port conflicts**
-   - Ensure port 3000 is available
-   - Check running containers: `docker ps`
+2. **Container Won't Start**
+   ```bash
+   docker-compose logs backend
+   docker-compose logs frontend
+   ```
 
-3. **Permission issues**
-   - Ensure Docker is running
-   - Check file permissions on deployment script
+3. **Data Not Persisting**
+   - Verify volume mounts in docker-compose.yml
+   - Check directory permissions
+   - Ensure directories exist
 
-### Log Locations
-- Application logs: `docker compose logs -f`
-- System logs: `/var/log/docker/` (if applicable)
+4. **API Connection Issues**
+   - Verify NEXT_PUBLIC_API_URL setting
+   - Check proxy configuration
+   - Test backend health endpoint
 
-## Next Steps
+### Debug Commands
+```bash
+# View logs
+docker-compose logs -f
 
-1. **Production Setup**
-   - Set up SSL certificates
-   - Configure Nginx reverse proxy
-   - Set up monitoring and alerting
+# Check container status
+docker-compose ps
 
-2. **Backup Strategy**
-   - Implement automated backups
-   - Test backup and recovery procedures
+# Access container shell
+docker-compose exec backend bash
 
-3. **Security Hardening**
-   - Regular security updates
-   - Container scanning
-   - Access control implementation
+# Test API connectivity
+curl http://localhost:8010/health
+```
 
-## Support
+## Migration Guide
 
-- Check logs: `docker compose logs`
-- Review documentation in `PRODUCTION_DEPLOYMENT.md`
-- Verify configuration with `docker compose config`
+### From Docker Volumes to Local Volumes
+1. Stop containers: `docker-compose down`
+2. Export data: `docker run --rm -v spelltable-data:/data -v $(pwd):/backup alpine tar -czf /backup/data-backup.tar.gz -C /data .`
+3. Run setup: `./setup-volumes.sh`
+4. Restore data: `tar -xzf data-backup.tar.gz -C data/`
+5. Start with new config: `docker-compose up -d`
+
+## Support and Maintenance
+
+### Regular Maintenance
+- Monitor disk space usage
+- Review application logs
+- Update dependencies regularly
+- Test backup/restore procedures
+
+### Updates
+1. Pull latest code: `git pull`
+2. Rebuild containers: `docker-compose build`
+3. Restart services: `docker-compose up -d`
+4. Verify functionality
+
+### Backup Schedule
+- Daily: Automated backups (recommended)
+- Weekly: Manual backup verification
+- Monthly: Full system backup test
+
+## Conclusion
+
+SpellTable provides a robust, scalable solution for virtual tabletop gaming with comprehensive data persistence, backup capabilities, and deployment flexibility. The local volume setup ensures data safety while maintaining performance and ease of management.

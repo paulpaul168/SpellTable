@@ -12,6 +12,15 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
+    volumes:
+      # Database and application data
+      - ./data:/app/data
+      - ./logs:/app/logs
+      # Content directories
+      - ./maps:/app/maps
+      - ./scenes:/app/scenes
+      - ./sounds:/app/sounds
+      - ./campaign_images:/app/campaign_images
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8010/health" ]
       interval: 30s

@@ -28,7 +28,7 @@ Thumbs.db
 .env.production.local
 
 # Logs
-logs
+logs/*
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -37,5 +37,19 @@ lerna-debug.log*
 
 # Local development
 *.local
+
+# Data directories (but keep .gitkeep files)
+data/*
+!data/.gitkeep
+logs/*
+!logs/.gitkeep
+maps/*
+!maps/.gitkeep
+scenes/*
+!scenes/.gitkeep
+sounds/*
+!sounds/.gitkeep
+campaign_images/*
+!campaign_images/.gitkeep
 
 # Exceptions
