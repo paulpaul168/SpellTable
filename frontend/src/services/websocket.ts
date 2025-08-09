@@ -22,22 +22,12 @@ class WebSocketService {
         }
 
         this.isConnecting = true;
-
-        // Use WebSocket proxy through frontend
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.host;
-        const wsUrl = `${protocol}//${host}/api/ws`;
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+        const wsUrl = API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://') + '/ws';
 
         console.log('Attempting WebSocket connection to:', wsUrl);
 
-        try {
-            this.ws = new WebSocket(wsUrl);
-        } catch (error) {
-            console.error('Failed to create WebSocket connection:', error);
-            this.isConnecting = false;
-            this.notifyListeners({ type: 'connection_status', status: 'error' });
-            return;
-        }
+        this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
             console.log('✅ WebSocket connected successfully');

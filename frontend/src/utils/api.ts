@@ -3,7 +3,7 @@
  */
 
 export const getApiBaseUrl = (): string => {
-    return '/api'; // Use frontend API routes
+    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
 };
 
 export const getApiUrl = (endpoint: string): string => {
