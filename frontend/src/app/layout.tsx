@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "../globals.css";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] });
@@ -30,9 +31,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <main className="relative flex min-h-screen flex-col">
-            {children}
-          </main>
+          <AuthProvider>
+            <main className="relative flex min-h-screen flex-col">
+              {children}
+            </main>
+          </AuthProvider>
         </ThemeProvider>
         <Toaster />
       </body>

@@ -50,3 +50,9 @@ sounds/*
 logs/
 
 venv/
+
+# Database
+*.db
+
+# Campaigns
+campaign_images/*

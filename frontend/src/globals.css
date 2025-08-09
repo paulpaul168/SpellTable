@@ -2,6 +2,86 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Markdown Editor Styles */
+[data-color-mode*='dark'] .w-md-editor {
+  background-color: #18181b;
+  border-color: #3f3f46;
+}
+
+[data-color-mode*='dark'] .w-md-editor-text {
+  background-color: #18181b;
+  color: #e4e4e7;
+}
+
+[data-color-mode*='dark'] .w-md-editor-text-input {
+  background-color: #18181b;
+  color: #e4e4e7;
+}
+
+[data-color-mode*='dark'] .w-md-editor-text-pre {
+  background-color: #18181b;
+  color: #e4e4e7;
+}
+
+[data-color-mode*='dark'] .w-md-editor-toolbar {
+  background-color: #27272a;
+  border-color: #3f3f46;
+}
+
+[data-color-mode*='dark'] .w-md-editor-toolbar-divider {
+  background-color: #3f3f46;
+}
+
+[data-color-mode*='dark'] .w-md-editor-toolbar-item {
+  color: #e4e4e7;
+}
+
+[data-color-mode*='dark'] .w-md-editor-toolbar-item:hover {
+  background-color: #3f3f46;
+}
+
+[data-color-mode*='dark'] .w-md-editor-toolbar-item.active {
+  background-color: #52525b;
+}
+
+[data-color-mode*='dark'] .w-md-editor-preview {
+  background-color: #18181b;
+  color: #e4e4e7;
+}
+
+[data-color-mode*='dark'] .w-md-editor-preview h1,
+[data-color-mode*='dark'] .w-md-editor-preview h2,
+[data-color-mode*='dark'] .w-md-editor-preview h3,
+[data-color-mode*='dark'] .w-md-editor-preview h4,
+[data-color-mode*='dark'] .w-md-editor-preview h5,
+[data-color-mode*='dark'] .w-md-editor-preview h6 {
+  color: #fafafa;
+}
+
+[data-color-mode*='dark'] .w-md-editor-preview code {
+  background-color: #3f3f46;
+  color: #f4f4f5;
+}
+
+[data-color-mode*='dark'] .w-md-editor-preview pre {
+  background-color: #27272a;
+  border-color: #3f3f46;
+}
+
+[data-color-mode*='dark'] .w-md-editor-preview blockquote {
+  border-color: #52525b;
+  color: #a1a1aa;
+}
+
+[data-color-mode*='dark'] .w-md-editor-preview table {
+  border-color: #3f3f46;
+}
+
+[data-color-mode*='dark'] .w-md-editor-preview th,
+[data-color-mode*='dark'] .w-md-editor-preview td {
+  border-color: #3f3f46;
+}
+
 /* Prevent scrollbars globally */
 html,
 body {

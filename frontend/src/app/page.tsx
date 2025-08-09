@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Scene } from '../components/Scene';
+import { ProtectedRoute } from '../components/ProtectedRoute';
 import { Scene as SceneType } from '../types/map';
 
 const initialScene: SceneType = {
@@ -23,6 +24,9 @@ const initialScene: SceneType = {
 };
 
 export default function Home() {
-    // Use native 1:1 scaling to match viewer
-    return <Scene initialScene={initialScene} isAdmin={true} initialDisplayScale={1.0} />;
+    return (
+        <ProtectedRoute requireAdmin={true}>
+            <Scene initialScene={initialScene} isAdmin={true} initialDisplayScale={1.0} />
+        </ProtectedRoute>
+    );
 }

@@ -7,8 +7,19 @@ from fastapi import FastAPI
 from loguru import logger
 
 from app.core.config import create_app
+from app.core.database import init_db
 from app.core.logging import setup_logger
-from app.routes import audio, backup, maps, scenes, websocket
+from app.routes import (
+    audio,
+    auth,
+    backup,
+    campaigns,
+    campaign_notes,
+    campaign_images,
+    maps,
+    scenes,
+    websocket,
+)
 
 
 def get_application() -> FastAPI:
@@ -22,8 +33,16 @@ def get_application() -> FastAPI:
     logger.info("Initializing FastAPI application")
     local_app = create_app()
 
+    # Initialize database
+    logger.info("Initializing database")
+    init_db()
+
     # Include routers
     logger.info("Registering application routes")
+    local_app.include_router(auth.router, prefix="/auth", tags=["authentication"])
+    local_app.include_router(campaigns.router, prefix="/campaigns", tags=["campaigns"])
+    local_app.include_router(campaign_notes.router, tags=["campaign_notes"])
+    local_app.include_router(campaign_images.router, tags=["campaign_images"])
     local_app.include_router(websocket.router)
     local_app.include_router(scenes.router, prefix="/scenes")
     local_app.include_router(audio.router, prefix="/audio")

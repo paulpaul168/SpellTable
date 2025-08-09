@@ -25,7 +25,10 @@ import {
     X,
     Database,
     Move,
-    RotateCw
+    RotateCw,
+    UserPlus,
+    Shield,
+    BookOpen
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -55,6 +58,8 @@ import { DisplayCalculator } from './DisplayCalculator';
 import { BackupDialog } from './BackupDialog';
 import { GameboardMenu } from './GameboardMenu';
 import { MoveEverythingDialog } from './MoveEverythingDialog';
+import { UserManagementDialog } from './UserManagementDialog';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -101,6 +106,7 @@ const SceneOperationStatusDialog: React.FC<SceneOperationStatusDialogProps> = ({
 
 export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, initialDisplayScale = 1.0 }) => {
     const { toast } = useToast();
+    const { user, logout, isAdmin: isUserAdmin } = useAuth();
     const [scene, setScene] = useState<SceneType>({
         id: initialScene?.id || 'default',
         name: initialScene?.name || 'Default Scene',
@@ -144,6 +150,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isMoveEverythingOpen, setIsMoveEverythingOpen] = useState(false);
     const [isViewerBlanked, setIsViewerBlanked] = useState(false);
     const [isViewerRotated, setIsViewerRotated] = useState(false);
+    const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
 
     // Remove display scale functionality, using fixed 1.0 scale
     const displayScale = 1.0;
@@ -1344,30 +1351,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-64 bg-zinc-900/95 backdrop-blur-sm border-zinc-800 z-[1001]">
-                            {/* Connection Status */}
-                            <div className="px-2 py-1">
-                                <div className="flex items-center gap-2 px-2 py-1">
-                                    <Wifi className="h-4 w-4 text-zinc-400" />
-                                    <span className="text-xs font-medium text-zinc-300">Connection</span>
-                                </div>
-                                <div className="mt-2">
-                                    <div className="flex items-center gap-2">
-                                        {connectionStatus === 'connected' ? (
-                                            <>
-                                                <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                                                <span className="text-xs text-emerald-500">Connected</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <div className="h-2 w-2 rounded-full bg-zinc-600" />
-                                                <span className="text-xs text-zinc-600 capitalize">{connectionStatus}</span>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
 
-                            <DropdownMenuSeparator className="bg-zinc-800" />
 
                             {/* Layout Toggle */}
                             <DropdownMenuItem
@@ -1520,6 +1504,41 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                     </DropdownMenuItem>
                                 </div>
                             </div>
+
+                            <DropdownMenuSeparator className="bg-zinc-800" />
+
+                            {/* User Management - Only show for admin users */}
+                            {isUserAdmin && (
+                                <div className="px-2 py-1">
+                                    <div className="flex items-center gap-2 px-2 py-1">
+                                        <Shield className="h-4 w-4 text-zinc-400" />
+                                        <span className="text-xs font-medium text-zinc-300">Admin</span>
+                                    </div>
+                                    <div className="space-y-1 mt-1">
+                                        <DropdownMenuItem
+                                            className="text-xs cursor-pointer"
+                                            onClick={() => setIsUserManagementOpen(true)}
+                                        >
+                                            <UserPlus className="h-4 w-4 mr-2" />
+                                            User Management
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="text-xs cursor-pointer"
+                                            onClick={() => window.location.href = '/viewer/campaigns'}
+                                        >
+                                            <BookOpen className="h-4 w-4 mr-2" />
+                                            Campaign Diary
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="text-xs cursor-pointer"
+                                            onClick={logout}
+                                        >
+                                            <Users className="h-4 w-4 mr-2" />
+                                            Logout ({user?.username})
+                                        </DropdownMenuItem>
+                                    </div>
+                                </div>
+                            )}
 
                             <DropdownMenuSeparator className="bg-zinc-800" />
 
@@ -1683,6 +1702,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 isOpen={isMoveEverythingOpen}
                 onClose={() => setIsMoveEverythingOpen(false)}
                 onMove={handleMoveEverything}
+            />
+
+            {/* User Management Dialog */}
+            <UserManagementDialog
+                isOpen={isUserManagementOpen}
+                onClose={() => setIsUserManagementOpen(false)}
             />
 
             {/* AoE and Fog of War Palette Toggle Buttons - Only show when not in clean layout */}
