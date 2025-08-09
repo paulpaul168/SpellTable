@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { useToast } from './ui/use-toast';
+import { authService } from '../services/auth';
 import { Folder, FolderPlus, FolderMinus, ChevronRight, ChevronDown, Map, Trash, Pencil } from 'lucide-react';
 import {
     DndContext,
@@ -252,6 +253,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
     const { toast } = useToast();
     const [scenes, setScenes] = useState<Scene[]>([]);
     const [folders, setFolders] = useState<FolderItem[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
     const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
     const [newFolderName, setNewFolderName] = useState('');
     const [parentFolder, setParentFolder] = useState<string | null>(null);
@@ -287,19 +289,29 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
 
     const loadScenes = async () => {
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
-            const response = await fetch(`${API_BASE_URL}/scenes/list`);
-            if (!response.ok) throw new Error('Failed to load scenes');
-            const data = await response.json();
-            setScenes(data.scenes);
-            setFolders(data.folders);
+            setIsLoading(true);
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const response = await fetch(`${API_BASE_URL}/scenes/list`, {
+                headers: {
+                    ...authService.getAuthHeader(),
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch scenes');
+            }
+
+            const scenesData = await response.json();
+            setScenes(scenesData);
         } catch (error) {
-            console.error('Error loading scenes:', error);
             toast({
                 title: "Error",
-                description: "Failed to load scenes. Please try again.",
+                description: "Failed to load scenes",
                 variant: "destructive",
             });
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -311,7 +323,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
 
     const handleCreateFolder = async () => {
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
             const response = await fetch(`${API_BASE_URL}/scenes/folder`, {
                 method: 'POST',
                 headers: {
@@ -348,7 +360,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
         if (!folderToDelete) return;
 
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
             const response = await fetch(`${API_BASE_URL}/scenes/folder/${folderToDelete.path}`, {
                 method: 'DELETE',
             });
@@ -377,7 +389,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
         if (!sceneToDelete) return;
 
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
             const response = await fetch(`${API_BASE_URL}/scenes/${sceneToDelete.id}`, {
                 method: 'DELETE',
             });

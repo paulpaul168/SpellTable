@@ -21,7 +21,7 @@ interface MapProps {
 
 // Update image source URL to include folder path if available
 const getMapImageUrl = (map: MapData) => {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
     const baseUrl = `${API_BASE_URL}/maps/file`;
 
     // Add debugging log
@@ -347,7 +347,7 @@ export const Map: React.FC<MapProps> = ({
     const getMapUrl = () => {
         // Handle folder structure if present
         const folderPrefix = map.folder ? `/${map.folder.replace(/^\//, '')}` : '';
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
         return `${API_BASE_URL}/maps/file/${folderPrefix}/${encodeURIComponent(map.name)}`;
     };
 

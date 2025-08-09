@@ -275,7 +275,7 @@ export const stopAllAudio = (): void => {
 // Function to fetch audio files from the backend
 export const fetchAudioFiles = async (): Promise<boolean> => {
     try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
         const response = await fetch(`${API_BASE_URL}/audio/list`);
         if (!response.ok) {
             console.error('Failed to fetch audio files:', response.statusText);

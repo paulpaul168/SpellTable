@@ -23,7 +23,7 @@ export function CampaignSelector({ onCampaignSelect }: CampaignSelectorProps) {
     const loadCampaigns = async () => {
         try {
             setIsLoading(true);
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'}/campaigns`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/campaigns`, {
                 headers: {
                     ...authService.getAuthHeader(),
                     'Content-Type': 'application/json',

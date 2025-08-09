@@ -35,7 +35,7 @@ export interface CampaignUpdate {
 }
 
 class CampaignService {
-    static API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+    static API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
     static async getCampaigns(): Promise<Campaign[]> {
         const response = await fetch(`${this.API_BASE_URL}/campaigns`, {

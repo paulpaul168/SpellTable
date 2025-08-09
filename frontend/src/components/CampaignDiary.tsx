@@ -32,8 +32,8 @@ export interface CampaignNoteUpdate {
     content?: string;
 }
 
-class CampaignNotesService {
-    private static API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+class CampaignDiaryService {
+    private static API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
     static async getCampaignNotes(campaignId: number): Promise<CampaignNote[]> {
         const response = await fetch(`${this.API_BASE_URL}/campaigns/${campaignId}/notes`, {
@@ -123,7 +123,7 @@ export function CampaignDiary({ campaign, onBack }: CampaignDiaryProps) {
     const loadNotes = async () => {
         try {
             setIsLoading(true);
-            const notesData = await CampaignNotesService.getCampaignNotes(campaign.id);
+            const notesData = await CampaignDiaryService.getCampaignNotes(campaign.id);
             setNotes(notesData);
         } catch (error) {
             toast({
@@ -138,7 +138,7 @@ export function CampaignDiary({ campaign, onBack }: CampaignDiaryProps) {
 
     const handleCreateNote = async () => {
         try {
-            await CampaignNotesService.createCampaignNote(campaign.id, formData);
+            await CampaignDiaryService.createCampaignNote(campaign.id, formData);
             toast({
                 title: "Success",
                 description: "Note created successfully",
@@ -164,7 +164,7 @@ export function CampaignDiary({ campaign, onBack }: CampaignDiaryProps) {
                 content: formData.content,
             };
 
-            await CampaignNotesService.updateCampaignNote(campaign.id, editingNote.id, updateData);
+            await CampaignDiaryService.updateCampaignNote(campaign.id, editingNote.id, updateData);
             toast({
                 title: "Success",
                 description: "Note updated successfully",
@@ -185,7 +185,7 @@ export function CampaignDiary({ campaign, onBack }: CampaignDiaryProps) {
         if (!confirm('Are you sure you want to delete this note?')) return;
 
         try {
-            await CampaignNotesService.deleteCampaignNote(campaign.id, noteId);
+            await CampaignDiaryService.deleteCampaignNote(campaign.id, noteId);
             toast({
                 title: "Success",
                 description: "Note deleted successfully",

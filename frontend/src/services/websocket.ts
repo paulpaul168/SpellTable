@@ -22,7 +22,7 @@ class WebSocketService {
         }
 
         this.isConnecting = true;
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
         const wsUrl = API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://') + '/ws';
 
         console.log('Attempting WebSocket connection to:', wsUrl);

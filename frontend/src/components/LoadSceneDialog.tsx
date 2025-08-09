@@ -28,7 +28,7 @@ export const LoadSceneDialog: React.FC<LoadSceneDialogProps> = ({
 
     const handleDeleteScene = async (scene: Scene) => {
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
             const response = await fetch(`${API_BASE_URL}/scenes/${scene.id}`, {
                 method: 'DELETE',
             });

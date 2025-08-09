@@ -26,12 +26,18 @@ export const BackupDialog: React.FC<BackupDialogProps> = ({ isOpen, onClose }) =
         maps: true,
         scenes: true,
         audio: true,
+        campaigns: true,
+        diary: true,
+        users: true,
         include_folders: [] as string[],
     });
     const [importOptions, setImportOptions] = useState({
         maps: true,
         scenes: true,
         audio: true,
+        campaigns: true,
+        diary: true,
+        users: true,
     });
     const [importFile, setImportFile] = useState<File | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -154,7 +160,7 @@ export const BackupDialog: React.FC<BackupDialogProps> = ({ isOpen, onClose }) =
                 <DialogHeader>
                     <DialogTitle>Backup Management</DialogTitle>
                     <DialogDescription>
-                        Export or import your maps, scenes, and audio files.
+                        Export or import your maps, scenes, audio files, campaigns, diary content, and user data (including passwords).
                     </DialogDescription>
                 </DialogHeader>
 
@@ -195,6 +201,33 @@ export const BackupDialog: React.FC<BackupDialogProps> = ({ isOpen, onClose }) =
                                                 setExportOptions({ ...exportOptions, audio: checked === true })}
                                         />
                                         <Label htmlFor="export-audio">Audio</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="export-campaigns"
+                                            checked={exportOptions.campaigns}
+                                            onCheckedChange={(checked: boolean | "indeterminate") =>
+                                                setExportOptions({ ...exportOptions, campaigns: checked === true })}
+                                        />
+                                        <Label htmlFor="export-campaigns">Campaigns</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="export-diary"
+                                            checked={exportOptions.diary}
+                                            onCheckedChange={(checked: boolean | "indeterminate") =>
+                                                setExportOptions({ ...exportOptions, diary: checked === true })}
+                                        />
+                                        <Label htmlFor="export-diary">Diary</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="export-users"
+                                            checked={exportOptions.users}
+                                            onCheckedChange={(checked: boolean | "indeterminate") =>
+                                                setExportOptions({ ...exportOptions, users: checked === true })}
+                                        />
+                                        <Label htmlFor="export-users">Users</Label>
                                     </div>
                                 </div>
                             </div>
@@ -258,6 +291,36 @@ export const BackupDialog: React.FC<BackupDialogProps> = ({ isOpen, onClose }) =
                                             disabled={isProcessing}
                                         />
                                         <Label htmlFor="import-audio">Audio</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="import-campaigns"
+                                            checked={importOptions.campaigns}
+                                            onCheckedChange={(checked: boolean | "indeterminate") =>
+                                                setImportOptions({ ...importOptions, campaigns: checked === true })}
+                                            disabled={isProcessing}
+                                        />
+                                        <Label htmlFor="import-campaigns">Campaigns</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="import-diary"
+                                            checked={importOptions.diary}
+                                            onCheckedChange={(checked: boolean | "indeterminate") =>
+                                                setImportOptions({ ...importOptions, diary: checked === true })}
+                                            disabled={isProcessing}
+                                        />
+                                        <Label htmlFor="import-diary">Diary</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="import-users"
+                                            checked={importOptions.users}
+                                            onCheckedChange={(checked: boolean | "indeterminate") =>
+                                                setImportOptions({ ...importOptions, users: checked === true })}
+                                            disabled={isProcessing}
+                                        />
+                                        <Label htmlFor="import-users">Users</Label>
                                     </div>
                                 </div>
                             </div>

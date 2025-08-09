@@ -2,7 +2,7 @@
  * API service for HTTP requests to the backend
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 // Common headers for HTTP requests
 const headers = {
@@ -22,6 +22,9 @@ export const backupService = {
         maps: boolean;
         scenes: boolean;
         audio: boolean;
+        campaigns: boolean;
+        diary: boolean;
+        users: boolean;
         include_folders?: string[];
     }): Promise<string> {
         // Build query parameters for the options
@@ -50,6 +53,9 @@ export const backupService = {
             maps: boolean;
             scenes: boolean;
             audio: boolean;
+            campaigns: boolean;
+            diary: boolean;
+            users: boolean;
         }
     ): Promise<void> {
         const formData = new FormData();
@@ -59,6 +65,9 @@ export const backupService = {
         formData.append('maps', options.maps.toString());
         formData.append('scenes', options.scenes.toString());
         formData.append('audio', options.audio.toString());
+        formData.append('campaigns', options.campaigns.toString());
+        formData.append('diary', options.diary.toString());
+        formData.append('users', options.users.toString());
 
         const response = await fetch(`${API_BASE_URL}/backup/import`, {
             method: 'POST',

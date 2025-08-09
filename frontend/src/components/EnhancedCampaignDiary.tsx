@@ -54,7 +54,7 @@ export interface CampaignImage {
 }
 
 class CampaignNotesService {
-    private static API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+    private static API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
     static async getCampaignNotes(campaignId: number): Promise<CampaignNote[]> {
         const response = await fetch(`${this.API_BASE_URL}/campaigns/${campaignId}/notes`, {
@@ -65,8 +65,7 @@ class CampaignNotesService {
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to fetch campaign notes');
+            throw new Error('Failed to fetch campaign notes');
         }
 
         return response.json();
@@ -83,15 +82,14 @@ class CampaignNotesService {
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to create campaign note');
+            throw new Error('Failed to create campaign note');
         }
 
         return response.json();
     }
 
-    static async updateCampaignNote(campaignId: number, noteId: number, note: CampaignNoteUpdate): Promise<CampaignNote> {
-        const response = await fetch(`${this.API_BASE_URL}/campaigns/${campaignId}/notes/${noteId}`, {
+    static async updateCampaignNote(noteId: number, note: CampaignNoteUpdate): Promise<CampaignNote> {
+        const response = await fetch(`${this.API_BASE_URL}/campaigns/notes/${noteId}`, {
             method: 'PUT',
             headers: {
                 ...authService.getAuthHeader(),
@@ -101,28 +99,28 @@ class CampaignNotesService {
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to update campaign note');
+            throw new Error('Failed to update campaign note');
         }
 
         return response.json();
     }
 
-    static async deleteCampaignNote(campaignId: number, noteId: number): Promise<void> {
-        const response = await fetch(`${this.API_BASE_URL}/campaigns/${campaignId}/notes/${noteId}`, {
+    static async deleteCampaignNote(noteId: number): Promise<void> {
+        const response = await fetch(`${this.API_BASE_URL}/campaigns/notes/${noteId}`, {
             method: 'DELETE',
-            headers: authService.getAuthHeader(),
+            headers: {
+                ...authService.getAuthHeader(),
+            },
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to delete campaign note');
+            throw new Error('Failed to delete campaign note');
         }
     }
 }
 
 class CampaignImagesService {
-    private static API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+    private static API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
     static async getCampaignImages(campaignId: number): Promise<CampaignImage[]> {
         const response = await fetch(`${this.API_BASE_URL}/campaigns/${campaignId}/images`, {
@@ -231,7 +229,7 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
             const urls: { [key: number]: string } = {};
             for (const image of imagesData) {
                 try {
-                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'}${image.url}`, {
+                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}${image.url}`, {
                         headers: {
                             ...authService.getAuthHeader(),
                         },
@@ -677,7 +675,7 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
                                             <CardContent className="p-4">
                                                 <div className="aspect-square mb-4 overflow-hidden rounded-lg">
                                                     <img
-                                                        src={imageUrls[image.id] || `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'}${image.url}`}
+                                                        src={imageUrls[image.id] || `${process.env.NEXT_PUBLIC_API_URL || '/api'}${image.url}`}
                                                         alt={image.original_filename}
                                                         className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
                                                         onClick={() => {
@@ -687,7 +685,7 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
                                                         onError={(e) => {
                                                             // Fallback: try to fetch the image with authentication
                                                             if (!imageUrls[image.id]) {
-                                                                fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'}${image.url}`, {
+                                                                fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}${image.url}`, {
                                                                     headers: {
                                                                         ...authService.getAuthHeader(),
                                                                     },
@@ -726,7 +724,7 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
                                                             <Button
                                                                 variant="outline"
                                                                 size="sm"
-                                                                onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'}${image.url}`, '_blank')}
+                                                                onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || '/api'}${image.url}`, '_blank')}
                                                                 className="h-6 w-6 p-0 border-zinc-200 dark:border-zinc-700"
                                                             >
                                                                 <Download className="h-3 w-3" />
@@ -902,7 +900,7 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
                                     <>
                                         <div className="flex-1 flex items-center justify-center w-full h-full min-h-0">
                                             <img
-                                                src={imageUrls[selectedImage.id] || `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'}${selectedImage.url}`}
+                                                src={imageUrls[selectedImage.id] || `${process.env.NEXT_PUBLIC_API_URL || '/api'}${selectedImage.url}`}
                                                 alt={selectedImage.original_filename}
                                                 className="rounded-lg shadow-lg"
                                                 style={{
@@ -917,7 +915,7 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
                                                 onError={(e) => {
                                                     // Fallback: try to fetch the image with authentication
                                                     if (!imageUrls[selectedImage.id]) {
-                                                        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'}${selectedImage.url}`, {
+                                                        fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}${selectedImage.url}`, {
                                                             headers: {
                                                                 ...authService.getAuthHeader(),
                                                             },
@@ -955,7 +953,7 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
                                             <div className="flex items-center justify-center space-x-3 pt-2">
                                                 <Button
                                                     variant="outline"
-                                                    onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010'}${selectedImage.url}`, '_blank')}
+                                                    onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || '/api'}${selectedImage.url}`, '_blank')}
                                                     className="border-zinc-200 dark:border-zinc-700"
                                                 >
                                                     <Download className="h-4 w-4 mr-2" />
