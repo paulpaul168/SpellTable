@@ -578,7 +578,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                                 <div className="text-xs text-zinc-200">{totalGridCellsX} × {totalGridCellsY} = {totalGridCells} cells</div>
 
                                 <div className="text-xs text-zinc-400">Map Size in Feet:</div>
-                                <div className="text-xs text-zinc-200">{mapWidthFeet.toFixed(1)}' × {mapHeightFeet.toFixed(1)}' (approx.)</div>
+                                <div className="text-xs text-zinc-200">{mapWidthFeet.toFixed(1)}&apos; × {mapHeightFeet.toFixed(1)}&apos; (approx.)</div>
                             </div>
 
                             <div className="mt-3 text-xs text-zinc-400">

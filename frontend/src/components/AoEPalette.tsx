@@ -260,7 +260,7 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                                         className="w-3 h-3 mr-2 rounded-full"
                                         style={{ backgroundColor: spell.color }}
                                     />
-                                    {spell.name} ({spell.size}')
+                                    {spell.name} ({spell.size}&apos;)
                                 </Button>
                             ))}
                         </div>
@@ -339,7 +339,7 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                                     className="text-xs"
                                     onClick={() => setCustomSize(5)}
                                 >
-                                    5'
+                                    5&apos;
                                 </Button>
                                 <Button
                                     variant="outline"
@@ -347,7 +347,7 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                                     className="text-xs"
                                     onClick={() => setCustomSize(15)}
                                 >
-                                    15'
+                                    15&apos;
                                 </Button>
                                 <Button
                                     variant="outline"
@@ -355,7 +355,7 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                                     className="text-xs"
                                     onClick={() => setCustomSize(30)}
                                 >
-                                    30'
+                                    30&apos;
                                 </Button>
                             </div>
                         </div>
@@ -430,7 +430,7 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                                         <div className="flex items-center gap-2">
                                             {renderShapePreview(marker.shape, marker.color)}
                                             <span className="text-xs text-zinc-300">
-                                                {marker.label || `${marker.shape} (${marker.sizeInFeet}')`}
+                                                {marker.label || `${marker.shape} (${marker.sizeInFeet}&apos;)`}
                                             </span>
                                         </div>
                                         <div className="flex gap-1">

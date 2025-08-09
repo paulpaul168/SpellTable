@@ -840,7 +840,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                     <DialogHeader>
                         <DialogTitle>Delete Folder</DialogTitle>
                         <DialogDescription>
-                            Are you sure you want to delete the folder "{folderToDelete?.name}"?
+                            Are you sure you want to delete the folder &ldquo;{folderToDelete?.name}&ldquo;?
                             This will delete all scenes inside this folder and cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
@@ -861,7 +861,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                     <DialogHeader>
                         <DialogTitle>Delete Scene</DialogTitle>
                         <DialogDescription>
-                            Are you sure you want to delete the scene "{sceneToDelete?.name}"?
+                            Are you sure you want to delete the scene &ldquo;{sceneToDelete?.name}&ldquo;?
                             This action cannot be undone.
                         </DialogDescription>
                     </DialogHeader>
@@ -882,7 +882,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                     <DialogHeader>
                         <DialogTitle>Rename Folder</DialogTitle>
                         <DialogDescription>
-                            Enter a new name for the folder "{folderToRename?.name}"
+                            Enter a new name for the folder &ldquo;{folderToRename?.name}&ldquo;
                         </DialogDescription>
                     </DialogHeader>
                     <Input
@@ -907,7 +907,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                     <DialogHeader>
                         <DialogTitle>Rename Scene</DialogTitle>
                         <DialogDescription>
-                            Enter a new name for the scene "{sceneToRename?.name}"
+                            Enter a new name for the scene &ldquo;{sceneToRename?.name}&ldquo;
                         </DialogDescription>
                     </DialogHeader>
                     <Input

@@ -123,7 +123,7 @@ export default function CampaignsPage() {
                             No Campaigns Available
                         </h2>
                         <p className="text-zinc-600 dark:text-zinc-400">
-                            You don't have access to any campaigns yet. Please contact an administrator to be assigned to a campaign.
+                            You don&apos;t have access to any campaigns yet. Please contact an administrator to be assigned to a campaign.
                         </p>
                     </div>
                 </div>

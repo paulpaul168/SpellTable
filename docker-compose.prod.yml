@@ -5,12 +5,18 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    # Remove external port mapping - backend only accessible internally
     expose:
       - "8010"
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
+    volumes:
+      - spelltable-data:/app/data
+      - spelltable-logs:/app/logs
+      - spelltable-maps:/app/maps
+      - spelltable-scenes:/app/scenes
+      - spelltable-sounds:/app/sounds
+      - spelltable-campaign-images:/app/campaign_images
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8010/health" ]
       interval: 30s
@@ -27,16 +33,29 @@ services:
       args:
         - NEXT_PUBLIC_API_URL=http://backend:8010
     ports:
-      - "3000:3000"  # Only frontend is accessible from outside
+      - "3000:3000"
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
     environment:
-      # Use internal Docker networking to communicate with backend
       - NEXT_PUBLIC_API_URL=http://backend:8010
     networks:
       - spelltable-network
+
+volumes:
+  spelltable-data:
+    driver: local
+  spelltable-logs:
+    driver: local
+  spelltable-maps:
+    driver: local
+  spelltable-scenes:
+    driver: local
+  spelltable-sounds:
+    driver: local
+  spelltable-campaign-images:
+    driver: local
 
 networks:
   spelltable-network:

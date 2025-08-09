@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { authService, User } from '../services/auth';
 
 interface AuthContextType {
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const router = useRouter();
 
     useEffect(() => {
         // Check if user is already authenticated on mount
@@ -46,11 +48,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const login = async (username: string, password: string) => {
         const user = await authService.login({ username, password });
         setUser(user);
+        
+        // Redirect based on user role
+        if (user.role === 'admin') {
+            router.push('/');
+        } else {
+            router.push('/viewer');
+        }
     };
 
     const logout = () => {
         authService.logout();
         setUser(null);
+        router.push('/login');
     };
 
     const value: AuthContextType = {

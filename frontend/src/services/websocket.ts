@@ -24,10 +24,13 @@ class WebSocketService {
         this.isConnecting = true;
         const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
         const wsUrl = API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://') + '/ws';
+
+        console.log('Attempting WebSocket connection to:', wsUrl);
+
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
-            console.log('WebSocket connected');
+            console.log('✅ WebSocket connected successfully');
             this.reconnectAttempts = 0;
             this.isConnecting = false;
             this.notifyListeners({ type: 'connection_status', status: 'connected' });
@@ -50,15 +53,15 @@ class WebSocketService {
             }
         };
 
-        this.ws.onclose = () => {
-            console.log('WebSocket disconnected');
+        this.ws.onclose = (event) => {
+            console.log('🔌 WebSocket disconnected:', event.code, event.reason);
             this.isConnecting = false;
             this.notifyListeners({ type: 'connection_status', status: 'disconnected' });
             this.handleReconnect();
         };
 
         this.ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
+            console.error('❌ WebSocket error:', error);
             this.isConnecting = false;
             this.notifyListeners({ type: 'connection_status', status: 'error' });
         };
@@ -74,11 +77,11 @@ class WebSocketService {
             }
 
             this.reconnectTimeout = setTimeout(() => {
-                console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+                console.log(`🔄 Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
                 this.connect();
             }, delay);
         } else {
-            console.log('Max reconnection attempts reached');
+            console.log('⚠️ Max reconnection attempts reached');
             this.notifyListeners({ type: 'connection_status', status: 'failed' });
         }
     }

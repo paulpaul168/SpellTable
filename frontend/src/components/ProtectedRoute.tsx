@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
-import { LoginForm } from './LoginForm';
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
@@ -11,6 +11,13 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
     const { isAuthenticated, isAdmin, loading } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (!loading && !isAuthenticated) {
+            router.push('/login');
+        }
+    }, [isAuthenticated, loading, router]);
 
     if (loading) {
         return (
@@ -24,7 +31,14 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     }
 
     if (!isAuthenticated) {
-        return <LoginForm onLoginSuccess={() => { }} />;
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-800">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-zinc-900 dark:border-zinc-100 mx-auto mb-4"></div>
+                    <p className="text-zinc-600 dark:text-zinc-400">Redirecting to login...</p>
+                </div>
+            </div>
+        );
     }
 
     if (requireAdmin && !isAdmin) {
