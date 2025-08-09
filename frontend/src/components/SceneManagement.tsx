@@ -302,14 +302,24 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                 throw new Error('Failed to fetch scenes');
             }
 
-            const scenesData = await response.json();
+            const data = await response.json();
+
+            // Handle different response structures
+            const scenesData = Array.isArray(data) ? data : (data.scenes || []);
+            const foldersData = data.folders || [];
+
             setScenes(scenesData);
+            setFolders(foldersData);
         } catch (error) {
+            console.error('Error loading scenes:', error);
             toast({
                 title: "Error",
                 description: "Failed to load scenes",
                 variant: "destructive",
             });
+            // Ensure arrays are set even on error
+            setScenes([]);
+            setFolders([]);
         } finally {
             setIsLoading(false);
         }
@@ -608,11 +618,11 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
         }
         // Handle reordering within the same folder
         else if (active.id !== over.id) {
-            const activeSceneFolder = scenes.find(s => s.id === active.id)?.folder || null;
-            const overSceneFolder = scenes.find(s => s.id === over.id)?.folder || null;
+            const activeSceneFolder = Array.isArray(scenes) ? scenes.find(s => s.id === active.id)?.folder || null : null;
+            const overSceneFolder = Array.isArray(scenes) ? scenes.find(s => s.id === over.id)?.folder || null : null;
 
             if (activeSceneFolder === overSceneFolder) {
-                const folderScenes = scenes.filter(s => s.folder === activeSceneFolder);
+                const folderScenes = Array.isArray(scenes) ? scenes.filter(s => s.folder === activeSceneFolder) : [];
                 const oldIndex = folderScenes.findIndex(s => s.id === active.id);
                 const newIndex = folderScenes.findIndex(s => s.id === over.id);
 
@@ -638,7 +648,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
     };
 
     const renderFolderTree = (parent: string | null = null, level: number = 0) => {
-        const childFolders = folders.filter(f => f.parent === (parent || ""));
+        const childFolders = Array.isArray(folders) ? folders.filter(f => f.parent === (parent || "")) : [];
         return childFolders.map(folder => (
             <div key={folder.path}>
                 <DroppableFolder
@@ -665,12 +675,12 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                     <>
                         {renderFolderTree(folder.path, level + 1)}
                         <SortableContext
-                            items={scenes
+                            items={Array.isArray(scenes) ? scenes
                                 .filter(scene => scene.folder === folder.path)
-                                .map(scene => scene.id)}
+                                .map(scene => scene.id) : []}
                             strategy={verticalListSortingStrategy}
                         >
-                            {scenes
+                            {Array.isArray(scenes) ? scenes
                                 .filter(scene => scene.folder === folder.path)
                                 .map(scene => (
                                     <SortableSceneItem
@@ -689,7 +699,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                                             setIsRenameSceneDialogOpen(true);
                                         }}
                                     />
-                                ))}
+                                )) : []}
                         </SortableContext>
                     </>
                 )}
@@ -759,12 +769,12 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                         >
                             {/* Root level scenes */}
                             <SortableContext
-                                items={scenes
+                                items={Array.isArray(scenes) ? scenes
                                     .filter(scene => !scene.folder)
-                                    .map(scene => scene.id)}
+                                    .map(scene => scene.id) : []}
                                 strategy={verticalListSortingStrategy}
                             >
-                                {scenes
+                                {Array.isArray(scenes) ? scenes
                                     .filter(scene => !scene.folder)
                                     .map(scene => (
                                         <SortableSceneItem
@@ -783,7 +793,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                                                 setIsRenameSceneDialogOpen(true);
                                             }}
                                         />
-                                    ))}
+                                    )) : []}
                             </SortableContext>
 
                             {/* Folder Tree */}
