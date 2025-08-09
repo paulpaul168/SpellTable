@@ -2,7 +2,7 @@
  * Authentication service for user login, logout, and management
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+const API_BASE_URL = '/api'; // Use frontend API routes
 
 export interface User {
     id: number;

@@ -35,6 +35,7 @@ services:
     environment:
       # Use internal Docker networking to communicate with backend
       - NEXT_PUBLIC_API_URL=http://backend:8010
+      - BACKEND_URL=http://backend:8010
     networks:
       - spelltable-network
 

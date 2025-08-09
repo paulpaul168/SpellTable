@@ -9,6 +9,7 @@ services:
       - "8010"
     environment:
       - PYTHONUNBUFFERED=1
+      - HTTPS_ENABLED=true
     restart: unless-stopped
     volumes:
       - spelltable-data:/app/data
@@ -31,7 +32,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=http://backend:8010
+        - NEXT_PUBLIC_API_URL=https://backend:8010
     ports:
       - "3000:3000"
     depends_on:
@@ -39,8 +40,21 @@ services:
         condition: service_healthy
     restart: unless-stopped
     environment:
-      - NEXT_PUBLIC_API_URL=http://backend:8010
-      - BACKEND_URL=http://backend:8010
+      - NEXT_PUBLIC_API_URL=https://backend:8010
+    networks:
+      - spelltable-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
     networks:
       - spelltable-network
 

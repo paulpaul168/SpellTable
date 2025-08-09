@@ -2,7 +2,7 @@
  * API service for HTTP requests to the backend
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+const API_BASE_URL = '/api'; // Use frontend API routes
 
 // Common headers for HTTP requests
 const headers = {
