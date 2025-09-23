@@ -41,6 +41,7 @@ export interface AuthResponse {
 }
 
 class AuthService {
+
     private token: string | null = null;
     private user: User | null = null;
 
@@ -60,6 +61,29 @@ class AuthService {
     }
 
     /**
+     * Return a human-readable error message from a failed fetch response
+     */
+    private async readError(response: Response): Promise<string> {
+        const contentType = response.headers.get('Content-Type') || '';
+        const body = await response.text();
+
+        if (contentType.includes('application/json')) {
+            try {
+                const error = JSON.parse(body);
+                return error.detail || error.message || JSON.stringify(error) || 'Login failed';
+            } catch {
+                // Fall through
+            }
+        }
+
+        if (body?.startsWith('<!DOCTYPE')) {
+            return 'Backend unavailable or returned a HTML error page.';
+        }
+
+        return body || `HTTP ${response.status} ${response.statusText}`;
+    }
+
+    /**
      * Login with username and password
      */
     async login(credentials: LoginCredentials): Promise<User> {
@@ -72,8 +96,7 @@ class AuthService {
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Login failed');
+            throw new Error(await this.readError(response));
         }
 
         const data: AuthResponse = await response.json();
