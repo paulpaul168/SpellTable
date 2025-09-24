@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Scene } from '../types/map';
+import { Scene } from '@/types/map';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { useToast } from './ui/use-toast';
-import { authService } from '../services/auth';
+import { authService } from '@/services/auth';
 import { Folder, FolderPlus, FolderMinus, ChevronRight, ChevronDown, Map, Trash, Pencil } from 'lucide-react';
 import {
     DndContext,
@@ -28,8 +28,9 @@ import {
 } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { cn } from '../lib/utils';
+import { cn } from '@/lib/utils';
 import { createPortal } from 'react-dom';
+import {getApiUrl} from "@/utils/api";
 
 interface FolderItem {
     name: string;
@@ -290,7 +291,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
     const loadScenes = async () => {
         try {
             setIsLoading(true);
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/scenes/list`, {
                 headers: {
                     ...authService.getAuthHeader(),
@@ -333,7 +334,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
 
     const handleCreateFolder = async () => {
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/scenes/folder`, {
                 method: 'POST',
                 headers: {
@@ -370,7 +371,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
         if (!folderToDelete) return;
 
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/scenes/folder/${folderToDelete.path}`, {
                 method: 'DELETE',
             });
@@ -399,7 +400,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
         if (!sceneToDelete) return;
 
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/scenes/${sceneToDelete.id}`, {
                 method: 'DELETE',
             });

@@ -1,8 +1,9 @@
 /**
  * API service for HTTP requests to the backend
  */
+import {getApiUrl} from "@/utils/api";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+const API_BASE_URL = getApiUrl();
 
 // Common headers for HTTP requests
 const headers = {

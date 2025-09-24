@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CampaignSelector } from '../../../components/CampaignSelector';
-import { EnhancedCampaignDiary } from '../../../components/EnhancedCampaignDiary';
-import { Campaign } from '../../../components/CampaignManagement';
-import { ProtectedRoute } from '../../../components/ProtectedRoute';
-import { useAuth } from '../../../contexts/AuthContext';
-import { authService } from '../../../services/auth';
-import { Button } from '../../../components/ui/button';
+import { CampaignSelector } from '@/components/CampaignSelector';
+import { EnhancedCampaignDiary } from '@/components/EnhancedCampaignDiary';
+import { Campaign } from '@/components/CampaignManagement';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { useAuth } from '@/contexts/AuthContext';
+import { authService } from '@/services/auth';
+import { Button } from '@/components/ui/button';
+import {getApiUrl} from "@/utils/api";
 
 export default function CampaignsPage() {
     const { user, logout } = useAuth();
@@ -22,7 +23,7 @@ export default function CampaignsPage() {
     const loadCampaigns = async () => {
         try {
             setIsLoading(true);
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/campaigns/`, {
+            const response = await fetch(`${getApiUrl()}/campaigns/`, {
                 headers: {
                     ...authService.getAuthHeader(),
                     'Content-Type': 'application/json',
