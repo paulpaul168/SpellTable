@@ -30,7 +30,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from '@/lib/utils';
 import { createPortal } from 'react-dom';
-import {getApiUrl} from "@/utils/api";
+import {getApiBaseUrl, getApiUrl} from "@/utils/api";
 
 interface FolderItem {
     name: string;
@@ -429,7 +429,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
         if (!folderToRename || !newRenameFolderName.trim()) return;
 
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const API_BASE_URL = getApiBaseUrl();
             const response = await fetch(`${API_BASE_URL}/scenes/folder/${folderToRename.path}`, {
                 method: 'PUT',
                 headers: {
@@ -470,7 +470,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                 name: newRenameSceneName
             };
 
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const API_BASE_URL = getApiBaseUrl();
             const response = await fetch(`${API_BASE_URL}/scenes/${sceneToRename.id}`, {
                 method: 'PUT',
                 headers: {
@@ -519,7 +519,7 @@ export const SceneManagement: React.FC<SceneManagementProps> = ({
                 folder: targetFolder || undefined
             };
 
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+            const API_BASE_URL = getApiBaseUrl();
             const response = await fetch(`${API_BASE_URL}/scenes/${scene.id}`, {
                 method: 'PUT',
                 headers: {
