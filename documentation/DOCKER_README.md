@@ -45,8 +45,8 @@ version: '3.8'
 services:
   backend:
     build:
-      context: ../backend
-      dockerfile: ../backend/Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     expose:
       - "8010"
     environment:
@@ -66,8 +66,8 @@ services:
 
   frontend:
     build:
-      context: ../frontend
-      dockerfile: ../frontend/Dockerfile
+      context: ./frontend
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     depends_on:
