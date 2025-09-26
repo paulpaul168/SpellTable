@@ -28,14 +28,14 @@ class HitDiceService:
         for token in tokens:
             if "d" in token.lower(): # Dice Term
                 pattern_match = re.match(r"([+-]?)(\d+)d(\d+)", token, re.IGNORECASE)
+                if not pattern_match:
+                    raise ValueError(f"Invalid dice term: {token}")
                 sign, count, faces = pattern_match.groups()
                 count, faces = int(count), int(faces)
                 if count <= 0 or faces <= 0:
                     raise ValueError(f"Dice must be positive: {token}")
-                # Negative dice count is not standard, but we allow it for flexibility. This can be done by flipping
-                # the sign.
                 if sign == "-":
-                    count = -count
+                    raise ValueError(f"Negative dice are not allowed: {token}")
                 dice_terms.append(DiePool(count=count, die=Die(faces=faces)))
             else: # Pure number
                 modifier += int(token)
