@@ -1,24 +1,169 @@
 [
   {
     "name": "Goblin",
-    "challenge": {
-      "rating": 0.25,
-      "xp": 50.0
+    "size": "Small",
+    "alignment": "Neutral Evil",
+    "armor": {
+      "ac": 15,
+      "type": "Leather"
     },
     "hp": {
       "average": 7,
       "hit_dice": "2d6"
-    }
-  },
-  {
-    "name": "Wolf",
+    },
+    "speed": {
+      "walk": 30
+    },
+    "ability_scores": {
+      "strength": 8,
+      "dexterity": 14,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 8,
+      "charisma": 8
+    },
+    "senses": {
+      "darkvision": 60,
+      "passive_perception": 9
+    },
+    "languages": [
+      "Common",
+      "Goblin"
+    ],
     "challenge": {
       "rating": 0.25,
       "xp": 50.0
     },
+    "descriptions": [
+      {
+        "title": "Nimble Escape",
+        "description": "The goblin can take the Disengage or Hide action as a bonus action on each of its turns."
+      }
+    ],
+    "actions": [
+      {
+        "title": "Scimitar",
+        "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) slashing damage."
+      },
+      {
+        "title": "Shortbow",
+        "description": "Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+      }
+    ]
+  },
+  {
+    "name": "Goblin Boss",
+    "size": "Small",
+    "alignment": "Neutral Evil",
+    "armor": {
+      "ac": 17,
+      "type": "Chain Shirt",
+      "shield": true
+    },
+    "hp": {
+      "average": 21,
+      "hit_dice": "6d6"
+    },
+    "speed": {
+      "walk": 30
+    },
+    "ability_scores": {
+      "strength": 10,
+      "dexterity": 14,
+      "constitution": 10,
+      "intelligence": 10,
+      "wisdom": 8,
+      "charisma": 10
+    },
+    "senses": {
+      "darkvision": 60,
+      "passive_perception": 9
+    },
+    "languages": [
+      "Common",
+      "Goblin"
+    ],
+    "challenge": {
+      "rating": 1,
+      "xp": 200.0
+    },
+    "descriptions": [
+      {
+        "title": "Nimble Escape",
+        "description": "The goblin can take the Disengage or Hide action as a bonus action on each of its turns."
+      }
+    ],
+    "actions": [
+      {
+        "title": "Multiattack",
+        "description": "The goblin makes two attacks with its scimitar. The second attack has disadvantage."
+      },
+      {
+        "title": "Scimitar",
+        "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) slashing damage."
+      },
+      {
+        "title": "Shortbow",
+        "description": "Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+      },
+      {
+        "title": "Javelin",
+        "description": "Melee or Ranged Weapon Attack: +4 to hit, reach 5 ft. or range 30/120 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+      }
+    ],
+    "reactions": [
+      {
+        "title": "Redirect Attack",
+        "description": "When a creature the goblin can see targets it with an attack, the goblin chooses another goblin within 5 feet of it. The two goblins swap places, and the chosen goblin becomes the target instead."
+      }
+    ]
+  },
+  {
+    "name": "Wolf",
+    "size": "Medium",
+    "alignment": "Unaligned",
+    "armor": {
+      "ac": 13,
+      "type": "Natural Armor"
+    },
     "hp": {
       "average": 11,
       "hit_dice": "2d8+2"
-    }
+    },
+    "speed": {
+      "walk": 40
+    },
+    "ability_scores": {
+      "strength": 12,
+      "dexterity": 15,
+      "constitution": 12,
+      "intelligence": 3,
+      "wisdom": 12,
+      "charisma": 6
+    },
+    "senses": {
+      "passive_perception": 13
+    },
+    "languages": [],
+    "challenge": {
+      "rating": 0.25,
+      "xp": 50.0
+    },
+    "descriptions": [
+      {
+        "title": "Keen Hearing and Smell",
+        "description": "The wolf has advantage on Wisdom (Perception) checks that rely on hearing or smell."
+      },
+      {
+        "title": "Pack Tactics",
+        "description": "The wolf has advantage on an attack roll against a creature if at least one of the wolf's allies is within 5 feet of the creature and the ally isn't incapacitated."
+      }
+    ],
+    "actions": [
+      {
+        "title": "Bite",
+        "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 (2d4 + 2) piercing damage. If the target is a creature, it must succeed on a DC 11 Strength saving throw or be knocked prone."
+      }
+    ]
   }
 ]

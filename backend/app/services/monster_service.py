@@ -21,6 +21,14 @@ class MonsterService:
         """Load all monsters."""
         return self.__load_monsters_from_json()
 
+    def load_monster(self, monster_name: str) -> Monster | None:
+        """Load a monster by name. Returns None if the monster does not exist."""
+        monsters = self.__load_monsters_from_json()
+        for monster in monsters:
+            if monster.name == monster_name:
+                return monster
+        return None
+
     def create_monster(self, monster: Monster) -> bool:
         """Create a new monster. Returns True if the monster was created, False if a monster with the same name already exists."""
         monsters = self.__load_monsters_from_json()

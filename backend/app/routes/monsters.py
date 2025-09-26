@@ -20,6 +20,19 @@ async def list_monsters() -> List[Monster]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
+@router.get("/{monster_name}", status_code=200)
+async def get_monster(monster_name: str) -> Monster:
+    try:
+        service = MonsterService()
+        monster = service.load_monster(monster_name)
+        if monster is None:
+            raise HTTPException(status_code=404, detail=f"Monster '{monster_name}' not found")
+        return monster
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
 @router.post("", status_code=201)
 async def create_monster(monster: Monster = Body(...)) -> None:
     try:
