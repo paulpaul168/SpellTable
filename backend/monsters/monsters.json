@@ -1,0 +1,24 @@
+[
+  {
+    "name": "Goblin",
+    "challenge": {
+      "rating": 0.25,
+      "xp": 50.0
+    },
+    "hp": {
+      "average": 7,
+      "hit_dice": "2d6"
+    }
+  },
+  {
+    "name": "Wolf",
+    "challenge": {
+      "rating": 0.25,
+      "xp": 50.0
+    },
+    "hp": {
+      "average": 11,
+      "hit_dice": "2d8+2"
+    }
+  }
+]

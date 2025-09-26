@@ -1,0 +1,43 @@
+import re
+from typing import Dict, Union
+
+from ..models.die import DiePool, Die
+
+
+class HitDiceService:
+
+    def __new__(cls):
+        """Singleton pattern to ensure only one instance of HitDiceService exists."""
+        if not hasattr(cls, "instance"):
+            cls.instance = super(HitDiceService, cls).__new__(cls)
+        return cls.instance
+
+    def parse_hit_dice(self, expression: str) -> Dict[str, Union[list[DiePool], int]]:
+        expression = expression.strip().replace(" ", "")
+        if not expression:
+            raise ValueError("Empty expression")
+
+        compiled_regex = re.compile(r"([+-]?\d+d\d+|[+-]?\d+)", re.IGNORECASE)
+        tokens = compiled_regex.findall(expression)
+        if not tokens:
+            raise ValueError(f"Invalid expression: {expression}")
+
+        dice_terms: list[DiePool] = []
+        modifier = 0
+
+        for token in tokens:
+            if "d" in token.lower(): # Dice Term
+                pattern_match = re.match(r"([+-]?)(\d+)d(\d+)", token, re.IGNORECASE)
+                sign, count, faces = pattern_match.groups()
+                count, faces = int(count), int(faces)
+                if count <= 0 or faces <= 0:
+                    raise ValueError(f"Dice must be positive: {token}")
+                # Negative dice count is not standard, but we allow it for flexibility. This can be done by flipping
+                # the sign.
+                if sign == "-":
+                    count = -count
+                dice_terms.append(DiePool(count=count, die=Die(faces=faces)))
+            else: # Pure number
+                modifier += int(token)
+
+        return {"dice": dice_terms, "modifier": modifier}
