@@ -26,7 +26,7 @@ import {
     RotateCw,
     UserPlus,
     Shield,
-    BookOpen
+    BookOpen, Skull
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -56,6 +56,7 @@ import { MoveEverythingDialog } from './MoveEverythingDialog';
 import { UserManagementDialog } from './UserManagementDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import {getApiUrl} from "@/utils/api";
+import {MonsterManagementDialog} from "@/components/MonsterManagementDialog";
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -147,6 +148,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isViewerBlanked, setIsViewerBlanked] = useState(false);
     const [isViewerRotated, setIsViewerRotated] = useState(false);
     const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
+    const [isMonsterManagementOpen, setIsMonsterManagementOpen] = useState(false);
 
     // Remove display scale functionality, using fixed 1.0 scale
     const displayScale = 1.0;
@@ -1527,6 +1529,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
                                             className="text-xs cursor-pointer"
+                                            onClick={() => setIsMonsterManagementOpen(true)}
+                                        >
+                                            <Skull className="h-4 w-4 mr-2" />
+                                            Monster Management
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="text-xs cursor-pointer"
                                             onClick={logout}
                                         >
                                             <Users className="h-4 w-4 mr-2" />
@@ -1704,6 +1713,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             <UserManagementDialog
                 isOpen={isUserManagementOpen}
                 onClose={() => setIsUserManagementOpen(false)}
+            />
+
+            {/* Monster Management Dialog */}
+            <MonsterManagementDialog
+                isOpen={isMonsterManagementOpen}
+                onClose={() => setIsMonsterManagementOpen(false)}
             />
 
             {/* AoE and Fog of War Palette Toggle Buttons - Only show when not in clean layout */}
