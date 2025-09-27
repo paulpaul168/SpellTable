@@ -50,8 +50,6 @@ class MonsterService {
             const error = await response.json();
             throw new Error(error.detail || 'Failed to create monster');
         }
-
-        return response.json();
     }
 
     async updateMonster(monsterName: string, monster: Monster): Promise<void> {
@@ -67,8 +65,6 @@ class MonsterService {
             const error = await response.json();
             throw new Error(error.detail || 'Failed to update monster');
         }
-
-        return response.json();
     }
 
     async deleteMonster(monsterName: name): Promise<void> {

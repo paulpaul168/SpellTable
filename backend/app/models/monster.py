@@ -3,6 +3,8 @@ This module contains the monster models.
 """
 from typing import Optional
 
+from pydantic import field_validator
+
 from ..core.model_base import ModelBase
 from ..core.types import CreatureSize, DamageType, Condition, Language, SavingThrow, Skill, Armor, Alignment
 
@@ -64,7 +66,7 @@ class Description(ModelBase):
 class Monster(ModelBase):
     name: str
     size: CreatureSize
-    alignment: Optional[Alignment] = None
+    alignment: Alignment
     armor: ArmorClass
     hp: HitPoints
     speed: Speed
@@ -84,3 +86,30 @@ class Monster(ModelBase):
     actions: Optional[list[Description]] = []
     reactions: Optional[list[Description]] = []
     legendary_actions: Optional[list[Description]] = []
+
+    @field_validator('size', mode='before')
+    def normalize_size(cls, value):
+        if isinstance(value, str):
+            formatted_value = value.replace('_', ' ').replace('-', ' ').strip().lower()
+            for e in CreatureSize:
+                if e.value.lower() == formatted_value or e.name.lower() == formatted_value:
+                    return e
+        return value
+
+    @field_validator('alignment', mode='before')
+    def normalize_alignment(cls, value):
+        if isinstance(value, str):
+            formatted_value = value.replace('_', ' ').replace('-', ' ').strip().lower()
+            for e in Alignment:
+                if e.value.lower() == formatted_value or e.name.lower() == formatted_value:
+                    return e
+        return value
+
+    @field_validator('armor', mode='before')
+    def normalize_armor(cls, value):
+        if isinstance(value, dict) and 'type' in value and isinstance(value['type'], str):
+            formatted_value = value['type'].replace('_', ' ').replace('-', ' ').strip().lower()
+            for e in Armor:
+                if e.value.lower() == formatted_value or e.name.lower() == formatted_value:
+                    value['type'] = e
+        return value
