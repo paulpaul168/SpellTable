@@ -3,23 +3,22 @@ This module contains the monster models.
 """
 from typing import Optional
 
-from pydantic import BaseModel
-
+from ..core.model_base import ModelBase
 from ..core.types import CreatureSize, DamageType, Condition, Language, SavingThrow, Skill, Armor, Alignment
 
 
-class ArmorClass(BaseModel):
+class ArmorClass(ModelBase):
     ac: int
     type: Armor = Armor.NATURAL_ARMOR
     shield: bool = False
 
 
-class HitPoints(BaseModel):
+class HitPoints(ModelBase):
     average: int
     hit_dice: str
 
 
-class Speed(BaseModel):
+class Speed(ModelBase):
     walk: Optional[int] = None
     fly: Optional[int] = None
     swim: Optional[int] = None
@@ -27,7 +26,7 @@ class Speed(BaseModel):
     climb: Optional[int] = None
 
 
-class AbilityScores(BaseModel):
+class AbilityScores(ModelBase):
     strength: int
     dexterity: int
     constitution: int
@@ -36,33 +35,33 @@ class AbilityScores(BaseModel):
     charisma: int
 
 
-class SavingThrowModifier(BaseModel):
+class SavingThrowModifier(ModelBase):
     saving_throw: SavingThrow
     modifier: int
 
 
-class SkillModifier(BaseModel):
+class SkillModifier(ModelBase):
     skill: Skill
     modifier: int
 
 
-class Senses(BaseModel):
+class Senses(ModelBase):
     passive_perception: int
     darkvision: Optional[int] = None
 
 
-class Challenge(BaseModel):
+class Challenge(ModelBase):
     rating: float
     xp: float
 
 
-class Description(BaseModel):
+class Description(ModelBase):
     title: str
     description: str
 
 
 # A monster model.
-class Monster(BaseModel):
+class Monster(ModelBase):
     name: str
     size: CreatureSize
     alignment: Optional[Alignment] = None
