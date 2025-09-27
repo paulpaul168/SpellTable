@@ -134,6 +134,8 @@ export function MonsterManagement() {
     };
 
     const openCreateDialog = () => {
+        setEditingMonsterName(null);
+        setEditingMonster(null);
         resetCreateEditForm();
         setIsCreateEditDialogOpen(true);
     };
