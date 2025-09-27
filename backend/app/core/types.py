@@ -88,6 +88,7 @@ class DamageType(Enum):
 class Condition(Enum):
     BLINDED = "Blinded"
     CHARMED = "Charmed"
+    EXHAUSTION = "Exhaustion"
     DEAFENED = "Deafened"
     FRIGHTENED = "Frightened"
     GRAPPLED = "Grappled"

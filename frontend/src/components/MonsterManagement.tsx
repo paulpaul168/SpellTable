@@ -34,6 +34,7 @@ export function MonsterManagement() {
         challenge: {rating: 1, xp: 200},
         saving_throws: [],
         skills: [],
+        damage_vulnerabilities: [],
         damage_resistances: [],
         damage_immunities: [],
         condition_immunities: [],
@@ -387,6 +388,11 @@ export function MonsterManagement() {
                             {(viewMonster?.skills?.length ?? 0) > 0 &&
                                 <p>
                                     Skills: {viewMonster?.skills?.map(skill => `${skill.skill} ${skill.modifier >= 0 ? '+' : '-'}${skill.modifier}`).join(", ")}
+                                </p>
+                            }
+                            {(viewMonster?.damage_vulnerabilities?.length ?? 0) > 0 &&
+                                <p>
+                                    Damage vulnerabilities: {viewMonster?.damage_vulnerabilities?.join(', ')}
                                 </p>
                             }
                             {(viewMonster?.damage_resistances?.length ?? 0) > 0 &&
