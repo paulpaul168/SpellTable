@@ -75,6 +75,7 @@ class Monster(ModelBase):
 
     saving_throws: Optional[list[SavingThrowModifier]] = []
     skills: Optional[list[SkillModifier]] = []
+    damage_vulnerabilities: Optional[list[DamageType]] = []
     damage_resistances: Optional[list[DamageType]] = []
     damage_immunities: Optional[list[DamageType]] = []
     condition_immunities: Optional[list[Condition]] = []
