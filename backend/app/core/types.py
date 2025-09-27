@@ -113,3 +113,10 @@ class Language(Enum):
     HALFLING = "Halfling"
     ORC = "Orc"
     UNDERCOMMON = "Undercommon"
+
+
+class EncounterDifficulty(Enum):
+    EASY = "Easy"
+    MEDIUM = "Medium"
+    HARD = "Hard"
+    DEADLY = "Deadly"
