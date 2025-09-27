@@ -49,7 +49,22 @@ export function MonsterManagement() {
 
     // === Operations logic ===
     const handleDeleteMonster = async (monsterName: string) => {
+        if (!confirm('Are you sure you want to delete this monster?')) return;
 
+        try {
+            await monsterService.deleteMonster(monsterName);
+            toast({
+                title: "Success",
+                description: "Monster deleted successfully",
+            });
+            loadMonsters();
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: error instanceof Error ? error.message : "Failed to delete monster",
+                variant: "destructive",
+            });
+        }
     };
 
     // === Filtering logic ===

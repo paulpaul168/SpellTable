@@ -74,7 +74,6 @@ class MonsterService {
     async deleteMonster(monsterName: name): Promise<void> {
         const response = await fetch(`${API_BASE_URL}/monsters/${monsterName}`, {
             method: 'DELETE',
-            headers: this.getAuthHeader(),
         });
 
         if (!response.ok) {
