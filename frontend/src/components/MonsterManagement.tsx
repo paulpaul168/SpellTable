@@ -186,7 +186,6 @@ export function MonsterManagement() {
                 description: error instanceof Error ? error.message : "Failed to update monster",
                 variant: "destructive",
             });
-            console.log(error.message);
         }
     }
 
@@ -199,7 +198,7 @@ export function MonsterManagement() {
     }
 
     // === Conversion ===
-    const formatEnumForApi = (value: string): string =>  {
+    const formatEnumForApi = (value: string): string => {
         return value.trim()
             .replace(/[_-]/g, ' ')
             .toLowerCase()
@@ -216,11 +215,11 @@ export function MonsterManagement() {
 
     const convertMonsterEnumsForApi = (monster: Monster): Monster => ({
         ...monster,
-        size: formatEnumForApi(monster.size),
+        size: formatEnumForApi(monster.size)!,
         alignment: monster.alignment ? formatEnumForApi(monster.alignment) : undefined,
         armor: {
             ...monster.armor,
-            type: formatEnumForApi(monster.armor.type)
+            ...(monster.armor.type ? { type: formatEnumForApi(monster.armor.type) } : {})
         }
     })
 
@@ -230,7 +229,7 @@ export function MonsterManagement() {
         alignment: monster.alignment ? formatEnumForFrontend(monster.alignment) : undefined,
         armor: {
             ...monster.armor,
-            type: formatEnumForFrontend(monster.armor.type)
+            ...(monster.armor.type ? { type: formatEnumForFrontend(monster.armor.type) } : {})
         }
     })
 
@@ -380,28 +379,28 @@ export function MonsterManagement() {
                         )}
 
                         <div className="space-y-1">
-                            {viewMonster?.saving_throws?.length > 0 &&
+                            {(viewMonster?.saving_throws?.length ?? 0) > 0 &&
                                 <p>
                                     Saving
                                     Throws: {viewMonster?.saving_throws?.map(st => `${st.saving_throw} ${st.modifier >= 0 ? '+' : '-'}${st.modifier}`).join(", ")}
                                 </p>
                             }
-                            {viewMonster?.skills?.length > 0 &&
+                            {(viewMonster?.skills?.length ?? 0) > 0 &&
                                 <p>
                                     Skills: {viewMonster?.skills?.map(skill => `${skill.skill} ${skill.modifier >= 0 ? '+' : '-'}${skill.modifier}`).join(", ")}
                                 </p>
                             }
-                            {viewMonster?.damage_resistances?.length > 0 &&
+                            {(viewMonster?.damage_resistances?.length ?? 0) > 0 &&
                                 <p>
                                     Damage resistances: {viewMonster?.damage_resistances?.join(', ')}
                                 </p>
                             }
-                            {viewMonster?.damage_immunities?.length > 0 &&
+                            {(viewMonster?.damage_immunities?.length ?? 0) > 0 &&
                                 <p>
                                     Damage immunities: {viewMonster?.damage_immunities?.join(', ')}
                                 </p>
                             }
-                            {viewMonster?.condition_immunities?.length > 0 &&
+                            {(viewMonster?.condition_immunities?.length ?? 0) > 0 &&
                                 <p>
                                     Condition immunities: {viewMonster?.condition_immunities?.join(', ')}
                                 </p>
@@ -412,7 +411,7 @@ export function MonsterManagement() {
                                     passive Perception {viewMonster?.senses.passive_perception}
                                 </p>
                             }
-                            {viewMonster?.languages?.length > 0 &&
+                            {(viewMonster?.languages?.length ?? 0) > 0 &&
                                 <p>
                                     Languages: {viewMonster?.languages && viewMonster?.languages?.length === 0 ? '-' : viewMonster?.languages?.join(', ')}
                                 </p>
@@ -429,9 +428,9 @@ export function MonsterManagement() {
                                 (viewMonster?.legendary_actions?.length ?? 0) > 0
                             ) &&
                             <div className="space-y-3">
-                                {viewMonster?.descriptions?.length > 0 && (
+                                {(viewMonster?.descriptions?.length ?? 0) > 0 && (
                                     <div className="space-y-2">
-                                        {viewMonster?.descriptions.map((description) => (
+                                        {(viewMonster?.descriptions ?? []).map((description) => (
                                             <div key={`description-${description.title}`}>
                                                 <span className="font-semibold text-sm text-zinc-600 dark:text-zinc-400">{description.title}. </span>
                                                 <span className="font-semitbold text-sm text-zinc-600 dark:text-zinc-400">{description.description}</span>
@@ -439,10 +438,10 @@ export function MonsterManagement() {
                                         ))}
                                     </div>
                                 )}
-                                {viewMonster?.actions?.length > 0 && (
+                                {(viewMonster?.actions?.length ?? 0) > 0 && (
                                     <div className="space-y-2">
                                         <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Actions:</h3>
-                                        {viewMonster?.actions.map((description) => (
+                                        {(viewMonster?.actions ?? []).map((description) => (
                                             <div key={`action-${description.title}`}>
                                                 <span className="font-semibold text-sm text-zinc-600 dark:text-zinc-400">{description.title}. </span>
                                                 <span className="font-semitbold text-sm text-zinc-600 dark:text-zinc-400">{description.description}</span>
@@ -450,10 +449,10 @@ export function MonsterManagement() {
                                         ))}
                                     </div>
                                 )}
-                                {viewMonster?.reactions?.length > 0 && (
+                                {(viewMonster?.reactions?.length ?? 0) > 0 && (
                                     <div className="space-y-2">
                                         <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Reactions:</h3>
-                                        {viewMonster?.reactions.map((description) => (
+                                        {(viewMonster?.reactions ?? []).map((description) => (
                                             <div key={`reaction-${description.title}`}>
                                                 <span className="font-semibold text-sm text-zinc-600 dark:text-zinc-400">{description.title}. </span>
                                                 <span className="font-semitbold text-sm text-zinc-600 dark:text-zinc-400">{description.description}</span>
@@ -461,11 +460,11 @@ export function MonsterManagement() {
                                         ))}
                                     </div>
                                 )}
-                                {viewMonster?.legendary_actions?.length > 0 && (
+                                {(viewMonster?.legendary_actions?.length ?? 0) > 0 && (
                                     <div className="space-y-2">
                                         <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Legendary
                                             Actions:</h3>
-                                        {viewMonster?.legendary_actions.map((description) => (
+                                        {(viewMonster?.legendary_actions ?? []).map((description) => (
                                             <div key={`legendary-action-${description.title}`}>
                                                 <span className="font-semibold text-sm text-zinc-600 dark:text-zinc-400">{description.title}. </span>
                                                 <span className="font-semitbold text-sm text-zinc-600 dark:text-zinc-400">{description.description}</span>

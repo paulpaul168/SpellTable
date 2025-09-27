@@ -10,11 +10,11 @@ export interface HitPoints {
 }
 
 export interface Speed {
-    walk?: string;
-    fly?: string;
-    swim?: string;
-    burrow?: string;
-    climb?: string;
+    walk?: number;
+    fly?: number;
+    swim?: number;
+    burrow?: number;
+    climb?: number;
 }
 
 export interface AbilityScores {
