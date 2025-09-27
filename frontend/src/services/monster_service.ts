@@ -6,7 +6,7 @@ const API_BASE_URL = getApiUrl();
 class MonsterService {
 
     async getMonsters(): Promise<Monster[]> {
-        const response = await fetch(`${API_BASE_URL}/monsters/`, {
+        const response = await fetch(`${API_BASE_URL}/monsters`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',

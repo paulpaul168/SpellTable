@@ -432,7 +432,7 @@ export function MonsterManagement() {
                                         {(viewMonster?.descriptions ?? []).map((description) => (
                                             <div key={`description-${description.title}`}>
                                                 <span className="font-semibold text-sm text-zinc-600 dark:text-zinc-400">{description.title}. </span>
-                                                <span className="font-semitbold text-sm text-zinc-600 dark:text-zinc-400">{description.description}</span>
+                                                <span className="text-sm text-zinc-600 dark:text-zinc-400">{description.description}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -443,7 +443,7 @@ export function MonsterManagement() {
                                         {(viewMonster?.actions ?? []).map((description) => (
                                             <div key={`action-${description.title}`}>
                                                 <span className="font-semibold text-sm text-zinc-600 dark:text-zinc-400">{description.title}. </span>
-                                                <span className="font-semitbold text-sm text-zinc-600 dark:text-zinc-400">{description.description}</span>
+                                                <span className="text-sm text-zinc-600 dark:text-zinc-400">{description.description}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -454,7 +454,7 @@ export function MonsterManagement() {
                                         {(viewMonster?.reactions ?? []).map((description) => (
                                             <div key={`reaction-${description.title}`}>
                                                 <span className="font-semibold text-sm text-zinc-600 dark:text-zinc-400">{description.title}. </span>
-                                                <span className="font-semitbold text-sm text-zinc-600 dark:text-zinc-400">{description.description}</span>
+                                                <span className="text-sm text-zinc-600 dark:text-zinc-400">{description.description}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -466,7 +466,7 @@ export function MonsterManagement() {
                                         {(viewMonster?.legendary_actions ?? []).map((description) => (
                                             <div key={`legendary-action-${description.title}`}>
                                                 <span className="font-semibold text-sm text-zinc-600 dark:text-zinc-400">{description.title}. </span>
-                                                <span className="font-semitbold text-sm text-zinc-600 dark:text-zinc-400">{description.description}</span>
+                                                <span className="text-sm text-zinc-600 dark:text-zinc-400">{description.description}</span>
                                             </div>
                                         ))}
                                     </div>
