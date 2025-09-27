@@ -3,6 +3,7 @@ This module provides services related to monster management in the game.
 """
 import hashlib
 import json
+import threading
 from typing import List
 
 from ..core.constants import MONSTERS_DIR
@@ -10,21 +11,32 @@ from ..models.monster import Monster
 
 class MonsterService:
 
-    MONSTER_FILE_PATH: str = MONSTERS_DIR + "/monsters.json"
+    _instance = None
+    _lock = threading.Lock()
 
-    # When loading the file content (monsters) from the disk a cache mechanism is used to avoid unmarshalling the JSON
-    # content every time a monster is requested. The cache is invalidated when the file changes. Despite the binary
-    # content of a file being read every time when a monster is requested for hash calculation, this is still more
-    # efficient than reading the file content and unmarshalling the JSON every time as JSON unmarshalling is quite
-    # expensive in terms of performance and the majority of the time there are no changes to the file.
-    monster_file_hash: str = ''
-    monster_cache: List[Monster] = None
+    MONSTER_FILE_PATH: str = MONSTERS_DIR + "/monsters.json"
 
     def __new__(cls):
         """Singleton pattern to ensure only one instance of MonsterService exists."""
-        if not hasattr(cls, "instance"):
-            cls.instance = super(MonsterService, cls).__new__(cls)
-        return cls.instance
+        if cls._instance is None:
+            with cls._lock:
+                # Another thread could have created the instance  before we acquired the lock. So check that the
+                # instance is still nonexistent.
+                if not cls._instance:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        if getattr(self, "_initialized", False):
+            return
+        # When loading the file content (monsters) from the disk a cache mechanism is used to avoid unmarshalling the JSON
+        # content every time a monster is requested. The cache is invalidated when the file changes. Despite the binary
+        # content of a file being read every time when a monster is requested for hash calculation, this is still more
+        # efficient than reading the file content and unmarshalling the JSON every time as JSON unmarshalling is quite
+        # expensive in terms of performance and the majority of the time there are no changes to the file.
+        self.monster_file_hash: str = ''
+        self.monster_cache: List[Monster] | None = None
+        self._initialized = True
 
     def load_monsters(self) -> List[Monster]:
         """Load all monsters."""

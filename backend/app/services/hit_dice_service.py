@@ -1,4 +1,5 @@
 import re
+import threading
 from typing import Dict, Union
 
 from ..models.die import DiePool, Die
@@ -6,11 +7,18 @@ from ..models.die import DiePool, Die
 
 class HitDiceService:
 
+    _instance = None
+    _lock = threading.Lock()
+
     def __new__(cls):
         """Singleton pattern to ensure only one instance of HitDiceService exists."""
-        if not hasattr(cls, "instance"):
-            cls.instance = super(HitDiceService, cls).__new__(cls)
-        return cls.instance
+        if cls._instance is None:
+            with cls._lock:
+                # Another thread could have created the instance before we acquired the lock. So check that the
+                # instance is still nonexistent.
+                if not cls._instance:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
 
     def parse_hit_dice(self, expression: str) -> Dict[str, Union[list[DiePool], int]]:
         expression = expression.strip().replace(" ", "")
