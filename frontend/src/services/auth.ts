@@ -1,8 +1,9 @@
 /**
  * Authentication service for user login, logout, and management
  */
+import {getApiUrl} from "@/utils/api";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+const API_BASE_URL = getApiUrl();
 
 export interface User {
     id: number;
@@ -41,6 +42,7 @@ export interface AuthResponse {
 }
 
 class AuthService {
+
     private token: string | null = null;
     private user: User | null = null;
 

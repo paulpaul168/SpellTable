@@ -4,11 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent } from './ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Badge } from './ui/badge';
-import { authService, User } from '../services/auth';
+import { authService, User } from '@/services/auth';
 import { useToast } from './ui/use-toast';
+import { getApiUrl } from "@/utils/api";
 
 export interface Campaign {
     id: number;
@@ -35,7 +36,7 @@ export interface CampaignUpdate {
 }
 
 class CampaignService {
-    static API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+    static API_BASE_URL = getApiUrl();
 
     static async getCampaigns(): Promise<Campaign[]> {
         const response = await fetch(`${this.API_BASE_URL}/campaigns/`, {

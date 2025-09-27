@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MapData, AoEMarker as AoEMarkerType } from '../types/map';
+import { MapData } from '@/types/map';
 import { EyeOff } from 'lucide-react';
+import {getApiUrl} from "@/utils/api";
 
 interface MapProps {
     map: MapData;
@@ -21,7 +22,7 @@ interface MapProps {
 
 // Update image source URL to include folder path if available
 const getMapImageUrl = (map: MapData) => {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+    const API_BASE_URL = getApiUrl();
     const baseUrl = `${API_BASE_URL}/maps/file`;
 
     // Add debugging log
@@ -347,7 +348,7 @@ export const Map: React.FC<MapProps> = ({
     const getMapUrl = () => {
         // Handle folder structure if present
         const folderPrefix = map.folder ? `/${map.folder.replace(/^\//, '')}` : '';
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+        const API_BASE_URL = getApiUrl();
         return `${API_BASE_URL}/maps/file/${folderPrefix}/${encodeURIComponent(map.name)}`;
     };
 

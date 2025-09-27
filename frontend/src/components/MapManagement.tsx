@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapData } from '../types/map';
+import { MapData } from '@/types/map';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
@@ -27,8 +27,9 @@ import {
 } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { cn } from '../lib/utils';
+import { cn } from '@/lib/utils';
 import { createPortal } from 'react-dom';
+import {getApiUrl} from "@/utils/api";
 
 interface FolderItem {
     name: string;
@@ -343,7 +344,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
     const loadAllMaps = async () => {
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/maps/list`, {
                 headers: {
                     'Content-Type': 'application/json',
@@ -391,7 +392,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
     const loadMapFolders = async () => {
         try {
             console.log("Loading map folders...");
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/maps/folders`, {
                 headers: {
                     'Content-Type': 'application/json',
@@ -444,7 +445,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
         }
 
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/maps/folder`, {
                 method: 'POST',
                 headers: {
@@ -479,7 +480,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
     const handleDeleteFolder = async (folderName: string) => {
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/maps/folder/${folderName}`, {
                 method: 'DELETE',
             });
@@ -510,7 +511,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
         }
 
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/maps/upload`, {
                 method: 'POST',
                 body: formData,
@@ -538,7 +539,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
         try {
             console.log(`Renaming map from "${map.name}" to "${newName}"`);
 
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/maps/rename/${encodeURIComponent(map.name)}`, {
                 method: 'PUT',
                 headers: {
@@ -593,7 +594,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
     const handleDeleteMap = async (mapName: string) => {
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/maps/file/${mapName}`, {
                 method: 'DELETE',
             });
@@ -617,7 +618,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
     const handleMoveMap = async (mapName: string, targetFolder: string | null) => {
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/maps/move/${mapName}`, {
                 method: 'PUT',
                 headers: {

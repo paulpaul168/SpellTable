@@ -4,18 +4,18 @@ import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
-import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Campaign } from './CampaignManagement';
-import { authService } from '../services/auth';
+import { authService } from '@/services/auth';
 import { useToast } from './ui/use-toast';
 import MDEditor from '@uiw/react-md-editor';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Upload, Image, X, Download, Trash2, ChevronDown, ChevronRight, Folder, SortAsc, SortDesc, Maximize2, Minimize2 } from 'lucide-react';
+import {getApiUrl} from "@/utils/api";
 
 export interface CampaignNote {
     id: number;
@@ -54,7 +54,7 @@ export interface CampaignImage {
 }
 
 class CampaignNotesService {
-    private static API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+    private static API_BASE_URL = getApiUrl();
 
     static async getCampaignNotes(campaignId: number): Promise<CampaignNote[]> {
         const response = await fetch(`${this.API_BASE_URL}/campaigns/${campaignId}/notes`, {
@@ -120,7 +120,7 @@ class CampaignNotesService {
 }
 
 class CampaignImagesService {
-    private static API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+    private static API_BASE_URL = getApiUrl();
 
     static async getCampaignImages(campaignId: number): Promise<CampaignImage[]> {
         const response = await fetch(`${this.API_BASE_URL}/campaigns/${campaignId}/images`, {
@@ -229,7 +229,7 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
             const urls: { [key: number]: string } = {};
             for (const image of imagesData) {
                 try {
-                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}${image.url}`, {
+                    const response = await fetch(`${getApiUrl()}${image.url}`, {
                         headers: {
                             ...authService.getAuthHeader(),
                         },
@@ -675,7 +675,7 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
                                             <CardContent className="p-4">
                                                 <div className="aspect-square mb-4 overflow-hidden rounded-lg">
                                                     <img
-                                                        src={imageUrls[image.id] || `${process.env.NEXT_PUBLIC_API_URL || '/api'}${image.url}`}
+                                                        src={imageUrls[image.id] || `${getApiUrl()}${image.url}`}
                                                         alt={image.original_filename}
                                                         className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
                                                         onClick={() => {
@@ -685,7 +685,7 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
                                                         onError={(e) => {
                                                             // Fallback: try to fetch the image with authentication
                                                             if (!imageUrls[image.id]) {
-                                                                fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}${image.url}`, {
+                                                                fetch(`${getApiUrl()}${image.url}`, {
                                                                     headers: {
                                                                         ...authService.getAuthHeader(),
                                                                     },
@@ -724,7 +724,7 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
                                                             <Button
                                                                 variant="outline"
                                                                 size="sm"
-                                                                onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || '/api'}${image.url}`, '_blank')}
+                                                                onClick={() => window.open(`${getApiUrl()}${image.url}`, '_blank')}
                                                                 className="h-6 w-6 p-0 border-zinc-200 dark:border-zinc-700"
                                                             >
                                                                 <Download className="h-3 w-3" />
@@ -900,7 +900,7 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
                                     <>
                                         <div className="flex-1 flex items-center justify-center w-full h-full min-h-0">
                                             <img
-                                                src={imageUrls[selectedImage.id] || `${process.env.NEXT_PUBLIC_API_URL || '/api'}${selectedImage.url}`}
+                                                src={imageUrls[selectedImage.id] || `${getApiUrl()}${selectedImage.url}`}
                                                 alt={selectedImage.original_filename}
                                                 className="rounded-lg shadow-lg"
                                                 style={{
@@ -915,7 +915,7 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
                                                 onError={(e) => {
                                                     // Fallback: try to fetch the image with authentication
                                                     if (!imageUrls[selectedImage.id]) {
-                                                        fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}${selectedImage.url}`, {
+                                                        fetch(`${getApiUrl()}${selectedImage.url}`, {
                                                             headers: {
                                                                 ...authService.getAuthHeader(),
                                                             },
@@ -953,7 +953,7 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
                                             <div className="flex items-center justify-center space-x-3 pt-2">
                                                 <Button
                                                     variant="outline"
-                                                    onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || '/api'}${selectedImage.url}`, '_blank')}
+                                                    onClick={() => window.open(`${getApiUrl()}${selectedImage.url}`, '_blank')}
                                                     className="border-zinc-200 dark:border-zinc-700"
                                                 >
                                                     <Download className="h-4 w-4 mr-2" />

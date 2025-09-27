@@ -1,4 +1,5 @@
-import { Scene } from '../types/map';
+import { Scene } from '@/types/map';
+import {getApiUrl} from "@/utils/api";
 
 interface WebSocketMessage {
     type: string;
@@ -22,7 +23,7 @@ class WebSocketService {
         }
 
         this.isConnecting = true;
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+        const API_BASE_URL = getApiUrl();
         const wsUrl = API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://') + '/ws';
 
         console.log('Attempting WebSocket connection to:', wsUrl);
