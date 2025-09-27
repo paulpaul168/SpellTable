@@ -57,6 +57,7 @@ import { UserManagementDialog } from './UserManagementDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import {getApiUrl} from "@/utils/api";
 import {MonsterManagementDialog} from "@/components/MonsterManagementDialog";
+import {EncounterGeneratorDialog} from "@/components/EncounterGeneratorDialog";
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -149,6 +150,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isViewerRotated, setIsViewerRotated] = useState(false);
     const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
     const [isMonsterManagementOpen, setIsMonsterManagementOpen] = useState(false);
+    const [isEncounterGeneratorOpen, setIsEncounterGeneratorOpen] = useState(false);
 
     // Remove display scale functionality, using fixed 1.0 scale
     const displayScale = 1.0;
@@ -1398,6 +1400,14 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 {isAoEPaletteOpen ? 'Hide AoE Palette' : 'Show AoE Palette'}
                             </DropdownMenuItem>
 
+                            <DropdownMenuItem
+                                className="text-xs cursor-pointer"
+                                onClick={() => setIsEncounterGeneratorOpen(true)}
+                            >
+                                <Save className="h-4 w-4 mr-2" />
+                                Encounter Generator
+                            </DropdownMenuItem>
+
                             <DropdownMenuSeparator className="bg-zinc-800" />
 
                             {/* Scene Management */}
@@ -1719,6 +1729,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             <MonsterManagementDialog
                 isOpen={isMonsterManagementOpen}
                 onClose={() => setIsMonsterManagementOpen(false)}
+            />
+
+            {/* Encounter Generator Dialog */}
+            <EncounterGeneratorDialog
+                isOpen={isEncounterGeneratorOpen}
+                onClose={() => setIsEncounterGeneratorOpen(false)}
             />
 
             {/* AoE and Fog of War Palette Toggle Buttons - Only show when not in clean layout */}
