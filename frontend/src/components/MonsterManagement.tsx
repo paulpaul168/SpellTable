@@ -522,7 +522,7 @@ export function MonsterManagement() {
                             <Label htmlFor="alignment"
                                    className="text-zinc-700 dark:text-zinc-300">Alignment</Label>
                             <Select value={formData.alignment}
-                                    onValueChange={(value: 'lawful_good' | 'neutral_good' | 'chaotic_good' | 'lawful_neutral' | 'neutral' | 'chaotic_neutral' | 'lawful_evil' | 'neutral_evil' | 'chaotic_evil' | 'Unaligned') => setFormData({
+                                    onValueChange={(value: 'lawful_good' | 'neutral_good' | 'chaotic_good' | 'lawful_neutral' | 'neutral' | 'chaotic_neutral' | 'lawful_evil' | 'neutral_evil' | 'chaotic_evil' | 'unaligned') => setFormData({
                                         ...formData,
                                         alignment: value
                                     })}>

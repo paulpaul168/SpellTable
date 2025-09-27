@@ -31,7 +31,7 @@ class MonsterService {
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.detail || 'Failed to fetch monsters');
+            throw new Error(error.detail || 'Failed to fetch monster');
         }
 
         return response.json();
