@@ -1,3 +1,4 @@
+import random
 import re
 import threading
 from typing import Dict, Union
@@ -49,3 +50,13 @@ class HitDiceService:
                 modifier += int(token)
 
         return {"dice": dice_terms, "modifier": modifier}
+
+    def evaluate_hit_dice(self, hit_dice: Dict[str, Union[list[DiePool], int]]) -> int:
+        total = hit_dice.get("modifier", 0)
+        for die_pool in hit_dice.get("dice", []):
+            for _ in range(die_pool.count):
+                total += self.__roll_die(die_pool.die.faces)
+        return total
+
+    def __roll_die(self, faces: int) -> int:
+        return random.randint(1, faces)
