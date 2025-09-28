@@ -5,7 +5,7 @@ import {DialogHeader, DialogTitle} from './ui/dialog';
 import {encounterService} from "@/services/encounter_service";
 import {Button} from "@/components/ui/button";
 import {toast} from "@/components/ui/use-toast";
-import {EncounterGenerationRequest, EncounterGenerationResult} from "@/types/encounter";
+import {EncounterGenerationRequest, EncounterGenerationResult, EncounterMonster} from "@/types/encounter";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {InitiativeSidebarHandle} from "@/components/InitiativeSidebar";
@@ -44,6 +44,14 @@ export function EncounterGenerator({
                 variant: "destructive",
             });
         }
+    }
+
+    const addMonsterToInitiativeTracker = (monster: EncounterMonster) => {
+        const handle = initiativeSidebarRef?.current;
+        if (!handle) {
+            return;
+        }
+        handle.addEntry(monster)
     }
 
     const addEncounterToInitiativeTracker = () => {
@@ -147,6 +155,13 @@ export function EncounterGenerator({
                                     <div className="text-xs">
                                         {monster.name} | HP: {monster.hp} | Init: {monster.initiative}
                                     </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => addMonsterToInitiativeTracker(monster)}
+                                        className="px-1 py-1 text-xs border rounded bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900">
+                                        Add to initiative Tracker
+                                    </Button>
                                 </div>
                             ))}
                         </div>
@@ -155,6 +170,7 @@ export function EncounterGenerator({
                                 variant="outline"
                                 size="sm"
                                 onClick={addEncounterToInitiativeTracker}
+                                disabled={true}
                                 className="px-2 py-2 text-xs border rounded bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900">
                                 Add to initiative Tracker
                             </Button>
