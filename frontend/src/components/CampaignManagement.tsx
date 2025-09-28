@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from './ui/badge';
 import { authService, User } from '../services/auth';
 import { useToast } from './ui/use-toast';
+import { ConnectionStatus } from './ConnectionStatus';
 
 export interface Campaign {
     id: number;
@@ -283,9 +284,12 @@ export function CampaignManagement() {
                     <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Campaign Management</h2>
                     <p className="text-zinc-600 dark:text-zinc-400">Create and manage campaigns for your players</p>
                 </div>
-                <Button onClick={openCreateDialog} className="bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900">
-                    Add Campaign
-                </Button>
+                <div className="flex items-center space-x-4">
+                    <ConnectionStatus />
+                    <Button onClick={openCreateDialog} className="bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900">
+                        Add Campaign
+                    </Button>
+                </div>
             </div>
 
             {isLoading ? (
