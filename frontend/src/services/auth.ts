@@ -1,7 +1,7 @@
 /**
  * Authentication service for user login, logout, and management
  */
-import {getApiUrl} from "@/utils/api";
+import { getApiUrl } from "@/utils/api";
 
 const API_BASE_URL = getApiUrl();
 

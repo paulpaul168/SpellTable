@@ -36,11 +36,10 @@ export function LoginForm() {
 
         try {
             await login(username, password);
-            // Clear query parameters after successful login for security
-            router.replace('/login');
+            // Don't redirect here - let AuthContext handle the redirect based on user role
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Auto-login failed');
-            // Clear query parameters even on failure for security
+            // Clear query parameters on failure for security
             router.replace('/login');
         } finally {
             setIsLoading(false);

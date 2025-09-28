@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const login = async (username: string, password: string) => {
         const user = await authService.login({ username, password });
         setUser(user);
-        
+
         // Redirect based on user role
         if (user.role === 'admin') {
             router.push('/');
