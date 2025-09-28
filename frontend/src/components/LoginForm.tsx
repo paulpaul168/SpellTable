@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -9,12 +10,42 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export function LoginForm() {
     const { login } = useAuth();
+    const searchParams = useSearchParams();
+    const router = useRouter();
     const [credentials, setCredentials] = useState({
         username: '',
         password: '',
     });
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Check for query parameters on mount
+    useEffect(() => {
+        const username = searchParams.get('username');
+        const password = searchParams.get('password');
+
+        if (username && password) {
+            // Auto-login with query parameters
+            handleAutoLogin(username, password);
+        }
+    }, [searchParams]);
+
+    const handleAutoLogin = async (username: string, password: string) => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            await login(username, password);
+            // Clear query parameters after successful login for security
+            router.replace('/login');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Auto-login failed');
+            // Clear query parameters even on failure for security
+            router.replace('/login');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
