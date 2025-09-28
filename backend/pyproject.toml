@@ -15,7 +15,8 @@ dependencies = [
     "python-multipart>=0.0.20",
     "loguru>=0.7.3",
     "pydantic>=2.11.0",
-    "passlib[bcrypt]>=1.7.4",
+    "bcrypt>=3.2.2,<4.0.0",
+    "passlib[bcrypt]>=1.7.4,<2.0.0",
     "python-jose[cryptography]>=3.3.0",
     "sqlalchemy>=2.0.45",
 ]

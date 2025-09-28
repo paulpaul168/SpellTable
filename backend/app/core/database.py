@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from loguru import logger
 
 # SQLite database URL - use the mounted volume directory
-SQLALCHEMY_DATABASE_URL = "sqlite:///../data/spelltable.db"
+SQLALCHEMY_DATABASE_URL = "sqlite:////app/data/spelltable.db"
 
 # Create engine
 engine = create_engine(

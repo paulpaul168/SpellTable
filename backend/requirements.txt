@@ -18,6 +18,8 @@ idna==3.10
     # via anyio
 loguru==0.7.3
     # via spelltable-backend (pyproject.toml)
+bcrypt==3.2.2
+    # via passlib
 passlib[bcrypt]==1.7.4
     # via spelltable-backend (pyproject.toml)
 pydantic==2.11.3
