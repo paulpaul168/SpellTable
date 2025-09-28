@@ -24,12 +24,13 @@ class EncounterGenerationRequest(ModelBase):
 
 class EncounterMonster(ModelBase):
     name: str
-    initiative: int
-    hp: int
+    initiative: int = 1
+    hp: int = 1
 
 
 class EncounterGenerationResult(ModelBase):
     monsters: list[EncounterMonster]
-    total_monster_xp: int
-    adjusted_monster_xp: int
-    assessed_difficulty: EncounterDifficulty
+    monster_xp_total: int
+    monster_xp_with_modifiers: int
+    difficulty_rating: EncounterDifficulty
+    party_difficulty_thresholds: dict[str, int]
