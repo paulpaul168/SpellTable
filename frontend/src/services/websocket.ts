@@ -1,4 +1,5 @@
-import { Scene } from '../types/map';
+import { Scene } from '@/types/map';
+import { getApiUrl } from "@/utils/api";
 
 interface WebSocketMessage {
     type: string;
@@ -23,7 +24,7 @@ class WebSocketService {
         }
 
         this.isConnecting = true;
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+        const API_BASE_URL = getApiUrl();
 
         // Determine the correct WebSocket protocol based on the current page protocol
         let wsUrl: string;

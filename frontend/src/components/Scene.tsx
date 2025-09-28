@@ -3,13 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { Scene as SceneType, MapData, AoEMarker as AoEMarkerType, FogOfWar as FogOfWarType } from '../types/map';
 import { Map } from './Map';
-import { websocketService } from '../services/websocket';
+import { websocketService } from '@/services/websocket';
 import { UploadDialog } from './UploadDialog';
 import { Button } from '@/components/ui/button';
 import {
     LayoutGrid,
     Users,
-    Wifi,
     ChevronDown,
     Upload,
     Save,
@@ -22,13 +21,12 @@ import {
     EyeOff,
     Music,
     Zap,
-    X,
     Database,
     Move,
     RotateCw,
     UserPlus,
     Shield,
-    BookOpen
+    BookOpen, Skull
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -36,13 +34,13 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
     DropdownMenuSeparator,
-} from "../components/ui/dropdown-menu";
+} from "@/components/ui/dropdown-menu";
 import { SaveSceneDialog } from './SaveSceneDialog';
 import { LoadSceneDialog } from './LoadSceneDialog';
 import { MapListSidebar } from './MapListSidebar';
 import { useToast } from "@/components/ui/use-toast";
 import { InitiativeSidebar } from './InitiativeSidebar';
-import { InitiativeEntry } from '../types/map';
+import { InitiativeEntry } from '@/types/map';
 import { SceneManagement } from './SceneManagement';
 import { Soundboard } from './Soundboard';
 import { cn } from '@/lib/utils';
@@ -51,15 +49,14 @@ import { AoEMarker } from './AoEMarker';
 import { AoEPalette } from './AoEPalette';
 import { FogOfWar } from './FogOfWar';
 import { FogOfWarPalette } from './FogOfWarPalette';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
-import { Label } from './ui/label';
-import { Input } from './ui/input';
 import { DisplayCalculator } from './DisplayCalculator';
 import { BackupDialog } from './BackupDialog';
 import { GameboardMenu } from './GameboardMenu';
 import { MoveEverythingDialog } from './MoveEverythingDialog';
 import { UserManagementDialog } from './UserManagementDialog';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
+import {getApiUrl} from "@/utils/api";
+import {MonsterManagementDialog} from "@/components/MonsterManagementDialog";
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -151,6 +148,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isViewerBlanked, setIsViewerBlanked] = useState(false);
     const [isViewerRotated, setIsViewerRotated] = useState(false);
     const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
+    const [isMonsterManagementOpen, setIsMonsterManagementOpen] = useState(false);
 
     // Remove display scale functionality, using fixed 1.0 scale
     const displayScale = 1.0;
@@ -274,7 +272,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 console.log("Fetching data for new map:", mapName);
 
                 // First fetch all map details including folder structure
-                const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+                const API_BASE_URL = getApiUrl();
                 const listResponse = await fetch(`${API_BASE_URL}/maps/list`);
                 if (!listResponse.ok) throw new Error('Failed to fetch map list');
 
@@ -345,7 +343,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         formData.append('file', file);
 
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/maps/upload`, {
                 method: 'POST',
                 body: formData,
@@ -417,7 +415,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 fogOfWar: scene.fogOfWar || []
             };
 
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const endpoint = isSaveAs ? `${API_BASE_URL}/scenes/save` : `${API_BASE_URL}/scenes/${scene.id}`;
             const method = isSaveAs ? 'POST' : 'PUT';
 
@@ -453,7 +451,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
     const handleLoadScene = async () => {
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/scenes/list`, {
                 method: 'GET',
             });
@@ -489,7 +487,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
     const handleSceneLoad = async (loadedScene: SceneType) => {
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/scenes/load/${loadedScene.id}`, {
                 method: 'GET',
             });
@@ -751,7 +749,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const handleMapRefresh = async () => {
         try {
             // Fetch all available maps
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/maps/list`);
             if (!response.ok) throw new Error('Failed to load maps');
 
@@ -1531,6 +1529,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
                                             className="text-xs cursor-pointer"
+                                            onClick={() => setIsMonsterManagementOpen(true)}
+                                        >
+                                            <Skull className="h-4 w-4 mr-2" />
+                                            Monster Management
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="text-xs cursor-pointer"
                                             onClick={logout}
                                         >
                                             <Users className="h-4 w-4 mr-2" />
@@ -1708,6 +1713,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             <UserManagementDialog
                 isOpen={isUserManagementOpen}
                 onClose={() => setIsUserManagementOpen(false)}
+            />
+
+            {/* Monster Management Dialog */}
+            <MonsterManagementDialog
+                isOpen={isMonsterManagementOpen}
+                onClose={() => setIsMonsterManagementOpen(false)}
             />
 
             {/* AoE and Fog of War Palette Toggle Buttons - Only show when not in clean layout */}

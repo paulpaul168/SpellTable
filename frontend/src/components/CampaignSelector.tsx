@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Campaign } from './CampaignManagement';
-import { authService } from '../services/auth';
+import { authService } from '@/services/auth';
 import { useToast } from './ui/use-toast';
+import {getApiUrl} from "@/utils/api";
 
 interface CampaignSelectorProps {
     onCampaignSelect: (campaign: Campaign) => void;
@@ -23,7 +24,7 @@ export function CampaignSelector({ onCampaignSelect }: CampaignSelectorProps) {
     const loadCampaigns = async () => {
         try {
             setIsLoading(true);
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/campaigns/`, {
+            const response = await fetch(`${getApiUrl()}/campaigns/`, {
                 headers: {
                     ...authService.getAuthHeader(),
                     'Content-Type': 'application/json',

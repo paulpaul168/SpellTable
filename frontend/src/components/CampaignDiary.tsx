@@ -4,12 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
-import { Badge } from './ui/badge';
 import { Campaign } from './CampaignManagement';
-import { authService } from '../services/auth';
+import { authService } from '@/services/auth';
 import { useToast } from './ui/use-toast';
+import {getApiUrl} from "@/utils/api";
 
 export interface CampaignNote {
     id: number;
@@ -33,7 +33,7 @@ export interface CampaignNoteUpdate {
 }
 
 class CampaignDiaryService {
-    private static API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+    private static API_BASE_URL = getApiUrl();
 
     static async getCampaignNotes(campaignId: number): Promise<CampaignNote[]> {
         const response = await fetch(`${this.API_BASE_URL}/campaigns/${campaignId}/notes`, {

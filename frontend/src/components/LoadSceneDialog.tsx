@@ -7,9 +7,10 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Scene } from '../types/map';
+import { Scene } from '@/types/map';
 import { Trash2 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
+import {getApiUrl} from "@/utils/api";
 
 interface LoadSceneDialogProps {
     isOpen: boolean;
@@ -28,7 +29,7 @@ export const LoadSceneDialog: React.FC<LoadSceneDialogProps> = ({
 
     const handleDeleteScene = async (scene: Scene) => {
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+            const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/scenes/${scene.id}`, {
                 method: 'DELETE',
             });

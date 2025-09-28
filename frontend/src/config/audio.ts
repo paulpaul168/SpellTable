@@ -1,3 +1,5 @@
+import {getApiUrl} from "@/utils/api";
+
 export interface AudioTrack {
     id: string;
     name: string;
@@ -275,7 +277,7 @@ export const stopAllAudio = (): void => {
 // Function to fetch audio files from the backend
 export const fetchAudioFiles = async (): Promise<boolean> => {
     try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+        const API_BASE_URL = getApiUrl();
         const response = await fetch(`${API_BASE_URL}/audio/list`);
         if (!response.ok) {
             console.error('Failed to fetch audio files:', response.statusText);

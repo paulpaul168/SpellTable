@@ -21,6 +21,7 @@ services:
       - ./scenes:/app/scenes
       - ./sounds:/app/sounds
       - ./campaign_images:/app/campaign_images
+      - ./monsters:/app/monsters
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8010/health" ]
       interval: 30s
