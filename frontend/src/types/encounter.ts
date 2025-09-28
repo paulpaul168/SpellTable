@@ -1,7 +1,7 @@
 export interface EncounterGenerationRequest {
     character_levels: number[];
     difficulty: 'easy' | 'medium' | 'hard' | 'deadly';
-    monsters: { [name: string]: number };
+    monsters: Record<string, number>;
 }
 
 export interface EncounterMonster {
@@ -12,7 +12,8 @@ export interface EncounterMonster {
 
 export interface EncounterGenerationResult {
     monsters: EncounterMonster[];
-    total_monster_xp: number;
-    adjusted_monster_xp: number;
-    assessed_difficulty: string;
+    monster_xp_total: number;
+    monster_xp_with_modifiers: number;
+    difficulty_rating: string;
+    party_difficulty_thresholds: Record<string, number>
 }
