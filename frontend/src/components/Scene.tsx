@@ -26,7 +26,7 @@ import {
     RotateCw,
     UserPlus,
     Shield,
-    BookOpen, Skull
+    BookOpen, Skull, Dice5
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -1404,7 +1404,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 className="text-xs cursor-pointer"
                                 onClick={() => setIsEncounterGeneratorOpen(true)}
                             >
-                                <Save className="h-4 w-4 mr-2" />
+                                <Dice5 className="h-4 w-4 mr-2" />
                                 Encounter Generator
                             </DropdownMenuItem>
 
