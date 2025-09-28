@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import { Scene as SceneType, MapData, AoEMarker as AoEMarkerType, FogOfWar as FogOfWarType } from '../types/map';
 import { Map } from './Map';
 import { websocketService } from '@/services/websocket';
@@ -39,7 +39,7 @@ import { SaveSceneDialog } from './SaveSceneDialog';
 import { LoadSceneDialog } from './LoadSceneDialog';
 import { MapListSidebar } from './MapListSidebar';
 import { useToast } from "@/components/ui/use-toast";
-import { InitiativeSidebar } from './InitiativeSidebar';
+import {InitiativeSidebar, InitiativeSidebarHandle} from './InitiativeSidebar';
 import { InitiativeEntry } from '@/types/map';
 import { SceneManagement } from './SceneManagement';
 import { Soundboard } from './Soundboard';
@@ -134,6 +134,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isViewerMode] = useState(false);
     const [showMapList, setShowMapList] = useState(false);
     const [showInitiative, setShowInitiative] = useState(true);
+    const initiativeRef = useRef<InitiativeSidebarHandle | null>(null);
     const [isSceneManagementOpen, setIsSceneManagementOpen] = useState(false);
     const [isSoundboardOpen, setIsSoundboardOpen] = useState(false);
     const [isCleanLayout, setIsCleanLayout] = useState(false);
@@ -1311,6 +1312,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             {showInitiative && (
                 <div className="!z-[9999]">
                     <InitiativeSidebar
+                        ref={initiativeRef}
                         isAdmin={isAdmin}
                         entries={scene.initiativeOrder}
                         onUpdate={handleInitiativeUpdate}
@@ -1735,6 +1737,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             <EncounterGeneratorDialog
                 isOpen={isEncounterGeneratorOpen}
                 onClose={() => setIsEncounterGeneratorOpen(false)}
+                initiativeSidebarRef={initiativeRef}
             />
 
             {/* AoE and Fog of War Palette Toggle Buttons - Only show when not in clean layout */}

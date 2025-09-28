@@ -8,8 +8,15 @@ import {toast} from "@/components/ui/use-toast";
 import {EncounterGenerationRequest, EncounterGenerationResult} from "@/types/encounter";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
+import {InitiativeSidebarHandle} from "@/components/InitiativeSidebar";
 
-export function EncounterGenerator() {
+interface EncounterGeneratorProps {
+    initiativeSidebarRef?: React.RefObject<InitiativeSidebarHandle>;
+}
+
+export function EncounterGenerator({
+                                       initiativeSidebarRef
+                                   }: EncounterGeneratorProps) {
 
     // Form data
     const initialFormData: EncounterGenerationRequest = {
@@ -37,6 +44,14 @@ export function EncounterGenerator() {
                 variant: "destructive",
             });
         }
+    }
+
+    const addEncounterToInitiativeTracker = () => {
+        const handle = initiativeSidebarRef?.current;
+        if (!handle) {
+            return;
+        }
+        handle.addEntries((encounter?.monsters ?? []))
     }
 
     const parseMonstersFromString = (input: string): Record<string, number> => {
@@ -69,18 +84,25 @@ export function EncounterGenerator() {
                             // value={Object.entries(formData.monsters).map(([name, count]) => `${name}:${count}`).join(', ')}
                             type="text"
                             placeholder="Goblin:4, Goblin Boss:1"
-                            onChange={(e) => setFormData({...formData, monsters: parseMonstersFromString(e.target.value)})}
+                            onChange={(e) => setFormData({
+                                ...formData,
+                                monsters: parseMonstersFromString(e.target.value)
+                            })}
                             className="border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="players-levels" className="text-zinc-700 dark:text-zinc-300">Player levels</Label>
+                        <Label htmlFor="players-levels" className="text-zinc-700 dark:text-zinc-300">Player
+                            levels</Label>
                         <Input
                             id="player-levels"
                             // value={formData.character_levels.join(",")}
                             type="text"
                             placeholder="3, 3, 2, 3"
-                            onChange={(e) => setFormData({...formData, character_levels: e.target.value.split(",").map(s => Number(s.trim()))})}
+                            onChange={(e) => setFormData({
+                                ...formData,
+                                character_levels: e.target.value.split(",").map(s => Number(s.trim()))
+                            })}
                             className="border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
                         />
                     </div>
@@ -107,20 +129,21 @@ export function EncounterGenerator() {
                             <p className="text-sm">Monster XP Total: {encounter.monster_xp_total}</p>
                             <p className="text-sm">Monster XP with Modifiers: {encounter.monster_xp_with_modifiers}</p>
                             <p className="text-sm">Difficulty Rating: {encounter.difficulty_rating}</p>
-                            <p className="text-sm">
-                                Party Difficulty Thresholds:
-                                <ul>
-                                    <li className="text-xs">- Easy: {encounter.party_difficulty_thresholds.easy}</li>
-                                    <li className="text-xs">- Medium: {encounter.party_difficulty_thresholds.medium}</li>
-                                    <li className="text-xs">- Hard: {encounter.party_difficulty_thresholds.hard}</li>
-                                    <li className="text-xs">- Deadly: {encounter.party_difficulty_thresholds.deadly}</li>
-                                </ul>
-                            </p>
+                            <p className="text-sm">Party Difficulty Thresholds:</p>
+                            <ul>
+                                <li className="text-xs">- Easy: {encounter.party_difficulty_thresholds.easy}</li>
+                                <li className="text-xs">-
+                                    Medium: {encounter.party_difficulty_thresholds.medium}</li>
+                                <li className="text-xs">- Hard: {encounter.party_difficulty_thresholds.hard}</li>
+                                <li className="text-xs">-
+                                    Deadly: {encounter.party_difficulty_thresholds.deadly}</li>
+                            </ul>
                         </div>
                         <div className="grid gap-2">
                             <p className="text-sm">Monsters:</p>
-                            {encounter?.monsters.map((monster) => (
-                                <div className="flex items-center justify-between">
+                            {encounter?.monsters.map((monster, index) => (
+                                <div key={`monsters-${monster.name}-${monster.initiative}-${monster.hp}-${index}`}
+                                     className="flex items-center justify-between">
                                     <div className="text-xs">
                                         {monster.name} | HP: {monster.hp} | Init: {monster.initiative}
                                     </div>
@@ -131,6 +154,7 @@ export function EncounterGenerator() {
                             <Button
                                 variant="outline"
                                 size="sm"
+                                onClick={addEncounterToInitiativeTracker}
                                 className="px-2 py-2 text-xs border rounded bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900">
                                 Add to initiative Tracker
                             </Button>
