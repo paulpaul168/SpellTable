@@ -63,6 +63,7 @@ export interface Monster {
 
     saving_throws?: SavingThrowModifier[];
     skills?: SkillModifier[];
+    damage_vulnerabilities?: string[];
     damage_resistances?: string[];
     damage_immunities?: string[];
     condition_immunities?: string[];

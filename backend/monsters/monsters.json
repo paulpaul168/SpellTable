@@ -187,5 +187,180 @@
         "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 (2d4 + 2) piercing damage. If the target is a creature, it must succeed on a DC 11 Strength saving throw or be knocked prone."
       }
     ]
+  },
+  {
+    "name": "Bandit",
+    "size": "Medium",
+    "alignment": "Unaligned",
+    "armor": {
+      "ac": 12,
+      "type": "Leather"
+    },
+    "hp": {
+      "average": 11,
+      "hit_dice": "2d8+2"
+    },
+    "speed": {
+      "walk": 30
+    },
+    "ability_scores": {
+      "strength": 11,
+      "dexterity": 12,
+      "constitution": 12,
+      "intelligence": 10,
+      "wisdom": 10,
+      "charisma": 10
+    },
+    "senses": {
+      "passive_perception": 9
+    },
+    "languages": [
+      "Common"
+    ],
+    "challenge": {
+      "rating": 0.125,
+      "xp": 25.0
+    },
+    "actions": [
+      {
+        "title": "Scimitar",
+        "description": "Melee Weapon Attack: +3 to hit, reach 5 ft., one target. Hit: 4 (1d6 + 1) slashing damage."
+      },
+      {
+        "title": "Light Crossbow",
+        "description": "Ranged Weapon Attack: +3 to hit, range 80/320 ft., one target. Hit: 5 (1d8 + 1) piercing damage."
+      }
+    ]
+  },
+  {
+    "name": "Bandit Captain",
+    "size": "Medium",
+    "alignment": "Unaligned",
+    "armor": {
+      "ac": 15,
+      "type": "Studded Leather"
+    },
+    "hp": {
+      "average": 65,
+      "hit_dice": "10d8+20"
+    },
+    "speed": {
+      "walk": 30
+    },
+    "ability_scores": {
+      "strength": 15,
+      "dexterity": 16,
+      "constitution": 14,
+      "intelligence": 14,
+      "wisdom": 11,
+      "charisma": 14
+    },
+    "saving_throws": [
+      {
+        "saving_throw": "STR",
+        "modifier": 4
+      },
+      {
+        "saving_throw": "DEX",
+        "modifier": 5
+      },
+      {
+        "saving_throw": "WIS",
+        "modifier": 2
+      }
+    ],
+    "skills": [
+      {
+        "skill": "Athletics",
+        "modifier": 4
+      },
+      {
+        "skill": "Deception",
+        "modifier": 4
+      }
+    ],
+    "senses": {
+      "passive_perception": 10
+    },
+    "languages": [
+      "Common",
+      "Undercommon"
+    ],
+    "challenge": {
+      "rating": 2,
+      "xp": 450.0
+    },
+    "actions": [
+      {
+        "title": "Multiattack",
+        "description": "The captain makes three melee attacks: two with its scimitar and one with its dagger. Or the captain can make two ranged attacks with its dagger."
+      },
+      {
+        "title": "Scimitar",
+        "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 6 (1d6 + 3) slashing damage."
+      },
+      {
+        "title": "Dagger",
+        "description": "Melee or Ranged Weapon Attack: +5 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 5 (1d4 + 3) piercing damage."
+      }
+    ],
+    "reactions": [
+      {
+        "title": "Parry",
+        "description": "The captain adds 2 to its AC against one melee attack that would hit it. To do so, the captain must see the attacker and be wielding a melee weapon."
+      }
+    ]
+  },
+  {
+    "name": "Skeleton",
+    "size": "Medium",
+    "alignment": "Lawful Evil",
+    "armor": {
+      "ac": 13,
+      "type": "Natural Armor"
+    },
+    "hp": {
+      "average": 13,
+      "hit_dice": "2d8+4"
+    },
+    "speed": {
+      "walk": 30
+    },
+    "ability_scores": {
+      "strength": 10,
+      "dexterity": 14,
+      "constitution": 15,
+      "intelligence": 6,
+      "wisdom": 8,
+      "charisma": 5
+    },
+    "damage_vulnerabilities": [
+      "Bludgeoning"
+    ],
+    "damage_immunities": [
+      "Poison"
+    ],
+    "condition_immunities": [
+      "Exhaustion",
+      "Poisoned"
+    ],
+    "senses": {
+      "darkvision": 60,
+      "passive_perception": 10
+    },
+    "challenge": {
+      "rating": 0.25,
+      "xp": 50.0
+    },
+    "actions": [
+      {
+        "title": "Shortsword",
+        "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+      },
+      {
+        "title": "Shortbow",
+        "description": "Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
+      }
+    ]
   }
 ]

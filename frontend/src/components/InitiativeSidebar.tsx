@@ -1,9 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, {forwardRef, useState, useRef, useImperativeHandle} from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useToast } from './ui/use-toast';
 import { Plus, Trash2, ChevronDown, ChevronUp, Eye, EyeOff, Skull, X, ChevronRight } from 'lucide-react';
-import { InitiativeEntry } from '../types/map';
+import { InitiativeEntry } from '@/types/map';
 import {
     DndContext,
     closestCenter,
@@ -19,7 +19,22 @@ import {
     sortableKeyboardCoordinates,
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { cn } from '../lib/utils';
+import { cn } from '@/lib/utils';
+
+export interface InitiativeSidebarHandle {
+    addEntry: (entry: {
+        name: string;
+        initiative: number;
+        isPlayer?: boolean;
+        hp?: number;
+    }) => void;
+    addEntries: (entries: {
+        name: string;
+        initiative: number;
+        isPlayer?: boolean;
+        hp?: number;
+    }[]) => void;
+}
 
 interface InitiativeSidebarProps {
     isAdmin: boolean;
@@ -30,14 +45,17 @@ interface InitiativeSidebarProps {
     onClose: () => void;
 }
 
-export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
-    isAdmin,
-    entries = [],
-    onUpdate,
-    showCurrentPlayer,
-    onToggleCurrentPlayer,
-    onClose
-}) => {
+export const InitiativeSidebar = forwardRef<InitiativeSidebarHandle, InitiativeSidebarProps>(function InitiativeSidebar(
+    {
+        isAdmin,
+        entries = [],
+        onUpdate,
+        showCurrentPlayer,
+        onToggleCurrentPlayer,
+        onClose
+    }: InitiativeSidebarProps,
+    ref
+){
     const { toast } = useToast();
     const [isVisible, setIsVisible] = useState(true);
     const [playerName, setPlayerName] = useState('');
@@ -49,12 +67,36 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
     const playerNameRef = useRef<HTMLInputElement>(null);
     const enemyNameRef = useRef<HTMLInputElement>(null);
 
+    useImperativeHandle(ref, () => ({
+        addEntry: (entry) => {
+            addEntry(entry.name, entry.initiative, entry.isPlayer ?? false, entry.hp);
+        },
+        addEntries: (entries) => {
+            addEntries(entries.map(entry => ({
+                ...entry,
+                isPlayer: entry.isPlayer ?? false
+            })))
+        },
+    }));
+
+
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, {
             coordinateGetter: sortableKeyboardCoordinates,
         })
     );
+
+    const addEntries = (entries: {name: string, initiative: number, isPlayer: boolean, hp?: number}[]) => {
+        entries.forEach(entry => {
+            addEntry(
+                entry.name,
+                entry.initiative,
+                entry.isPlayer,
+                entry.hp
+            );
+        });
+    }
 
     const addEntry = (name: string, initiative: number, isPlayer: boolean, hp?: number) => {
         const newEntry: InitiativeEntry = {
@@ -502,4 +544,4 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
             )}
         </>
     );
-}; 
+});

@@ -88,6 +88,7 @@ class DamageType(Enum):
 class Condition(Enum):
     BLINDED = "Blinded"
     CHARMED = "Charmed"
+    EXHAUSTION = "Exhaustion"
     DEAFENED = "Deafened"
     FRIGHTENED = "Frightened"
     GRAPPLED = "Grappled"
@@ -112,3 +113,10 @@ class Language(Enum):
     HALFLING = "Halfling"
     ORC = "Orc"
     UNDERCOMMON = "Undercommon"
+
+
+class EncounterDifficulty(Enum):
+    EASY = "Easy"
+    MEDIUM = "Medium"
+    HARD = "Hard"
+    DEADLY = "Deadly"
