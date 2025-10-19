@@ -1,5 +1,5 @@
 import {getApiUrl} from "@/utils/api";
-import {EncounterGenerationRequest, EncounterGenerationResult} from "@/types/encounter";
+import {EncounterGenerationRequest, EncounterGenerationResult, XpLevels} from "@/types/encounter";
 
 const API_BASE_URL = getApiUrl();
 
@@ -17,6 +17,22 @@ class EncounterService {
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.detail || 'Failed to create encounter');
+        }
+
+        return response.json();
+    }
+
+    async getXpLevels(characterLevels: number[]): Promise<XpLevels> {
+        const params = new URLSearchParams({
+            levels: characterLevels.join(',')
+        });
+        const response = await fetch(`${API_BASE_URL}/encounters/xp-levels?${params}`, {
+            method: 'GET',
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to fetch XP levels');
         }
 
         return response.json();

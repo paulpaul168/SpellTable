@@ -34,3 +34,9 @@ class EncounterGenerationResult(ModelBase):
     monster_xp_with_modifiers: int
     difficulty_rating: EncounterDifficulty
     party_difficulty_thresholds: dict[str, int]
+
+class XpLevels(ModelBase):
+    easy: int
+    medium: int
+    hard: int
+    deadly: int

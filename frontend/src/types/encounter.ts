@@ -17,3 +17,10 @@ export interface EncounterGenerationResult {
     difficulty_rating: string;
     party_difficulty_thresholds: Record<string, number>
 }
+
+export interface XpLevels {
+    easy: number;
+    medium: number;
+    hard: number;
+    deadly: number;
+}
