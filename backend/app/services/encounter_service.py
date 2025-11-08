@@ -62,7 +62,8 @@ class EncounterService:
             monster_xp_total=total_monster_xp,
             monster_xp_with_modifiers=adjusted_monster_xp,
             difficulty_rating=self.__assess_encounter_difficulty(adjusted_monster_xp, request.character_levels),
-            party_difficulty_thresholds=self.__calculate_party_thresholds(request.character_levels)
+            party_difficulty_thresholds=self.__calculate_party_thresholds(request.character_levels),
+            player_count=len(request.character_levels)
         )
 
     def calculate_xp_levels(self, levels: list[int]) -> XpLevels:

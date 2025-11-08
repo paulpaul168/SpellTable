@@ -15,7 +15,8 @@ export interface EncounterGenerationResult {
     monster_xp_total: number;
     monster_xp_with_modifiers: number;
     difficulty_rating: string;
-    party_difficulty_thresholds: Record<string, number>
+    party_difficulty_thresholds: Record<string, number>;
+    player_count: number;
 }
 
 export interface XpLevels {
