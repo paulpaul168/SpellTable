@@ -1,17 +1,17 @@
-import React, {forwardRef, useState, useRef, useImperativeHandle} from 'react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { useToast } from './ui/use-toast';
-import { Plus, Trash2, ChevronDown, ChevronUp, Eye, EyeOff, Skull, X, ChevronRight } from 'lucide-react';
-import { InitiativeEntry } from '@/types/map';
+import React, {forwardRef, useImperativeHandle, useRef, useState} from 'react';
+import {Button} from './ui/button';
+import {Input} from './ui/input';
+import {useToast} from './ui/use-toast';
+import {ChevronDown, ChevronRight, ChevronUp, Eye, EyeOff, Plus, Skull, Trash2, X} from 'lucide-react';
+import {InitiativeEntry} from '@/types/map';
 import {
-    DndContext,
     closestCenter,
+    DndContext,
+    DragEndEvent,
     KeyboardSensor,
     PointerSensor,
     useSensor,
     useSensors,
-    DragEndEvent,
 } from '@dnd-kit/core';
 import {
     arrayMove,
@@ -19,7 +19,7 @@ import {
     sortableKeyboardCoordinates,
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { cn } from '@/lib/utils';
+import {cn} from '@/lib/utils';
 
 export interface InitiativeSidebarHandle {
     addEntry: (entry: {
@@ -87,42 +87,44 @@ export const InitiativeSidebar = forwardRef<InitiativeSidebarHandle, InitiativeS
         })
     );
 
-    const addEntries = (entries: {name: string, initiative: number, isPlayer: boolean, hp?: number}[]) => {
-        entries.forEach(entry => {
-            addEntry(
-                entry.name,
-                entry.initiative,
-                entry.isPlayer,
-                entry.hp
-            );
-        });
-    }
-
     const addEntry = (name: string, initiative: number, isPlayer: boolean, hp?: number) => {
-        const newEntry: InitiativeEntry = {
-            id: Date.now().toString(),
-            name,
-            initiative,
-            isPlayer,
-            isCurrentTurn: false,
-            hp: hp,
-            initialHP: hp,
-            isKilled: false
-        };
-
-        const newEntries = [...entries, newEntry].sort((a, b) => b.initiative - a.initiative);
-        onUpdate(newEntries);
-
-        if (isPlayer && !playerNames.includes(name)) {
-            setPlayerNames(prev => [...prev, name]);
-        }
-
-        setPlayerName('');
-        setPlayerInitiative('');
-        setEnemyName('');
-        setEnemyInitiative('');
-        setEnemyHP('');
+        addEntries([{name, initiative, isPlayer, hp}], true);
     };
+
+    // Add multiple entries at once.
+    const addEntries = (entriesToAdd: { name: string, initiative: number, isPlayer: boolean, hp?: number }[], resetFields: boolean = false) => {
+        let newEntries = [...entries];
+        let newPlayerNames = [...playerNames];
+
+        entriesToAdd.forEach(entry => {
+            const newEntry: InitiativeEntry = {
+                id: crypto.randomUUID(),
+                name: entry.name,
+                initiative: entry.initiative,
+                isPlayer: entry.isPlayer,
+                isCurrentTurn: false,
+                hp: entry.hp,
+                initialHP: entry.hp,
+                isKilled: false
+            };
+            if (entry.isPlayer && !newPlayerNames.includes(entry.name)) {
+                newPlayerNames.push(entry.name);
+            }
+            newEntries.push(newEntry);
+        });
+
+        newEntries = newEntries.sort((a, b) => b.initiative - a.initiative);
+        onUpdate(newEntries);
+        setPlayerNames(prev => newPlayerNames);
+
+        if (resetFields) {
+            setPlayerName('');
+            setPlayerInitiative('');
+            setEnemyName('');
+            setEnemyInitiative('');
+            setEnemyHP('');
+        }
+    }
 
     const removeEntry = (id: string) => {
         const newEntries = entries.filter(entry => entry.id !== id);
