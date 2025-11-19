@@ -7,7 +7,8 @@ import threading
 from .hit_dice_service import HitDiceService
 from .monster_service import MonsterService
 from ..core.types import EncounterDifficulty
-from ..models.encounter import EncounterGenerationRequest, EncounterGenerationResult, EncounterMonster, XpLevels
+from ..models.encounter import EncounterGenerationRequest, EncounterGenerationResult, EncounterMonster, XpLevels, \
+    EncounterBuilder
 
 # Per-level thresholds: (easy, medium, hard, deadly)
 _LEVEL_THRESHOLDS: dict[int, tuple[int, int, int, int]] = {
@@ -49,11 +50,7 @@ class EncounterService:
         return cls._instance
 
     def generate_encounter(self, request: EncounterGenerationRequest) -> EncounterGenerationResult:
-        monsters: list[EncounterMonster] = [
-            EncounterMonster(name=monster_name)
-            for monster_name, count in request.monsters.items()
-            for _ in range(count)
-        ]
+        monsters: list[EncounterMonster] = self.__generate_encounter(request)
 
         total_monster_xp = self.__calculate_total_xp(monsters)
         adjusted_monster_xp = self.__calculate_adjusted_xp(total_monster_xp, len(monsters))
@@ -75,7 +72,22 @@ class EncounterService:
             deadly=xp["deadly"]
         )
 
+    def generate_monster_initiative(self, request: EncounterBuilder) -> list[EncounterMonster]:
+        monsters : list[EncounterMonster] = [
+            EncounterMonster(name=monster_name)
+            for monster_name, count in request.monsters.items()
+            for _ in range(count)
+        ]
+        return self.__calculate_initiative_and_hp(monsters)
+
     # Methods to calculate the encounter
+    def __generate_encounter(self, request: EncounterGenerationRequest) -> list[EncounterMonster]:
+        monsters: list[EncounterMonster] = [
+            EncounterMonster(name=monster_name)
+            for monster_name, count in request.monsters.items()
+            for _ in range(count)
+        ]
+        return monsters
 
     # Methods to calculate various aspects of the encounter result
     def __calculate_initiative_and_hp(self, monsters: list[EncounterMonster]) -> list[EncounterMonster]:

@@ -41,3 +41,7 @@ class XpLevels(ModelBase):
     medium: int
     hard: int
     deadly: int
+
+# Used by a user to build an encounter
+class EncounterBuilder(ModelBase):
+    monsters: dict[str, int] # monster name to quantity

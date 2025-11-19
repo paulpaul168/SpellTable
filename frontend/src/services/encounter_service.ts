@@ -1,5 +1,11 @@
 import {getApiUrl} from "@/utils/api";
-import {EncounterGenerationRequest, EncounterGenerationResult, XpLevels} from "@/types/encounter";
+import {
+    EncounterBuilder,
+    EncounterGenerationRequest,
+    EncounterGenerationResult,
+    EncounterMonster,
+    XpLevels
+} from "@/types/encounter";
 
 const API_BASE_URL = getApiUrl();
 
@@ -33,6 +39,23 @@ class EncounterService {
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.detail || 'Failed to fetch XP levels');
+        }
+
+        return response.json();
+    }
+
+    async generateMonsterInitiative(encounterBuilder: EncounterBuilder): Promise<EncounterMonster[]> {
+        const response = await fetch(`${API_BASE_URL}/encounters/monsters/initialize`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(encounterBuilder),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to generate monster initiative');
         }
 
         return response.json();

@@ -25,3 +25,8 @@ export interface XpLevels {
     hard: number;
     deadly: number;
 }
+
+// Used by a user to build an encounter
+export interface EncounterBuilder {
+    monsters: Record<string, number>; // monster name to quantity
+}

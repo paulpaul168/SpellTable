@@ -19,7 +19,7 @@ export const EncounterGeneratorDialog: React.FC<EncounterGeneratorDialogProps> =
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent
-                className="max-w-7xl w-[90vw] max-h-[90vh] overflow-hidden bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 p-0">
+                className="max-w-[90vw] w-[90vw] max-h-[90vh] overflow-hidden bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 p-0">
                 <div className="flex flex-col h-full">
                     <div className="flex-1 overflow-y-auto p-6">
                         <EncounterGenerator
