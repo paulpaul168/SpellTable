@@ -2,15 +2,34 @@
 Database configuration and session management.
 """
 
+import os
 from collections.abc import Generator
+from pathlib import Path
 
 from loguru import logger
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 
-# Relative to cwd (/app in Docker; ./data is mounted at /app/data).
-SQLALCHEMY_DATABASE_URL = "sqlite:///data/spelltable.db"
+
+def _default_sqlite_url() -> str:
+    """
+    Match docker-compose: ./data at repo root -> /app/data in the container.
+
+    sqlite:///data/spelltable.db is cwd-relative; local uvicorn often runs with
+    cwd=backend/, so the DB was backend/data/ while Docker used repo ./data/.
+    """
+    app_root = Path(__file__).resolve().parents[2]
+    if app_root.name == "backend":
+        data_dir = app_root.parent / "data"
+    else:
+        data_dir = app_root / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    db_path = (data_dir / "spelltable.db").resolve()
+    return "sqlite:///" + db_path.as_posix()
+
+
+SQLALCHEMY_DATABASE_URL = os.environ.get("DATABASE_URL") or _default_sqlite_url()
 
 # Create engine
 engine = create_engine(
