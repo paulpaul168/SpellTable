@@ -21,6 +21,7 @@ interface DisplayCalculatorProps {
         gridCellsX?: number;
         gridCellsY?: number;
         useFixedGrid?: boolean;
+        aoeSnapToGrid?: boolean;
     };
     onUpdateGridSettings?: (settings: any) => void;
 }
@@ -53,6 +54,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
     const [useFixedGrid, setUseFixedGrid] = useState(gridSettings?.useFixedGrid || false);
     const [gridCellsX, setGridCellsX] = useState(gridSettings?.gridCellsX || 25);
     const [gridCellsY, setGridCellsY] = useState(gridSettings?.gridCellsY || 13);
+    const [aoeSnapToGrid, setAoeSnapToGrid] = useState(gridSettings?.aoeSnapToGrid !== false);
 
     // Active tab state
     const [activeTab, setActiveTab] = useState("settings");
@@ -68,6 +70,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 setUseFixedGrid(gridSettings.useFixedGrid || false);
                 setGridCellsX(gridSettings.gridCellsX || 25);
                 setGridCellsY(gridSettings.gridCellsY || 13);
+                setAoeSnapToGrid(gridSettings.aoeSnapToGrid !== false);
             }
         });
     }, [currentGridSize, gridSettings]);
@@ -156,7 +159,8 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 gridOpacity,
                 useFixedGrid,
                 gridCellsX,
-                gridCellsY
+                gridCellsY,
+                aoeSnapToGrid
             });
 
             // When we apply new grid settings, show a message about existing elements
@@ -180,7 +184,8 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 gridOpacity,
                 useFixedGrid,
                 gridCellsX,
-                gridCellsY
+                gridCellsY,
+                aoeSnapToGrid
             });
         } else {
             onApplyGridSize(useFixedGrid ? calculatedGridSize : gridSize);
@@ -293,6 +298,20 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                                 className="w-full"
                             />
                         </div>
+
+                        <div className="flex items-center space-x-2 pt-1">
+                            <Checkbox
+                                id="aoe-snap-toggle"
+                                checked={aoeSnapToGrid}
+                                onCheckedChange={(c) => setAoeSnapToGrid(c === true)}
+                            />
+                            <Label htmlFor="aoe-snap-toggle" className="text-sm font-normal cursor-pointer">
+                                Snap AoE templates to grid
+                            </Label>
+                        </div>
+                        <p className="text-xs text-zinc-500 -mt-1 pl-6">
+                            Turn off to place and drag area effects at any position.
+                        </p>
 
                         <div className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg mt-4">
                             <div className="flex items-center mb-2">

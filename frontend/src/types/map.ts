@@ -73,6 +73,8 @@ export interface Scene {
         useFixedGrid?: boolean;
         gridCellsX?: number;
         gridCellsY?: number;
+        /** When false, AoE markers use pixel coordinates and move freely (no cell snapping). Default true. */
+        aoeSnapToGrid?: boolean;
     };
     initiativeOrder: InitiativeEntry[];
     showCurrentPlayer: boolean;

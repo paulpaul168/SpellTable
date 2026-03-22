@@ -48,6 +48,53 @@ import { InitiativeIndicator } from './InitiativeIndicator';
 import { AoEMarker } from './AoEMarker';
 import { AoEPalette } from './AoEPalette';
 import { FogOfWar } from './FogOfWar';
+
+/** Convert AoE markers when toggling snap: grid cell indices ↔ pixel centers. */
+function adaptAoEMarkersSnap(
+    markers: AoEMarkerType[] | undefined,
+    enableSnap: boolean,
+    gridCellsX: number,
+    gridCellsY: number
+): AoEMarkerType[] {
+    if (!markers?.length) return markers || [];
+    const cw = window.innerWidth / gridCellsX;
+    const ch = window.innerHeight / gridCellsY;
+    if (enableSnap) {
+        return markers.map((m) => {
+            if (!m.useGridCoordinates) {
+                return {
+                    ...m,
+                    position: {
+                        x: Math.floor(m.position.x / cw),
+                        y: Math.floor(m.position.y / ch),
+                    },
+                    useGridCoordinates: true,
+                };
+            }
+            return {
+                ...m,
+                position: {
+                    x: Math.floor(m.position.x),
+                    y: Math.floor(m.position.y),
+                },
+                useGridCoordinates: true,
+            };
+        });
+    }
+    return markers.map((m) => {
+        if (m.useGridCoordinates) {
+            return {
+                ...m,
+                position: {
+                    x: (m.position.x + 0.5) * cw,
+                    y: (m.position.y + 0.5) * ch,
+                },
+                useGridCoordinates: false,
+            };
+        }
+        return m;
+    });
+}
 import { FogOfWarPalette } from './FogOfWarPalette';
 import { DisplayCalculator } from './DisplayCalculator';
 import { BackupDialog } from './BackupDialog';
@@ -546,6 +593,10 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     };
 
     const handleUpdateGridSettings = (newGridSettings: any) => {
+        const mergedGridSettings = { ...scene.gridSettings, ...newGridSettings };
+        const wasSnap = scene.gridSettings.aoeSnapToGrid !== false;
+        const willSnap = mergedGridSettings.aoeSnapToGrid !== false;
+
         // Check if useFixedGrid is being enabled
         const isEnablingFixedGrid = !scene.gridSettings.useFixedGrid && newGridSettings.useFixedGrid;
         // Check if grid size is being changed
@@ -590,7 +641,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             });
 
             // Convert all AoE markers to use grid coordinates
-            const updatedMarkers = scene.aoeMarkers ? scene.aoeMarkers.map(marker => {
+            let updatedMarkers = scene.aoeMarkers ? scene.aoeMarkers.map(marker => {
                 // Only convert markers not already using grid coordinates
                 if (!marker.useGridCoordinates) {
                     const pixelPos = marker.position;
@@ -608,16 +659,36 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 return marker;
             }) : [];
 
+            if (!willSnap) {
+                updatedMarkers = updatedMarkers.map((m) => ({
+                    ...m,
+                    position: {
+                        x: (m.position.x + 0.5) * cellWidth,
+                        y: (m.position.y + 0.5) * cellHeight,
+                    },
+                    useGridCoordinates: false,
+                }));
+            }
+
             // Update the scene with converted coordinates and new grid settings
-            const updatedScene = {
+            let updatedScene = {
                 ...scene,
-                gridSettings: {
-                    ...scene.gridSettings,
-                    ...newGridSettings
-                },
+                gridSettings: mergedGridSettings,
                 maps: updatedMaps,
                 aoeMarkers: updatedMarkers
             };
+
+            if (wasSnap !== willSnap) {
+                updatedScene = {
+                    ...updatedScene,
+                    aoeMarkers: adaptAoEMarkersSnap(
+                        updatedScene.aoeMarkers,
+                        willSnap,
+                        mergedGridSettings.gridCellsX || 25,
+                        mergedGridSettings.gridCellsY || 13
+                    ),
+                };
+            }
 
             setScene(updatedScene);
             websocketService.send({
@@ -642,15 +713,23 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 }
             }));
 
-            // Update scene with the new grid settings and map scaling
-            const updatedScene = {
+            let updatedScene: SceneType = {
                 ...scene,
-                gridSettings: {
-                    ...scene.gridSettings,
-                    ...newGridSettings
-                },
+                gridSettings: mergedGridSettings,
                 maps: updatedMaps
             };
+
+            if (wasSnap !== willSnap) {
+                updatedScene = {
+                    ...updatedScene,
+                    aoeMarkers: adaptAoEMarkersSnap(
+                        updatedScene.aoeMarkers,
+                        willSnap,
+                        mergedGridSettings.gridCellsX || 25,
+                        mergedGridSettings.gridCellsY || 13
+                    ),
+                };
+            }
 
             setScene(updatedScene);
             websocketService.send({
@@ -665,14 +744,23 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             });
         }
         else {
-            // Just update grid settings without conversion
-            const updatedScene = {
+            let updatedScene: SceneType = {
                 ...scene,
-                gridSettings: {
-                    ...scene.gridSettings,
-                    ...newGridSettings
-                }
+                gridSettings: mergedGridSettings
             };
+
+            if (wasSnap !== willSnap) {
+                updatedScene = {
+                    ...updatedScene,
+                    aoeMarkers: adaptAoEMarkersSnap(
+                        updatedScene.aoeMarkers,
+                        willSnap,
+                        mergedGridSettings.gridCellsX || 25,
+                        mergedGridSettings.gridCellsY || 13
+                    ),
+                };
+            }
+
             setScene(updatedScene);
             websocketService.send({
                 type: 'scene_update',
@@ -904,14 +992,20 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         const centerGridX = Math.floor(gridCellsX / 2);
         const centerGridY = Math.floor(gridCellsY / 2);
 
+        const aoeSnapToGrid = scene.gridSettings.aoeSnapToGrid !== false;
+        const cellWidth = window.innerWidth / gridCellsX;
+        const cellHeight = window.innerHeight / gridCellsY;
+
         const newMarker: AoEMarkerType = {
             ...markerData,
             id: Date.now().toString(),
-            position: {
-                x: centerGridX,
-                y: centerGridY
-            },
-            useGridCoordinates: true
+            position: aoeSnapToGrid
+                ? { x: centerGridX, y: centerGridY }
+                : {
+                    x: (centerGridX + 0.5) * cellWidth,
+                    y: (centerGridY + 0.5) * cellHeight,
+                },
+            useGridCoordinates: aoeSnapToGrid
         };
 
         const updatedScene = {

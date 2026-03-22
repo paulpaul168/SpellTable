@@ -14,6 +14,7 @@ interface AoEMarkerProps {
         gridCellsX?: number;
         gridCellsY?: number;
         gridSize: number;
+        aoeSnapToGrid?: boolean;
     };
     isHighlighted?: boolean;
 }
@@ -66,6 +67,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         ? Math.min(cellWidth, cellHeight) // Fixed grid: use the smaller dimension to maintain square cells
         : gridSize;
 
+    const aoeSnapToGrid = gridSettings?.aoeSnapToGrid !== false;
+
     // Scale for sizing (5ft = 1 grid cell)
     const sizeInPixels = marker.sizeInFeet * effectiveGridSize / 5;
     const adjustedSizeInPixels = sizeInPixels;
@@ -106,14 +109,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     // Converting positions between grid coordinates and screen pixels
     // Grid coordinates: where (0,0) is top-left cell, (1,1) is the cell to the right and down, etc.
 
-    // Convert absolute position to grid coordinates
-    const pixelToGridCoords = useCallback((pixelPos: { x: number, y: number }) => {
-        return {
-            x: pixelPos.x / cellWidth,
-            y: pixelPos.y / cellHeight
-        };
-    }, [cellWidth, cellHeight]);
-
     // Convert grid coordinates to pixel position (centered in grid cell)
     const gridCoordsToPixel = useCallback((gridPos: { x: number, y: number }) => {
         // Add 0.5 to place markers at the center of grid cells
@@ -129,24 +124,10 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             // Position is already in grid coordinates, convert to pixels
             // using cell-centered approach
             return gridCoordsToPixel(marker.position);
-        } else if (useFixedGrid) {
-            // Position is in pixels but we need grid coordinates for consistency
-            // Convert existing pixel position to grid coordinates first
-            const gridCoords = pixelToGridCoords(marker.position);
-
-            // Floor to get cell index
-            const cellGridCoords = {
-                x: Math.floor(gridCoords.x),
-                y: Math.floor(gridCoords.y)
-            };
-
-            // Then convert back to pixels for display with cell centering
-            return gridCoordsToPixel(cellGridCoords);
-        } else {
-            // For non-fixed grid, use absolute position directly
-            return marker.position;
         }
-    }, [marker.position, marker.useGridCoordinates, useFixedGrid, pixelToGridCoords, gridCoordsToPixel]);
+        // Pixel coordinates: use as-is (fixed grid included — no re-snap to cells)
+        return marker.position;
+    }, [marker.position, marker.useGridCoordinates, gridCoordsToPixel]);
 
     // Store and track the computed position
     const [currentPos, setCurrentPos] = useState(calculatePosition());
@@ -210,43 +191,35 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         const offsetMouseY = mouseY - mouseDragOffsetRef.current.y;
 
         // Calculate new position with the offset
-        let newPosition;
+        let newPosition: { x: number; y: number };
+        let useGridCoordinates: boolean;
 
-        if (marker.useGridCoordinates) {
-            // Convert offset mouse position to grid coordinates
+        if (aoeSnapToGrid) {
             const rawGridPos = {
                 x: offsetMouseX / cellWidth,
                 y: offsetMouseY / cellHeight
             };
-
-            // Calculate the position in grid coordinates - snap to grid
             newPosition = {
                 x: Math.floor(rawGridPos.x),
                 y: Math.floor(rawGridPos.y)
             };
+            useGridCoordinates = true;
         } else {
-            // For non-grid coordinates, use offset mouse position directly
-            newPosition = {
-                x: offsetMouseX,
-                y: offsetMouseY
-            };
+            newPosition = { x: offsetMouseX, y: offsetMouseY };
+            useGridCoordinates = false;
         }
 
-        // For display, convert to pixels - ensure preview matches final position
-        const pixelPos = marker.useGridCoordinates
-            ? gridCoordsToPixel(newPosition)
-            : newPosition;
+        const pixelPos = useGridCoordinates ? gridCoordsToPixel(newPosition) : newPosition;
 
         setCurrentPos(pixelPos);
         positionRef.current = pixelPos;
 
-        // Update the marker position
         onUpdate({
             ...marker,
             position: newPosition,
-            useGridCoordinates: true // Always use grid coordinates for consistency
+            useGridCoordinates
         });
-    }, [marker, cellWidth, cellHeight, onUpdate, gridCoordsToPixel]);
+    }, [marker, cellWidth, cellHeight, onUpdate, gridCoordsToPixel, aoeSnapToGrid]);
 
     // Handle mouse up - end dragging
     const handleMouseUp = useCallback((e: MouseEvent) => {
