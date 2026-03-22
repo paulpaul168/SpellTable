@@ -809,145 +809,211 @@
     },
     {
       "name": "[Tavern] Brewery \u2014 Cheap",
-      "description": "200 gp, 5 days. Prereq Cellar Cheap. Valuation +1; half cellar; Brewing downtime.",
+      "description": "200 gp, 5 days. Prereq Cellar Cheap. Valuation +1; +15 gp/tenday wholesale beer income; half cellar; brewing downtime.",
       "purchase_cost_gp": 200,
       "setup_days": 5,
       "sort_order": 660,
       "is_archived": false,
-      "effect_json": {
-        "kind": "valuation_bonus",
-        "amount": 1
-      },
+      "effect_json": [
+        {
+          "kind": "valuation_bonus",
+          "amount": 1
+        },
+        {
+          "kind": "fixed_income_gp_per_tenday",
+          "amount": 15
+        }
+      ],
       "group": "tavern_structure"
     },
     {
       "name": "[Tavern] Brewery \u2014 Moderate",
-      "description": "450 gp, 5 days. Valuation +3.",
+      "description": "450 gp, 5 days. Valuation +3; +35 gp/tenday wholesale beer income.",
       "purchase_cost_gp": 450,
       "setup_days": 5,
       "sort_order": 670,
       "is_archived": false,
-      "effect_json": {
-        "kind": "valuation_bonus",
-        "amount": 3
-      },
+      "effect_json": [
+        {
+          "kind": "valuation_bonus",
+          "amount": 3
+        },
+        {
+          "kind": "fixed_income_gp_per_tenday",
+          "amount": 35
+        }
+      ],
       "group": "tavern_structure"
     },
     {
       "name": "[Tavern] Brewery \u2014 Quality",
-      "description": "600 gp, 5 days. Valuation +5.",
+      "description": "600 gp, 5 days. Valuation +5; +55 gp/tenday wholesale beer income.",
       "purchase_cost_gp": 600,
       "setup_days": 5,
       "sort_order": 680,
       "is_archived": false,
-      "effect_json": {
-        "kind": "valuation_bonus",
-        "amount": 5
-      },
+      "effect_json": [
+        {
+          "kind": "valuation_bonus",
+          "amount": 5
+        },
+        {
+          "kind": "fixed_income_gp_per_tenday",
+          "amount": 55
+        }
+      ],
       "group": "tavern_structure"
     },
     {
       "name": "[Tavern] Distillery \u2014 Cheap",
-      "description": "400 gp, 5 days. Prereq Cellar Cheap. Valuation +1.",
+      "description": "400 gp, 5 days. Prereq Cellar Cheap. Valuation +1; +15 gp/tenday wholesale spirit income.",
       "purchase_cost_gp": 400,
       "setup_days": 5,
       "sort_order": 690,
       "is_archived": false,
-      "effect_json": {
-        "kind": "valuation_bonus",
-        "amount": 1
-      },
+      "effect_json": [
+        {
+          "kind": "valuation_bonus",
+          "amount": 1
+        },
+        {
+          "kind": "fixed_income_gp_per_tenday",
+          "amount": 15
+        }
+      ],
       "group": "tavern_structure"
     },
     {
       "name": "[Tavern] Distillery \u2014 Moderate",
-      "description": "650 gp, 5 days. Valuation +3.",
+      "description": "650 gp, 5 days. Valuation +3; +35 gp/tenday wholesale spirit income.",
       "purchase_cost_gp": 650,
       "setup_days": 5,
       "sort_order": 700,
       "is_archived": false,
-      "effect_json": {
-        "kind": "valuation_bonus",
-        "amount": 3
-      },
+      "effect_json": [
+        {
+          "kind": "valuation_bonus",
+          "amount": 3
+        },
+        {
+          "kind": "fixed_income_gp_per_tenday",
+          "amount": 35
+        }
+      ],
       "group": "tavern_structure"
     },
     {
       "name": "[Tavern] Distillery \u2014 Quality",
-      "description": "800 gp, 5 days. Valuation +5.",
+      "description": "800 gp, 5 days. Valuation +5; +55 gp/tenday wholesale spirit income.",
       "purchase_cost_gp": 800,
       "setup_days": 5,
       "sort_order": 710,
       "is_archived": false,
-      "effect_json": {
-        "kind": "valuation_bonus",
-        "amount": 5
-      },
+      "effect_json": [
+        {
+          "kind": "valuation_bonus",
+          "amount": 5
+        },
+        {
+          "kind": "fixed_income_gp_per_tenday",
+          "amount": 55
+        }
+      ],
       "group": "tavern_structure"
     },
     {
       "name": "[Tavern] Winery \u2014 Cheap",
-      "description": "500 gp, 7 days. Prereq Cellar Moderate. Valuation +2; vineyard; half cellar.",
+      "description": "500 gp, 7 days. Prereq Cellar Moderate. Valuation +2; +22 gp/tenday wholesale wine income; vineyard; half cellar.",
       "purchase_cost_gp": 500,
       "setup_days": 7,
       "sort_order": 720,
       "is_archived": false,
-      "effect_json": {
-        "kind": "valuation_bonus",
-        "amount": 2
-      },
+      "effect_json": [
+        {
+          "kind": "valuation_bonus",
+          "amount": 2
+        },
+        {
+          "kind": "fixed_income_gp_per_tenday",
+          "amount": 22
+        }
+      ],
       "group": "tavern_structure"
     },
     {
       "name": "[Tavern] Winery \u2014 Moderate",
-      "description": "750 gp, 7 days. Valuation +4.",
+      "description": "750 gp, 7 days. Valuation +4; +48 gp/tenday wholesale wine income.",
       "purchase_cost_gp": 750,
       "setup_days": 7,
       "sort_order": 730,
       "is_archived": false,
-      "effect_json": {
-        "kind": "valuation_bonus",
-        "amount": 4
-      },
+      "effect_json": [
+        {
+          "kind": "valuation_bonus",
+          "amount": 4
+        },
+        {
+          "kind": "fixed_income_gp_per_tenday",
+          "amount": 48
+        }
+      ],
       "group": "tavern_structure"
     },
     {
       "name": "[Tavern] Winery \u2014 Quality",
-      "description": "1,200 gp, 7 days. Valuation +6.",
+      "description": "1,200 gp, 7 days. Valuation +6; +72 gp/tenday wholesale wine income.",
       "purchase_cost_gp": 1200,
       "setup_days": 7,
       "sort_order": 740,
       "is_archived": false,
-      "effect_json": {
-        "kind": "valuation_bonus",
-        "amount": 6
-      },
+      "effect_json": [
+        {
+          "kind": "valuation_bonus",
+          "amount": 6
+        },
+        {
+          "kind": "fixed_income_gp_per_tenday",
+          "amount": 72
+        }
+      ],
       "group": "tavern_structure"
     },
     {
       "name": "[Tavern] Steam-Powered Tap",
-      "description": "650 gp, 10 days. Prereq Cellar w/ beer space. Valuation +4. Beer Festival downtime.",
+      "description": "650 gp, 10 days. Prereq Cellar w/ beer space. Valuation +4; +20 gp/tenday draft throughput & festival spillover. Beer Festival downtime.",
       "purchase_cost_gp": 650,
       "setup_days": 10,
       "sort_order": 750,
       "is_archived": false,
-      "effect_json": {
-        "kind": "valuation_bonus",
-        "amount": 4
-      },
+      "effect_json": [
+        {
+          "kind": "valuation_bonus",
+          "amount": 4
+        },
+        {
+          "kind": "fixed_income_gp_per_tenday",
+          "amount": 20
+        }
+      ],
       "group": "tavern_structure"
     },
     {
       "name": "[Tavern] Beer Garden",
-      "description": "200 gp, 3 days. Prereq Taproom Cheap. Valuation +2. Outdoor BBQ; not winter.",
+      "description": "200 gp, 3 days. Prereq Taproom Cheap. Valuation +2; +12 gp/tenday outdoor food & drink (seasonal). Outdoor BBQ; not winter.",
       "purchase_cost_gp": 200,
       "setup_days": 3,
       "sort_order": 760,
       "is_archived": false,
-      "effect_json": {
-        "kind": "valuation_bonus",
-        "amount": 2
-      },
+      "effect_json": [
+        {
+          "kind": "valuation_bonus",
+          "amount": 2
+        },
+        {
+          "kind": "fixed_income_gp_per_tenday",
+          "amount": 12
+        }
+      ],
       "group": "tavern_structure"
     },
     {

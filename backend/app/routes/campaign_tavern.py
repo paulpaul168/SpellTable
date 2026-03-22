@@ -60,7 +60,9 @@ router = APIRouter()
 
 def _campaign_access(campaign: Campaign | None, user: User) -> None:
     if not campaign:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found"
+        )
     if user.role != "admin" and user not in campaign.users:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -120,7 +122,11 @@ def _active_instance_effects(db: Session, campaign_id: int) -> dict:
             .first()
         )
         if defn:
-            effects.append(defn.effect_json if isinstance(defn.effect_json, dict) else None)
+            ej = defn.effect_json
+            if isinstance(ej, dict) or isinstance(ej, list):
+                effects.append(ej)
+            else:
+                effects.append(None)
     return aggregate_effects(effects)
 
 
@@ -152,11 +158,15 @@ def _build_bundle(db: Session, campaign_id: int) -> TavernBundleResponse:
     )
     return TavernBundleResponse(
         state=TavernStateResponse.model_validate(state),
-        definitions=[TavernOptionDefinitionResponse.model_validate(d) for d in definitions],
+        definitions=[
+            TavernOptionDefinitionResponse.model_validate(d) for d in definitions
+        ],
         instances=[TavernOptionInstanceResponse.model_validate(i) for i in instances],
         active_effects=TavernActiveEffectsSummary(**ae),
         multipliers={"profit": pm, "loss": lm},
-        ledger=[TavernLedgerEntryResponse.model_validate(e) for e in reversed(ledger_rows)],
+        ledger=[
+            TavernLedgerEntryResponse.model_validate(e) for e in reversed(ledger_rows)
+        ],
     )
 
 
@@ -388,6 +398,39 @@ async def update_tavern_state(
 
 
 @router.post(
+    "/campaigns/{campaign_id}/tavern/reset",
+    response_model=TavernBundleResponse,
+)
+async def reset_tavern_simulation(
+    campaign_id: int,
+    _admin: User = Depends(require_admin_role),
+    db: Session = Depends(get_db),
+):
+    """
+    Reset simulation progress: default state, remove all purchases and ledger lines.
+    Catalog definitions are kept.
+    """
+    campaign = _get_campaign(db, campaign_id)
+    _campaign_access(campaign, _admin)
+    state = _get_or_create_state(db, campaign_id)
+    state.current_day = 0
+    state.valuation = 0
+    state.condition = "modest"
+    state.situational_business_bonus = 0
+    state.treasury_gp = 0
+    state.days_per_tenday = 10
+    db.query(TavernOptionInstance).filter(
+        TavernOptionInstance.campaign_id == campaign_id
+    ).delete()
+    db.query(TavernLedgerEntry).filter(
+        TavernLedgerEntry.campaign_id == campaign_id
+    ).delete()
+    db.commit()
+    db.refresh(state)
+    return _build_bundle(db, campaign_id)
+
+
+@router.post(
     "/campaigns/{campaign_id}/tavern/advance-days",
     response_model=TavernBundleResponse,
 )
@@ -455,7 +498,9 @@ async def update_tavern_definition(
         .first()
     )
     if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Definition not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Definition not found"
+        )
     data = body.model_dump(exclude_unset=True)
     if "name" in data and data["name"] is not None:
         data["name"] = data["name"].strip()
@@ -487,7 +532,9 @@ async def create_tavern_instance(
         .first()
     )
     if not defn:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Definition not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Definition not found"
+        )
     purchased = state.current_day
     activates = purchased + defn.setup_days
     st = (
@@ -530,7 +577,9 @@ async def patch_tavern_instance(
         .first()
     )
     if not inst:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Instance not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Instance not found"
+        )
     if body.status is not None:
         if body.status != TavernInstanceStatus.CANCELLED:
             raise HTTPException(
@@ -587,7 +636,9 @@ async def settle_tavern_tenday(
                 check_total, body.effect_dice_sum
             )
         except ValueError as e:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+            ) from e
         raw_gp = int(business_table_detail["raw_table_gp"])
         is_profit = bool(business_table_detail["is_profit"])
     else:
@@ -604,7 +655,9 @@ async def settle_tavern_tenday(
             manual_adjustment_gp=body.manual_adjustment_gp,
         )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
     preview: dict = {
         "settlement": settlement,
@@ -698,7 +751,9 @@ async def patch_tavern_ledger_entry(
         .first()
     )
     if not entry:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ledger entry not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ledger entry not found"
+        )
     if body.net_change_gp is not None:
         delta = body.net_change_gp - entry.net_change_gp
         state.treasury_gp += delta
@@ -733,7 +788,9 @@ async def delete_tavern_ledger_entry(
         .first()
     )
     if not entry:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ledger entry not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ledger entry not found"
+        )
     state.treasury_gp -= entry.net_change_gp
     db.delete(entry)
     db.commit()

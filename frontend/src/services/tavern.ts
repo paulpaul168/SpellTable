@@ -201,6 +201,16 @@ export const tavernService = {
         return res.json();
     },
 
+    async resetSimulation(campaignId: number): Promise<TavernBundle> {
+        const res = await fetch(`${base()}/campaigns/${campaignId}/tavern/reset`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify({}),
+        });
+        if (!res.ok) throw new Error(await parseError(res));
+        return res.json();
+    },
+
     async advanceDays(campaignId: number, days: number): Promise<TavernBundle> {
         const res = await fetch(`${base()}/campaigns/${campaignId}/tavern/advance-days`, {
             method: 'POST',

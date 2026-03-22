@@ -3,7 +3,7 @@ Tavern simulation rules: condition multipliers and effect_json parsing.
 
 effect_json schema (v1) — each TavernOptionDefinition.effect_json is one object:
 
-- Fixed income per tenday (no roll multiplier applied):
+- Fixed income per tenday (no roll multiplier applied; stacks with business result):
   {"kind": "fixed_income_gp_per_tenday", "amount": <int>}
 
 - Recurring cost per tenday (subtracted after business result):

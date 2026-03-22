@@ -36,7 +36,10 @@ const CONDITIONS = [
     { value: 'aristocratic', label: 'Aristocratic (×12 / ×10)' },
 ] as const;
 
-const EFFECT_EXAMPLE = `[{"kind":"fixed_income_gp_per_tenday","amount":60}]`;
+const EFFECT_EXAMPLE = `[
+  {"kind":"valuation_bonus","amount":2},
+  {"kind":"fixed_income_gp_per_tenday","amount":15}
+]`;
 
 interface TavernTabProps {
     campaign: Campaign;
@@ -200,6 +203,32 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
             toast({
                 title: 'Error',
                 description: e instanceof Error ? e.message : 'Save failed',
+                variant: 'destructive',
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleResetSimulation = async () => {
+        if (!isAdmin) return;
+        if (
+            !window.confirm(
+                'Reset tavern simulation? This sets day, valuation, treasury, and condition to defaults, removes all purchases, and clears the ledger. The catalog is not changed.'
+            )
+        ) {
+            return;
+        }
+        try {
+            setSaving(true);
+            const b = await tavernService.resetSimulation(campaign.id);
+            setBundle(b);
+            syncFormsFromBundle(b);
+            toast({ title: 'Tavern reset', description: 'Simulation cleared; catalog kept.' });
+        } catch (e) {
+            toast({
+                title: 'Error',
+                description: e instanceof Error ? e.message : 'Reset failed',
                 variant: 'destructive',
             });
         } finally {
@@ -837,13 +866,23 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <Button
-                                onClick={handleSaveState}
-                                disabled={saving}
-                                className="bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900"
-                            >
-                                Save state
-                            </Button>
+                            <div className="flex flex-wrap gap-2">
+                                <Button
+                                    onClick={handleSaveState}
+                                    disabled={saving}
+                                    className="bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900"
+                                >
+                                    Save state
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    onClick={() => void handleResetSimulation()}
+                                    disabled={saving}
+                                >
+                                    Reset simulation
+                                </Button>
+                            </div>
                             <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-600">
                                 <div className="space-y-1">
                                     <Label>Advance days</Label>
@@ -935,8 +974,9 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
                 <CardContent className="space-y-5">
                     {isAdmin ? (
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            effect_json: fixed_income / recurring_cost / roll & valuation bonuses / flags — edit options
-                            in the dialog.
+                            effect_json: use a JSON array to stack effects (e.g. valuation_bonus + fixed_income_gp_per_tenday
+                            for something like a brewery). Single-object JSON is also valid. Kinds: fixed_income_gp_per_tenday,
+                            recurring_cost_gp_per_tenday, business_roll_bonus, valuation_bonus, flag.
                         </p>
                     ) : (
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">
