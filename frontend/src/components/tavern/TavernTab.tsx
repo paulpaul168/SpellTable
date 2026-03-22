@@ -18,6 +18,8 @@ import { Campaign } from '@/components/CampaignManagement';
 import {
     tavernService,
     TavernBundle,
+    TavernBusinessPreview,
+    TavernBusinessTableResponse,
     TavernCatalogFile,
     TavernEffectJson,
     TavernOptionDefinition,
@@ -65,10 +67,15 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
     const [defArchived, setDefArchived] = useState(false);
 
     const [settleD100, setSettleD100] = useState('');
+    const [settleD10Sum, setSettleD10Sum] = useState('');
     const [settleRaw, setSettleRaw] = useState('');
     const [settleProfit, setSettleProfit] = useState(true);
     const [settleManual, setSettleManual] = useState('0');
     const [settlePreview, setSettlePreview] = useState<Record<string, unknown> | null>(null);
+    const [rollPreview, setRollPreview] = useState<TavernBusinessPreview | null>(null);
+    const [rollLookupLoading, setRollLookupLoading] = useState(false);
+    const [businessTable, setBusinessTable] = useState<TavernBusinessTableResponse | null>(null);
+    const [useBusinessTable, setUseBusinessTable] = useState(true);
     const [importText, setImportText] = useState('');
     const importFileRef = useRef<HTMLInputElement>(null);
 
@@ -97,6 +104,28 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
     useEffect(() => {
         load();
     }, [load]);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const t = await tavernService.getBusinessTable(campaign.id);
+                if (!cancelled) setBusinessTable(t);
+            } catch {
+                if (!cancelled) setBusinessTable(null);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [campaign.id]);
+
+    useEffect(() => {
+        if (!useBusinessTable) {
+            setRollPreview(null);
+            setSettleD10Sum('');
+        }
+    }, [useBusinessTable]);
 
     const defById = useMemo(() => {
         const m = new Map<number, TavernOptionDefinition>();
@@ -390,37 +419,108 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
         e.target.value = '';
     };
 
-    const runSettle = async (apply: boolean) => {
-        const raw = parseInt(settleRaw, 10);
-        if (Number.isNaN(raw) || raw < 0) {
+    const fetchRollPreview = async () => {
+        const d100s = settleD100.trim();
+        const d = parseInt(d100s, 10);
+        if (Number.isNaN(d) || d < 1 || d > 100) {
             toast({
-                title: 'Invalid raw GP',
-                description: 'Enter a non-negative number from the business table.',
+                title: 'd100',
+                description: 'Enter 1–100 for the business check first.',
                 variant: 'destructive',
             });
             return;
         }
-        const d100s = settleD100.trim();
-        let d100: number | null | undefined = undefined;
-        if (d100s !== '') {
+        try {
+            setRollLookupLoading(true);
+            const p = await tavernService.previewBusinessTable(campaign.id, d);
+            setRollPreview(p);
+            if (p.d10_count === 0) {
+                setSettleD10Sum('0');
+            }
+            toast({ title: 'Row found', description: `${p.label_de} — roll ${p.dice_to_roll_de}` });
+        } catch (e) {
+            toast({
+                title: 'Lookup failed',
+                description: e instanceof Error ? e.message : 'Error',
+                variant: 'destructive',
+            });
+        } finally {
+            setRollLookupLoading(false);
+        }
+    };
+
+    const runSettle = async (apply: boolean) => {
+        const manualAdj = parseInt(settleManual, 10) || 0;
+        let payload: Parameters<typeof tavernService.settleTenday>[1];
+
+        if (useBusinessTable) {
+            const d100s = settleD100.trim();
             const d = parseInt(d100s, 10);
             if (Number.isNaN(d) || d < 1 || d > 100) {
-                toast({ title: 'Invalid d100', description: 'Use 1–100 or leave empty.', variant: 'destructive' });
+                toast({
+                    title: 'd100 required',
+                    description: 'Enter 1–100 for the business check (Wurf pro Tenday).',
+                    variant: 'destructive',
+                });
                 return;
             }
-            d100 = d;
+            const sumRaw = settleD10Sum.trim();
+            const effectSum = parseInt(sumRaw, 10);
+            if (Number.isNaN(effectSum) || effectSum < 0) {
+                toast({
+                    title: 'Sum of d10',
+                    description: 'Enter the total of your d10 rolls (0 for break-even row).',
+                    variant: 'destructive',
+                });
+                return;
+            }
+            payload = {
+                d100_roll: d,
+                use_business_table: true,
+                effect_dice_sum: effectSum,
+                raw_table_gp: 0,
+                is_profit: true,
+                manual_adjustment_gp: manualAdj,
+                apply,
+            };
         } else {
-            d100 = null;
+            const raw = parseInt(settleRaw, 10);
+            if (Number.isNaN(raw) || raw < 0) {
+                toast({
+                    title: 'Invalid raw GP',
+                    description: 'Enter a non-negative raw value (manual mode).',
+                    variant: 'destructive',
+                });
+                return;
+            }
+            const d100s = settleD100.trim();
+            let d100: number | null | undefined;
+            if (d100s !== '') {
+                const d = parseInt(d100s, 10);
+                if (Number.isNaN(d) || d < 1 || d > 100) {
+                    toast({
+                        title: 'Invalid d100',
+                        description: 'Use 1–100 or leave empty.',
+                        variant: 'destructive',
+                    });
+                    return;
+                }
+                d100 = d;
+            } else {
+                d100 = null;
+            }
+            payload = {
+                d100_roll: d100,
+                use_business_table: false,
+                raw_table_gp: raw,
+                is_profit: settleProfit,
+                manual_adjustment_gp: manualAdj,
+                apply,
+            };
         }
         try {
             setSaving(true);
-            const result = await tavernService.settleTenday(campaign.id, {
-                d100_roll: d100,
-                raw_table_gp: raw,
-                is_profit: settleProfit,
-                manual_adjustment_gp: parseInt(settleManual, 10) || 0,
-                apply,
-            });
+            const result = await tavernService.settleTenday(campaign.id, payload);
             setSettlePreview(result.preview);
             if (apply && bundle) {
                 const b = await tavernService.getBundle(campaign.id);
@@ -789,61 +889,286 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
                     <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">Tenday settlement</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    {businessTable && (
+                        <div className="text-sm text-zinc-600 dark:text-zinc-400 space-y-1">
+                            <p>
+                                <span className="text-zinc-800 dark:text-zinc-200 font-medium">Check:</span>{' '}
+                                {businessTable.formula_de}
+                            </p>
+                            <p className="text-xs text-zinc-500">{businessTable.formula_en}</p>
+                            <details className="rounded-md border border-zinc-200 dark:border-zinc-600 text-xs mt-2">
+                                <summary className="cursor-pointer px-3 py-2 bg-zinc-50 dark:bg-zinc-900/80 text-zinc-800 dark:text-zinc-200 font-medium">
+                                    Full results table (reference)
+                                </summary>
+                                <div className="overflow-x-auto max-h-56 overflow-y-auto border-t border-zinc-200 dark:border-zinc-600">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="border-b border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-900/80">
+                                                <th className="p-2 font-medium text-zinc-800 dark:text-zinc-200">
+                                                    Band
+                                                </th>
+                                                <th className="p-2 font-medium text-zinc-800 dark:text-zinc-200">
+                                                    Result
+                                                </th>
+                                                <th className="p-2 font-medium text-zinc-800 dark:text-zinc-200">
+                                                    W10
+                                                </th>
+                                                <th className="p-2 font-medium text-zinc-800 dark:text-zinc-200">
+                                                    Sum
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {businessTable.rows.map((r) => (
+                                                <tr
+                                                    key={r.row_id}
+                                                    className="border-b border-zinc-100 dark:border-zinc-700/80"
+                                                >
+                                                    <td className="p-2 text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+                                                        {r.result_band}
+                                                    </td>
+                                                    <td className="p-2 text-zinc-800 dark:text-zinc-200">
+                                                        {r.label_de}
+                                                        <span className="block text-zinc-500">{r.label_en}</span>
+                                                    </td>
+                                                    <td className="p-2 font-mono text-zinc-700 dark:text-zinc-300 whitespace-nowrap">
+                                                        {r.dice_to_roll || '—'}
+                                                    </td>
+                                                    <td className="p-2 font-mono text-zinc-700 dark:text-zinc-300 whitespace-nowrap">
+                                                        {r.sum_range || '—'}
+                                                        {r.narrative_hint && (
+                                                            <span className="block text-amber-700 dark:text-amber-400 text-[10px] mt-0.5 font-sans">
+                                                                {r.narrative_hint}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </details>
+                        </div>
+                    )}
+                    {!isAdmin && (
+                        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                            Enter your d100 below and use <strong>Show what to roll</strong> to see how many d10 to roll
+                            and the valid total range.
+                        </p>
+                    )}
+                    {isAdmin && (
+                        <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                            <input
+                                type="checkbox"
+                                checked={useBusinessTable}
+                                onChange={(e) => setUseBusinessTable(e.target.checked)}
+                            />
+                            Use business results table (manual d10 sum after lookup)
+                        </label>
+                    )}
+                    <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
                         <div className="space-y-1">
-                            <Label>d100 (optional)</Label>
+                            <Label>{useBusinessTable ? 'd100 roll' : 'd100 (optional)'}</Label>
                             <Input
                                 value={settleD100}
                                 onChange={(e) => setSettleD100(e.target.value)}
                                 placeholder="1–100"
-                                disabled={!isAdmin}
+                                disabled={!isAdmin && !useBusinessTable}
                                 className="border-zinc-200 dark:border-zinc-700"
                             />
                         </div>
-                        <div className="space-y-1">
-                            <Label>Raw table gp</Label>
-                            <Input
-                                value={settleRaw}
-                                onChange={(e) => setSettleRaw(e.target.value)}
-                                disabled={!isAdmin}
-                                className="border-zinc-200 dark:border-zinc-700"
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <Label>Manual adj. (gp)</Label>
-                            <Input
-                                value={settleManual}
-                                onChange={(e) => setSettleManual(e.target.value)}
-                                disabled={!isAdmin}
-                                className="border-zinc-200 dark:border-zinc-700"
-                            />
-                        </div>
-                        <div className="space-y-1 flex items-end">
-                            <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                                <input
-                                    type="checkbox"
-                                    checked={settleProfit}
-                                    onChange={(e) => setSettleProfit(e.target.checked)}
-                                    disabled={!isAdmin}
+                        {useBusinessTable && (
+                            <>
+                                <div className="space-y-1 sm:col-span-1 flex flex-col justify-end">
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        onClick={() => void fetchRollPreview()}
+                                        disabled={rollLookupLoading}
+                                        className="w-full sm:w-auto"
+                                    >
+                                        {rollLookupLoading ? '…' : 'Show what to roll'}
+                                    </Button>
+                                </div>
+                                {isAdmin && (
+                                    <div className="space-y-1">
+                                        <Label>Sum of d10 (manual)</Label>
+                                        <Input
+                                            value={settleD10Sum}
+                                            onChange={(e) => setSettleD10Sum(e.target.value)}
+                                            placeholder="e.g. 18 (or 0 if break even)"
+                                            disabled={!isAdmin}
+                                            className="border-zinc-200 dark:border-zinc-700"
+                                        />
+                                    </div>
+                                )}
+                            </>
+                        )}
+                        {!useBusinessTable && isAdmin && (
+                            <div className="space-y-1">
+                                <Label>Raw table gp</Label>
+                                <Input
+                                    value={settleRaw}
+                                    onChange={(e) => setSettleRaw(e.target.value)}
+                                    className="border-zinc-200 dark:border-zinc-700"
                                 />
-                                Profit (off = loss)
-                            </label>
-                        </div>
+                            </div>
+                        )}
+                        {isAdmin && (
+                            <div className="space-y-1">
+                                <Label>Manual adj. (gp)</Label>
+                                <Input
+                                    value={settleManual}
+                                    onChange={(e) => setSettleManual(e.target.value)}
+                                    className="border-zinc-200 dark:border-zinc-700"
+                                />
+                            </div>
+                        )}
+                        {!useBusinessTable && isAdmin && (
+                            <div className="space-y-1 flex items-end">
+                                <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                                    <input
+                                        type="checkbox"
+                                        checked={settleProfit}
+                                        onChange={(e) => setSettleProfit(e.target.checked)}
+                                    />
+                                    Profit (not loss)
+                                </label>
+                            </div>
+                        )}
                     </div>
+                    {rollPreview && useBusinessTable && (
+                        <div
+                            className={`rounded-lg border p-4 space-y-3 ${
+                                settleD100.trim() !== String(rollPreview.d100_roll)
+                                    ? 'border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20'
+                                    : 'border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-900/40'
+                            }`}
+                        >
+                            {settleD100.trim() !== String(rollPreview.d100_roll) && (
+                                <p className="text-xs text-amber-800 dark:text-amber-200">
+                                    d100 changed — click &quot;Show what to roll&quot; again to refresh.
+                                </p>
+                            )}
+                            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                                <span className="text-sm text-zinc-500 dark:text-zinc-400">Check total</span>
+                                <span className="text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                                    {rollPreview.check_total}
+                                </span>
+                                <span className="text-sm text-zinc-600 dark:text-zinc-300">
+                                    {rollPreview.label_de}
+                                    <span className="text-zinc-500"> — {rollPreview.label_en}</span>
+                                </span>
+                            </div>
+                            <div className="rounded-md bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 px-4 py-3 text-center">
+                                <p className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400 mb-1">
+                                    Roll at the table
+                                </p>
+                                <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tabular-nums">
+                                    {rollPreview.d10_count === 0
+                                        ? '—'
+                                        : `${rollPreview.d10_count}× d10`}
+                                </p>
+                                <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-1">
+                                    Valid sum of those dice:{' '}
+                                    <strong className="tabular-nums">
+                                        {rollPreview.effect_dice_sum_min}–{rollPreview.effect_dice_sum_max}
+                                    </strong>
+                                    {rollPreview.d10_count > 0 && (
+                                        <span className="block text-xs text-zinc-500 mt-1">
+                                            ({rollPreview.outcome === 'loss' ? 'loss' : 'profit'} raw before condition
+                                            multiplier)
+                                        </span>
+                                    )}
+                                </p>
+                            </div>
+                            <p className="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed">
+                                {rollPreview.instruction_de}
+                            </p>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                                {rollPreview.instruction_en}
+                            </p>
+                            {rollPreview.narrative_hint && (
+                                <p className="text-xs text-amber-800 dark:text-amber-200">{rollPreview.narrative_hint}</p>
+                            )}
+                        </div>
+                    )}
+                    {isAdmin && useBusinessTable && (
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                            DM: after players roll, enter the d10 total above, then preview or apply. Fixed income /
+                            recurring costs still apply from upgrades.
+                        </p>
+                    )}
                     {isAdmin && (
                         <div className="flex flex-wrap gap-2">
-                            <Button variant="outline" onClick={() => runSettle(false)} disabled={saving}>
+                            <Button
+                                variant="outline"
+                                onClick={() => runSettle(false)}
+                                disabled={saving || (useBusinessTable && !settleD10Sum.trim())}
+                            >
                                 Preview
                             </Button>
-                            <Button onClick={() => runSettle(true)} disabled={saving}>
+                            <Button onClick={() => runSettle(true)} disabled={saving || (useBusinessTable && !settleD10Sum.trim())}>
                                 Apply to treasury
                             </Button>
                         </div>
                     )}
                     {settlePreview && (
-                        <pre className="text-xs bg-zinc-100 dark:bg-zinc-950 p-3 rounded-md overflow-x-auto text-zinc-800 dark:text-zinc-200">
-                            {JSON.stringify(settlePreview, null, 2)}
-                        </pre>
+                        <div className="rounded-md border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-950/40 p-4 text-sm space-y-2 text-zinc-800 dark:text-zinc-200">
+                            {(() => {
+                                const settlement = settlePreview.settlement as Record<string, unknown> | undefined;
+                                const bt = settlePreview.business_table as Record<string, unknown> | undefined;
+                                if (!settlement) {
+                                    return (
+                                        <pre className="text-xs overflow-x-auto">
+                                            {JSON.stringify(settlePreview, null, 2)}
+                                        </pre>
+                                    );
+                                }
+                                return (
+                                    <>
+                                        <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                                            Net:{' '}
+                                            <span
+                                                className={
+                                                    Number(settlement.net_change_gp) >= 0
+                                                        ? 'text-green-700 dark:text-green-400'
+                                                        : 'text-red-700 dark:text-red-400'
+                                                }
+                                            >
+                                                {Number(settlement.net_change_gp) >= 0 ? '+' : ''}
+                                                {String(settlement.net_change_gp)} gp
+                                            </span>
+                                        </p>
+                                        <ul className="text-xs space-y-1 text-zinc-600 dark:text-zinc-400">
+                                            <li>
+                                                Business (after condition):{' '}
+                                                <strong className="text-zinc-800 dark:text-zinc-200">
+                                                    {String(settlement.business_component_gp)} gp
+                                                </strong>{' '}
+                                                (raw {String(settlement.raw_table_gp)} × condition)
+                                            </li>
+                                            <li>Fixed income +{String(settlement.fixed_income_gp_per_tenday)} gp</li>
+                                            <li>Recurring −{String(settlement.recurring_cost_gp_per_tenday)} gp</li>
+                                            <li>Manual adj. {String(settlement.manual_adjustment_gp)} gp</li>
+                                        </ul>
+                                        {settlePreview.business_check_total != null && (
+                                            <p className="text-xs text-zinc-500">
+                                                Check total: {String(settlePreview.business_check_total)}
+                                            </p>
+                                        )}
+                                        {bt && (
+                                            <div className="text-xs border-t border-zinc-200 dark:border-zinc-600 pt-2 mt-2 space-y-1">
+                                                <p>
+                                                    Table: {String(bt.label_de)} — d10 sum entered:{' '}
+                                                    {String(bt.effect_dice_sum_entered ?? '—')}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
+                        </div>
                     )}
                 </CardContent>
             </Card>

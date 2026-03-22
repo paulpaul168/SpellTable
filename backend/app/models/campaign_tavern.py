@@ -195,10 +195,59 @@ class TavernOptionInstancePatch(BaseModel):
 
 class TavernSettleTendayBody(BaseModel):
     d100_roll: int | None = Field(None, ge=1, le=100)
-    raw_table_gp: int = Field(..., ge=0)
-    is_profit: bool
+    raw_table_gp: int = Field(default=0, ge=0)
+    is_profit: bool = True
     manual_adjustment_gp: int = 0
     apply: bool = False
+    use_business_table: bool = Field(
+        default=False,
+        description="If True, require d100_roll and effect_dice_sum (manual Nd10 total for the row).",
+    )
+    effect_dice_sum: int | None = Field(
+        None,
+        ge=0,
+        description="Sum of Nd10 after table lookup; 0 for break-even row. Required when use_business_table.",
+    )
+
+
+class TavernBusinessTableRowRef(BaseModel):
+    result_band: str
+    row_id: str
+    label_de: str
+    label_en: str
+    effect_dice: str
+    dice_to_roll: str = ""
+    sum_range: str = ""
+    outcome: str
+    narrative_hint: str | None = None
+
+
+class TavernBusinessPreviewBody(BaseModel):
+    d100_roll: int = Field(..., ge=1, le=100)
+
+
+class TavernBusinessPreviewResponse(BaseModel):
+    d100_roll: int
+    check_total: int
+    modifier_breakdown: dict[str, int]
+    row_id: str
+    label_de: str
+    label_en: str
+    effect_dice: str
+    dice_to_roll_de: str
+    d10_count: int
+    outcome: str
+    instruction_de: str
+    instruction_en: str
+    effect_dice_sum_min: int
+    effect_dice_sum_max: int
+    narrative_hint: str | None = None
+
+
+class TavernBusinessTableResponse(BaseModel):
+    formula_de: str
+    formula_en: str
+    rows: list[TavernBusinessTableRowRef]
 
 
 class TavernActiveEffectsSummary(BaseModel):

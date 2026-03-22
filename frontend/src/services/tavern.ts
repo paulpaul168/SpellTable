@@ -99,6 +99,42 @@ export interface TavernCatalogImportResult {
     skipped: number;
 }
 
+export interface TavernBusinessTableRowRef {
+    result_band: string;
+    row_id: string;
+    label_de: string;
+    label_en: string;
+    effect_dice: string;
+    dice_to_roll: string;
+    sum_range: string;
+    outcome: string;
+    narrative_hint: string | null;
+}
+
+export interface TavernBusinessTableResponse {
+    formula_de: string;
+    formula_en: string;
+    rows: TavernBusinessTableRowRef[];
+}
+
+export interface TavernBusinessPreview {
+    d100_roll: number;
+    check_total: number;
+    modifier_breakdown: Record<string, number>;
+    row_id: string;
+    label_de: string;
+    label_en: string;
+    effect_dice: string;
+    dice_to_roll_de: string;
+    d10_count: number;
+    outcome: string;
+    instruction_de: string;
+    instruction_en: string;
+    effect_dice_sum_min: number;
+    effect_dice_sum_max: number;
+    narrative_hint: string | null;
+}
+
 function headers(json = true): HeadersInit {
     const h: Record<string, string> = {
         ...authService.getAuthHeader(),
@@ -122,6 +158,24 @@ export const tavernService = {
     async getBundle(campaignId: number): Promise<TavernBundle> {
         const res = await fetch(`${base()}/campaigns/${campaignId}/tavern`, {
             headers: headers(),
+        });
+        if (!res.ok) throw new Error(await parseError(res));
+        return res.json();
+    },
+
+    async getBusinessTable(campaignId: number): Promise<TavernBusinessTableResponse> {
+        const res = await fetch(`${base()}/campaigns/${campaignId}/tavern/business-table`, {
+            headers: headers(),
+        });
+        if (!res.ok) throw new Error(await parseError(res));
+        return res.json();
+    },
+
+    async previewBusinessTable(campaignId: number, d100_roll: number): Promise<TavernBusinessPreview> {
+        const res = await fetch(`${base()}/campaigns/${campaignId}/tavern/business-table-preview`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify({ d100_roll }),
         });
         if (!res.ok) throw new Error(await parseError(res));
         return res.json();
@@ -229,10 +283,12 @@ export const tavernService = {
         campaignId: number,
         body: {
             d100_roll?: number | null;
-            raw_table_gp: number;
-            is_profit: boolean;
+            raw_table_gp?: number;
+            is_profit?: boolean;
             manual_adjustment_gp?: number;
             apply: boolean;
+            use_business_table?: boolean;
+            effect_dice_sum?: number | null;
         }
     ): Promise<TavernSettleResult> {
         const res = await fetch(`${base()}/campaigns/${campaignId}/tavern/settle-tenday`, {

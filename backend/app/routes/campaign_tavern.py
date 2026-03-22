@@ -8,6 +8,11 @@ from sqlalchemy.orm import Session
 
 from ..core.auth import get_current_active_user, require_admin_role
 from ..core.database import get_db
+from ..core.tavern_business_table import (
+    business_table_preview_payload,
+    business_table_reference_rows,
+    resolve_business_table_with_manual_sum,
+)
 from ..core.tavern_rules import (
     VALID_TAVERN_CONDITIONS,
     aggregate_effects,
@@ -22,6 +27,10 @@ from ..models.campaign_tavern import (
     TavernActiveEffectsSummary,
     TavernAdvanceDaysBody,
     TavernBundleResponse,
+    TavernBusinessPreviewBody,
+    TavernBusinessPreviewResponse,
+    TavernBusinessTableResponse,
+    TavernBusinessTableRowRef,
     TavernCatalogEntry,
     TavernCatalogExportResponse,
     TavernCatalogImportBody,
@@ -161,6 +170,66 @@ async def get_tavern(
     campaign = _get_campaign(db, campaign_id)
     _campaign_access(campaign, current_user)
     return _build_bundle(db, campaign_id)
+
+
+@router.get(
+    "/campaigns/{campaign_id}/tavern/business-table",
+    response_model=TavernBusinessTableResponse,
+)
+async def get_tavern_business_table(
+    campaign_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    campaign = _get_campaign(db, campaign_id)
+    _campaign_access(campaign, current_user)
+    rows = [TavernBusinessTableRowRef(**r) for r in business_table_reference_rows()]
+    return TavernBusinessTableResponse(
+        formula_de="1d100 + Bewertung + sonstige Boni (einmal pro Tenday)",
+        formula_en="1d100 + valuation + other bonuses (once per tenday)",
+        rows=rows,
+    )
+
+
+@router.post(
+    "/campaigns/{campaign_id}/tavern/business-table-preview",
+    response_model=TavernBusinessPreviewResponse,
+)
+async def preview_tavern_business_table(
+    campaign_id: int,
+    body: TavernBusinessPreviewBody,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    campaign = _get_campaign(db, campaign_id)
+    _campaign_access(campaign, current_user)
+    state = _get_or_create_state(db, campaign_id)
+    ae = _active_instance_effects(db, campaign_id)
+    check_total = business_check_total(
+        body.d100_roll,
+        state.valuation,
+        state.situational_business_bonus,
+        ae["valuation_bonus"],
+        ae["business_roll_bonus"],
+    )
+    if check_total is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not compute business check total",
+        )
+    modifier_breakdown = {
+        "d100": body.d100_roll,
+        "valuation": state.valuation,
+        "valuation_bonus_upgrades": ae["valuation_bonus"],
+        "situational_bonus": state.situational_business_bonus,
+        "roll_bonus_upgrades": ae["business_roll_bonus"],
+    }
+    payload = business_table_preview_payload(
+        d100_roll=body.d100_roll,
+        check_total=check_total,
+        modifier_breakdown=modifier_breakdown,
+    )
+    return TavernBusinessPreviewResponse(**payload)
 
 
 def _definition_to_catalog_entry(d: TavernOptionDefinition) -> TavernCatalogEntry:
@@ -485,17 +554,6 @@ async def settle_tavern_tenday(
     _campaign_access(campaign, _admin)
     state = _get_or_create_state(db, campaign_id)
     ae = _active_instance_effects(db, campaign_id)
-    try:
-        settlement = settle_tenday_net(
-            raw_table_gp=body.raw_table_gp,
-            is_profit=body.is_profit,
-            condition=state.condition,
-            fixed_income_gp_per_tenday=ae["fixed_income_gp_per_tenday"],
-            recurring_cost_gp_per_tenday=ae["recurring_cost_gp_per_tenday"],
-            manual_adjustment_gp=body.manual_adjustment_gp,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
     check_total = business_check_total(
         body.d100_roll,
@@ -504,12 +562,56 @@ async def settle_tavern_tenday(
         ae["valuation_bonus"],
         ae["business_roll_bonus"],
     )
-    preview = {
+
+    business_table_detail = None
+    if body.use_business_table:
+        if body.d100_roll is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="d100_roll (1–100) is required when use_business_table is true",
+            )
+        if check_total is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Could not compute business check total",
+            )
+        if body.effect_dice_sum is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="effect_dice_sum is required when use_business_table (sum of Nd10, or 0 if break even)",
+            )
+        try:
+            business_table_detail = resolve_business_table_with_manual_sum(
+                check_total, body.effect_dice_sum
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raw_gp = int(business_table_detail["raw_table_gp"])
+        is_profit = bool(business_table_detail["is_profit"])
+    else:
+        raw_gp = body.raw_table_gp
+        is_profit = body.is_profit
+
+    try:
+        settlement = settle_tenday_net(
+            raw_table_gp=raw_gp,
+            is_profit=is_profit,
+            condition=state.condition,
+            fixed_income_gp_per_tenday=ae["fixed_income_gp_per_tenday"],
+            recurring_cost_gp_per_tenday=ae["recurring_cost_gp_per_tenday"],
+            manual_adjustment_gp=body.manual_adjustment_gp,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+    preview: dict = {
         "settlement": settlement,
         "d100_roll": body.d100_roll,
         "business_check_total": check_total,
         "active_flags": ae["flags"],
     }
+    if business_table_detail is not None:
+        preview["business_table"] = business_table_detail
     ledger_entry = None
     treasury_after = None
     if body.apply:
