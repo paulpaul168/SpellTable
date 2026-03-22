@@ -9,6 +9,7 @@ from loguru import logger
 from app.core.config import create_app
 from app.core.database import init_db
 from app.core.logging import setup_logger
+from app.models import campaign_tavern as _campaign_tavern_models  # noqa: F401
 from app.routes import (
     audio,
     auth,
@@ -22,7 +23,6 @@ from app.routes import (
     scenes,
     websocket,
 )
-from app.models import campaign_tavern as _campaign_tavern_models  # noqa: F401
 
 
 def get_application() -> FastAPI:
