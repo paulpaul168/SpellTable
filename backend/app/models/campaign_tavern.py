@@ -4,6 +4,7 @@ Per-campaign tavern simulation: state, option catalog, purchases, ledger.
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 from sqlalchemy import (
@@ -139,7 +140,7 @@ class TavernOptionDefinitionCreate(BaseModel):
     description: str | None = None
     purchase_cost_gp: int = Field(default=0, ge=0)
     setup_days: int = Field(default=0, ge=0)
-    effect_json: dict | None = None
+    effect_json: dict | list | None = None
     sort_order: int = 0
 
 
@@ -148,7 +149,7 @@ class TavernOptionDefinitionUpdate(BaseModel):
     description: str | None = None
     purchase_cost_gp: int | None = Field(None, ge=0)
     setup_days: int | None = Field(None, ge=0)
-    effect_json: dict | None = None
+    effect_json: dict | list | None = None
     sort_order: int | None = None
     is_archived: bool | None = None
 
@@ -160,7 +161,7 @@ class TavernOptionDefinitionResponse(BaseModel):
     description: str | None
     purchase_cost_gp: int
     setup_days: int
-    effect_json: dict | None
+    effect_json: dict | list | None
     sort_order: int
     is_archived: bool
     created_at: datetime
@@ -204,6 +205,7 @@ class TavernActiveEffectsSummary(BaseModel):
     fixed_income_gp_per_tenday: int
     recurring_cost_gp_per_tenday: int
     business_roll_bonus: int
+    valuation_bonus: int = 0
     flags: list[str]
 
 
@@ -232,3 +234,36 @@ class TavernSettleTendayResult(BaseModel):
     preview: dict
     treasury_gp_after: int | None = None
     ledger_entry: TavernLedgerEntryResponse | None = None
+
+
+class TavernCatalogEntry(BaseModel):
+    """Portable catalog row (no DB id). effect_json may be a dict or list of effect dicts."""
+
+    name: str = Field(..., min_length=1, max_length=200)
+    description: str | None = None
+    purchase_cost_gp: int = Field(default=0, ge=0)
+    setup_days: int = Field(default=0, ge=0)
+    effect_json: dict | list | None = None
+    sort_order: int = 0
+    is_archived: bool = False
+    group: str | None = Field(None, max_length=80)
+
+
+class TavernCatalogExportResponse(BaseModel):
+    version: int = 1
+    catalog_name: str | None = None
+    definitions: list[TavernCatalogEntry]
+
+
+class TavernCatalogImportBody(BaseModel):
+    """append: skip names that already exist. replace_all: delete all instances and definitions first."""
+
+    mode: Literal["append", "replace_all"]
+    definitions: list[TavernCatalogEntry]
+    catalog_name: str | None = None
+
+
+class TavernCatalogImportResult(BaseModel):
+    bundle: TavernBundleResponse
+    added: int
+    skipped: int

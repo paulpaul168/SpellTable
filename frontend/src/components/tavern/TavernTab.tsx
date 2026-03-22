@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +18,8 @@ import { Campaign } from '@/components/CampaignManagement';
 import {
     tavernService,
     TavernBundle,
+    TavernCatalogFile,
+    TavernEffectJson,
     TavernOptionDefinition,
     TavernOptionInstance,
 } from '@/services/tavern';
@@ -27,11 +29,11 @@ const CONDITIONS = [
     { value: 'poor', label: 'Poor (×3 / ×4)' },
     { value: 'modest', label: 'Modest (×5 / ×5)' },
     { value: 'comfortable', label: 'Comfortable (×7 / ×6)' },
-    { value: 'wealthy', label: 'Wealthy (×9 / ×6)' },
-    { value: 'aristocratic', label: 'Aristocratic (×12 / ×4)' },
+    { value: 'wealthy', label: 'Wealthy (×9 / ×8)' },
+    { value: 'aristocratic', label: 'Aristocratic (×12 / ×10)' },
 ] as const;
 
-const EFFECT_EXAMPLE = `{"kind":"fixed_income_gp_per_tenday","amount":60}`;
+const EFFECT_EXAMPLE = `[{"kind":"fixed_income_gp_per_tenday","amount":60}]`;
 
 interface TavernTabProps {
     campaign: Campaign;
@@ -67,6 +69,8 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
     const [settleProfit, setSettleProfit] = useState(true);
     const [settleManual, setSettleManual] = useState('0');
     const [settlePreview, setSettlePreview] = useState<Record<string, unknown> | null>(null);
+    const [importText, setImportText] = useState('');
+    const importFileRef = useRef<HTMLInputElement>(null);
 
     const load = useCallback(async () => {
         try {
@@ -183,11 +187,16 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
     };
 
     const submitDefinition = async () => {
-        let effect: Record<string, unknown> | null = null;
+        let effect: TavernEffectJson = null;
         const trimmed = defEffect.trim();
         if (trimmed) {
             try {
-                effect = JSON.parse(trimmed) as Record<string, unknown>;
+                const parsed: unknown = JSON.parse(trimmed);
+                if (parsed !== null && typeof parsed === 'object') {
+                    effect = parsed as TavernEffectJson;
+                } else {
+                    throw new Error('effect_json must be an object or array');
+                }
             } catch {
                 toast({
                     title: 'Invalid JSON',
@@ -271,6 +280,116 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
         }
     };
 
+    const downloadCatalogExport = async () => {
+        if (!isAdmin) return;
+        try {
+            setSaving(true);
+            const data = await tavernService.exportCatalog(campaign.id, campaign.name);
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `tavern-catalog-${campaign.name.replace(/\s+/g, '-')}.json`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            toast({ title: 'Exported', description: 'Catalog JSON downloaded.' });
+        } catch (e) {
+            toast({
+                title: 'Export failed',
+                description: e instanceof Error ? e.message : 'Error',
+                variant: 'destructive',
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const loadPhandalinPreset = async () => {
+        try {
+            setSaving(true);
+            const res = await fetch('/tavern-seeds/phandalin-tresendar-manor.json');
+            if (!res.ok) throw new Error('Preset file not found');
+            const data = (await res.json()) as TavernCatalogFile;
+            setImportText(JSON.stringify(data, null, 2));
+            toast({
+                title: 'Preset loaded',
+                description: data.catalog_name ?? `${data.definitions?.length ?? 0} definitions`,
+            });
+        } catch (e) {
+            toast({
+                title: 'Could not load preset',
+                description: e instanceof Error ? e.message : 'Error',
+                variant: 'destructive',
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const runCatalogImport = async (mode: 'append' | 'replace_all') => {
+        if (!isAdmin) return;
+        let parsed: TavernCatalogFile;
+        try {
+            parsed = JSON.parse(importText) as TavernCatalogFile;
+        } catch {
+            toast({
+                title: 'Invalid JSON',
+                description: 'Paste valid catalog JSON or load a preset.',
+                variant: 'destructive',
+            });
+            return;
+        }
+        if (!parsed.definitions || !Array.isArray(parsed.definitions)) {
+            toast({
+                title: 'Invalid catalog',
+                description: 'Root must include a definitions array.',
+                variant: 'destructive',
+            });
+            return;
+        }
+        if (
+            mode === 'replace_all' &&
+            !window.confirm(
+                'Replace entire catalog? All purchased instances (progress) are removed. Continue?'
+            )
+        ) {
+            return;
+        }
+        try {
+            setSaving(true);
+            const result = await tavernService.importCatalog(campaign.id, {
+                mode,
+                definitions: parsed.definitions,
+                catalog_name: parsed.catalog_name,
+            });
+            setBundle(result.bundle);
+            syncFormsFromBundle(result.bundle);
+            toast({
+                title: 'Import complete',
+                description: `Added ${result.added} definition(s), skipped ${result.skipped}.`,
+            });
+        } catch (e) {
+            toast({
+                title: 'Import failed',
+                description: e instanceof Error ? e.message : 'Error',
+                variant: 'destructive',
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const onImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const f = e.target.files?.[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            setImportText(String(reader.result ?? ''));
+            toast({ title: 'File read', description: f.name });
+        };
+        reader.readAsText(f);
+        e.target.value = '';
+    };
+
     const runSettle = async (apply: boolean) => {
         const raw = parseInt(settleRaw, 10);
         if (Number.isNaN(raw) || raw < 0) {
@@ -335,11 +454,15 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
     }
 
     const { state, active_effects, multipliers, ledger } = bundle;
+    const vBonus = active_effects.valuation_bonus ?? 0;
     const dpt = Math.max(1, state.days_per_tenday);
     const dayInTenday = (state.current_day % dpt) + 1;
     const tendayIndex = Math.floor(state.current_day / dpt) + 1;
     const staticCheckBonus =
-        state.valuation + state.situational_business_bonus + active_effects.business_roll_bonus;
+        state.valuation +
+        vBonus +
+        state.situational_business_bonus +
+        active_effects.business_roll_bonus;
 
     return (
         <div className="space-y-6">
@@ -365,8 +488,15 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
                             day {dayInTenday} of {dpt}
                         </p>
                         <p>
-                            <span className="text-zinc-500 dark:text-zinc-400">Valuation:</span>{' '}
+                            <span className="text-zinc-500 dark:text-zinc-400">Valuation (base):</span>{' '}
                             {state.valuation}
+                            {vBonus !== 0 && (
+                                <span className="text-zinc-500">
+                                    {' '}
+                                    + active upgrades: +{vBonus} → effective{' '}
+                                    <strong>{state.valuation + vBonus}</strong>
+                                </span>
+                            )}
                         </p>
                         <p>
                             <span className="text-zinc-500 dark:text-zinc-400">Condition:</span>{' '}
@@ -383,8 +513,8 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
                         <p>
                             <span className="text-zinc-500 dark:text-zinc-400">Active effects:</span> fixed +
                             {active_effects.fixed_income_gp_per_tenday} gp/tenday, recurring −
-                            {active_effects.recurring_cost_gp_per_tenday} gp/tenday, roll +
-                            {active_effects.business_roll_bonus}
+                            {active_effects.recurring_cost_gp_per_tenday} gp/tenday, valuation +
+                            {vBonus}, roll +{active_effects.business_roll_bonus}
                         </p>
                         {active_effects.flags.length > 0 && (
                             <p>
@@ -393,8 +523,9 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
                             </p>
                         )}
                         <p className="text-xs text-zinc-500 dark:text-zinc-500 pt-2 border-t border-zinc-200 dark:border-zinc-600">
-                            Business check (if you roll d100): d100 + valuation ({state.valuation}) +
-                            situational ({state.situational_business_bonus}) + upgrades (
+                            Business check (if you roll d100): d100 + valuation ({state.valuation}
+                            {vBonus ? ` + ${vBonus} from upgrades` : ''}) + situational (
+                            {state.situational_business_bonus}) + roll bonuses (
                             {active_effects.business_roll_bonus}) = d100 + {staticCheckBonus}
                         </p>
                     </CardContent>
@@ -491,6 +622,64 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
                 )}
             </div>
 
+            {isAdmin && (
+                <Card className="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
+                    <CardHeader>
+                        <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">
+                            Catalog import / export
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                            Export current catalog as JSON. Import appends new names or replaces everything
+                            (clears purchases). effect_json can be one object or an array of objects.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                            <Button type="button" variant="outline" onClick={downloadCatalogExport} disabled={saving}>
+                                Export catalog JSON
+                            </Button>
+                            <Button type="button" variant="outline" onClick={loadPhandalinPreset} disabled={saving}>
+                                Load Phandalin / Tresendar preset
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => importFileRef.current?.click()}
+                                disabled={saving}
+                            >
+                                Choose JSON file…
+                            </Button>
+                            <input
+                                ref={importFileRef}
+                                type="file"
+                                accept="application/json,.json"
+                                className="hidden"
+                                onChange={onImportFile}
+                            />
+                        </div>
+                        <textarea
+                            value={importText}
+                            onChange={(e) => setImportText(e.target.value)}
+                            placeholder='Paste catalog JSON here (must include "definitions" array)…'
+                            className="w-full min-h-[120px] p-2 border border-zinc-200 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-mono text-xs"
+                        />
+                        <div className="flex flex-wrap gap-2">
+                            <Button type="button" onClick={() => void runCatalogImport('append')} disabled={saving}>
+                                Import (append)
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                onClick={() => void runCatalogImport('replace_all')}
+                                disabled={saving}
+                            >
+                                Import (replace all)
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             <Card className="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
                 <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">Catalog & purchases</CardTitle>
@@ -502,8 +691,9 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        effect_json kinds: fixed_income_gp_per_tenday, recurring_cost_gp_per_tenday,
-                        business_roll_bonus, flag (key: bouncers, insurance_basic, …)
+                        effect_json: one object or array — fixed_income_gp_per_tenday,
+                        recurring_cost_gp_per_tenday, business_roll_bonus, valuation_bonus, flag (e.g.
+                        tavern_bouncers)
                     </p>
                     <div className="space-y-2">
                         {bundle.definitions.length === 0 ? (
@@ -695,7 +885,8 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
                     <DialogHeader>
                         <DialogTitle>{editingDef ? 'Edit option' : 'New catalog option'}</DialogTitle>
                         <DialogDescription>
-                            effect_json: see kinds in Tavern rules (fixed income, recurring cost, roll bonus, flag).
+                            effect_json: JSON array of effect objects, or a single object — include
+                            valuation_bonus, recurring_cost_gp_per_tenday, flags, etc.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-3">

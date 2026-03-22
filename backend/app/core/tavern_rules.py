@@ -15,6 +15,11 @@ effect_json schema (v1) — each TavernOptionDefinition.effect_json is one objec
 - Named flag for display / future automation (bouncers, insurance_basic, etc.):
   {"kind": "flag", "key": "<str>"}
 
+- Adds to valuation for the business check (1d100 + valuation + situational + roll bonuses):
+  {"kind": "valuation_bonus", "amount": <int>}
+
+effect_json may be a single object or a list of objects (multiple stacked effects).
+
 Unknown kinds are ignored when aggregating; invalid payloads are skipped safely.
 """
 
@@ -40,8 +45,8 @@ CONDITION_MULTIPLIERS: dict[str, tuple[int, int]] = {
     "poor": (3, 4),
     "modest": (5, 5),
     "comfortable": (7, 6),
-    "wealthy": (9, 6),
-    "aristocratic": (12, 4),
+    "wealthy": (9, 8),
+    "aristocratic": (12, 10),
 }
 
 
@@ -72,6 +77,10 @@ def effect_from_json(effect_json: Any) -> dict[str, Any] | None:
         amt = effect_json.get("amount")
         if isinstance(amt, int):
             return {"kind": kind, "amount": amt}
+    elif kind == "valuation_bonus":
+        amt = effect_json.get("amount")
+        if isinstance(amt, int):
+            return {"kind": kind, "amount": amt}
     elif kind == "flag":
         key = effect_json.get("key")
         if isinstance(key, str) and key.strip():
@@ -79,28 +88,47 @@ def effect_from_json(effect_json: Any) -> dict[str, Any] | None:
     return None
 
 
-def aggregate_effects(effect_dicts: list[dict[str, Any] | None]) -> dict[str, Any]:
+def _iter_parsed_effects(blob: dict[str, Any] | list[Any] | None) -> list[dict[str, Any]]:
+    if blob is None:
+        return []
+    if isinstance(blob, list):
+        out: list[dict[str, Any]] = []
+        for item in blob:
+            if isinstance(item, dict):
+                p = effect_from_json(item)
+                if p:
+                    out.append(p)
+        return out
+    if isinstance(blob, dict):
+        p = effect_from_json(blob)
+        return [p] if p else []
+    return []
+
+
+def aggregate_effects(effect_dicts: list[dict[str, Any] | list[Any] | None]) -> dict[str, Any]:
     fixed_income = 0
     recurring = 0
     business_bonus = 0
+    valuation_bonus = 0
     flags: list[str] = []
     for eff in effect_dicts:
-        parsed = effect_from_json(eff)
-        if not parsed:
-            continue
-        k = parsed["kind"]
-        if k == "fixed_income_gp_per_tenday":
-            fixed_income += int(parsed["amount"])
-        elif k == "recurring_cost_gp_per_tenday":
-            recurring += int(parsed["amount"])
-        elif k == "business_roll_bonus":
-            business_bonus += int(parsed["amount"])
-        elif k == "flag":
-            flags.append(str(parsed["key"]))
+        for parsed in _iter_parsed_effects(eff):
+            k = parsed["kind"]
+            if k == "fixed_income_gp_per_tenday":
+                fixed_income += int(parsed["amount"])
+            elif k == "recurring_cost_gp_per_tenday":
+                recurring += int(parsed["amount"])
+            elif k == "business_roll_bonus":
+                business_bonus += int(parsed["amount"])
+            elif k == "valuation_bonus":
+                valuation_bonus += int(parsed["amount"])
+            elif k == "flag":
+                flags.append(str(parsed["key"]))
     return {
         "fixed_income_gp_per_tenday": fixed_income,
         "recurring_cost_gp_per_tenday": recurring,
         "business_roll_bonus": business_bonus,
+        "valuation_bonus": valuation_bonus,
         "flags": sorted(set(flags)),
     }
 
@@ -109,11 +137,18 @@ def business_check_total(
     d100_roll: int | None,
     valuation: int,
     situational_business_bonus: int,
-    effect_business_bonus: int,
+    effect_valuation_bonus: int,
+    effect_business_roll_bonus: int,
 ) -> int | None:
     if d100_roll is None:
         return None
-    return d100_roll + valuation + situational_business_bonus + effect_business_bonus
+    return (
+        d100_roll
+        + valuation
+        + effect_valuation_bonus
+        + situational_business_bonus
+        + effect_business_roll_bonus
+    )
 
 
 def settle_tenday_net(

@@ -16,6 +16,11 @@ export interface TavernState {
     updated_at: string;
 }
 
+export type TavernEffectJson =
+    | Record<string, unknown>
+    | Record<string, unknown>[]
+    | null;
+
 export interface TavernOptionDefinition {
     id: number;
     campaign_id: number;
@@ -23,7 +28,7 @@ export interface TavernOptionDefinition {
     description: string | null;
     purchase_cost_gp: number;
     setup_days: number;
-    effect_json: Record<string, unknown> | null;
+    effect_json: TavernEffectJson;
     sort_order: number;
     is_archived: boolean;
     created_at: string;
@@ -45,6 +50,7 @@ export interface TavernActiveEffects {
     fixed_income_gp_per_tenday: number;
     recurring_cost_gp_per_tenday: number;
     business_roll_bonus: number;
+    valuation_bonus: number;
     flags: string[];
 }
 
@@ -70,6 +76,27 @@ export interface TavernSettleResult {
     preview: Record<string, unknown>;
     treasury_gp_after: number | null;
     ledger_entry: TavernLedgerEntry | null;
+}
+
+export interface TavernCatalogFile {
+    version: number;
+    catalog_name?: string;
+    definitions: Array<{
+        name: string;
+        description?: string | null;
+        purchase_cost_gp?: number;
+        setup_days?: number;
+        effect_json?: TavernEffectJson;
+        sort_order?: number;
+        is_archived?: boolean;
+        group?: string | null;
+    }>;
+}
+
+export interface TavernCatalogImportResult {
+    bundle: TavernBundle;
+    added: number;
+    skipped: number;
 }
 
 function headers(json = true): HeadersInit {
@@ -137,7 +164,7 @@ export const tavernService = {
             description?: string | null;
             purchase_cost_gp?: number;
             setup_days?: number;
-            effect_json?: Record<string, unknown> | null;
+            effect_json?: TavernEffectJson;
             sort_order?: number;
         }
     ): Promise<TavernBundle> {
@@ -158,7 +185,7 @@ export const tavernService = {
             description: string | null;
             purchase_cost_gp: number;
             setup_days: number;
-            effect_json: Record<string, unknown> | null;
+            effect_json: TavernEffectJson;
             sort_order: number;
             is_archived: boolean;
         }>
@@ -212,6 +239,35 @@ export const tavernService = {
             method: 'POST',
             headers: headers(),
             body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(await parseError(res));
+        return res.json();
+    },
+
+    async exportCatalog(campaignId: number, catalogName?: string): Promise<TavernCatalogFile> {
+        const q =
+            catalogName != null && catalogName !== ''
+                ? `?catalog_name=${encodeURIComponent(catalogName)}`
+                : '';
+        const res = await fetch(`${base()}/campaigns/${campaignId}/tavern/catalog-export${q}`, {
+            headers: headers(),
+        });
+        if (!res.ok) throw new Error(await parseError(res));
+        return res.json();
+    },
+
+    async importCatalog(
+        campaignId: number,
+        payload: {
+            mode: 'append' | 'replace_all';
+            definitions: TavernCatalogFile['definitions'];
+            catalog_name?: string | null;
+        }
+    ): Promise<TavernCatalogImportResult> {
+        const res = await fetch(`${base()}/campaigns/${campaignId}/tavern/catalog-import`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(payload),
         });
         if (!res.ok) throw new Error(await parseError(res));
         return res.json();

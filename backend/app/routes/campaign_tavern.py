@@ -2,7 +2,8 @@
 Tavern simulation API: state, catalog, purchases, day advancement, tenday settlement.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from loguru import logger
 from sqlalchemy.orm import Session
 
 from ..core.auth import get_current_active_user, require_admin_role
@@ -21,6 +22,10 @@ from ..models.campaign_tavern import (
     TavernActiveEffectsSummary,
     TavernAdvanceDaysBody,
     TavernBundleResponse,
+    TavernCatalogEntry,
+    TavernCatalogExportResponse,
+    TavernCatalogImportBody,
+    TavernCatalogImportResult,
     TavernInstanceStatus,
     TavernLedgerEntry,
     TavernLedgerEntryResponse,
@@ -156,6 +161,129 @@ async def get_tavern(
     campaign = _get_campaign(db, campaign_id)
     _campaign_access(campaign, current_user)
     return _build_bundle(db, campaign_id)
+
+
+def _definition_to_catalog_entry(d: TavernOptionDefinition) -> TavernCatalogEntry:
+    return TavernCatalogEntry(
+        name=d.name,
+        description=d.description,
+        purchase_cost_gp=d.purchase_cost_gp,
+        setup_days=d.setup_days,
+        effect_json=d.effect_json,
+        sort_order=d.sort_order,
+        is_archived=d.is_archived,
+        group=None,
+    )
+
+
+@router.get(
+    "/campaigns/{campaign_id}/tavern/catalog-export",
+    response_model=TavernCatalogExportResponse,
+)
+async def export_tavern_catalog(
+    campaign_id: int,
+    catalog_name: str | None = Query(None),
+    _admin: User = Depends(require_admin_role),
+    db: Session = Depends(get_db),
+):
+    campaign = _get_campaign(db, campaign_id)
+    _campaign_access(campaign, _admin)
+    definitions = (
+        db.query(TavernOptionDefinition)
+        .filter(TavernOptionDefinition.campaign_id == campaign_id)
+        .order_by(TavernOptionDefinition.sort_order, TavernOptionDefinition.id)
+        .all()
+    )
+    return TavernCatalogExportResponse(
+        catalog_name=catalog_name,
+        definitions=[_definition_to_catalog_entry(d) for d in definitions],
+    )
+
+
+@router.post(
+    "/campaigns/{campaign_id}/tavern/catalog-import",
+    response_model=TavernCatalogImportResult,
+)
+async def import_tavern_catalog(
+    campaign_id: int,
+    body: TavernCatalogImportBody,
+    _admin: User = Depends(require_admin_role),
+    db: Session = Depends(get_db),
+):
+    campaign = _get_campaign(db, campaign_id)
+    _campaign_access(campaign, _admin)
+    _get_or_create_state(db, campaign_id)
+
+    def _normalize_effect(ej: dict | list | None) -> dict | list | None:
+        if ej is None:
+            return None
+        if isinstance(ej, dict):
+            return ej
+        if isinstance(ej, list):
+            cleaned: list[dict] = []
+            for item in ej:
+                if isinstance(item, dict):
+                    cleaned.append(item)
+            return cleaned or None
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="effect_json must be an object, array of objects, or null",
+        )
+
+    if body.mode == "replace_all":
+        db.query(TavernOptionInstance).filter(
+            TavernOptionInstance.campaign_id == campaign_id
+        ).delete()
+        db.query(TavernOptionDefinition).filter(
+            TavernOptionDefinition.campaign_id == campaign_id
+        ).delete()
+        db.commit()
+
+    existing: set[str] = set()
+    if body.mode == "append":
+        for (nm,) in (
+            db.query(TavernOptionDefinition.name)
+            .filter(TavernOptionDefinition.campaign_id == campaign_id)
+            .all()
+        ):
+            existing.add(nm.strip())
+
+    added = 0
+    skipped = 0
+    for entry in body.definitions:
+        name = entry.name.strip()
+        if not name:
+            continue
+        if body.mode == "append" and name in existing:
+            skipped += 1
+            continue
+        db.add(
+            TavernOptionDefinition(
+                campaign_id=campaign_id,
+                name=name,
+                description=entry.description,
+                purchase_cost_gp=entry.purchase_cost_gp,
+                setup_days=entry.setup_days,
+                effect_json=_normalize_effect(entry.effect_json),
+                sort_order=entry.sort_order,
+                is_archived=entry.is_archived,
+            )
+        )
+        existing.add(name)
+        added += 1
+    db.commit()
+    logger.info(
+        "Tavern catalog import campaign_id={} mode={} added={} skipped={}",
+        campaign_id,
+        body.mode,
+        added,
+        skipped,
+    )
+    return TavernCatalogImportResult(
+        bundle=_build_bundle(db, campaign_id),
+        added=added,
+        skipped=skipped,
+    )
 
 
 @router.put(
@@ -373,6 +501,7 @@ async def settle_tavern_tenday(
         body.d100_roll,
         state.valuation,
         state.situational_business_bonus,
+        ae["valuation_bonus"],
         ae["business_roll_bonus"],
     )
     preview = {

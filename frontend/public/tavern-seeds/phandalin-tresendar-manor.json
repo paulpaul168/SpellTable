@@ -1,0 +1,1281 @@
+{
+  "version": 1,
+  "catalog_name": "Tresendar Manor / Phandalin (Dragon Heist style)",
+  "definitions": [
+    {
+      "name": "Renovation queue: Garden",
+      "description": "Planning flag \u2014 mark purchased when work begins. Adjust cost/days in catalog edit if needed.",
+      "purchase_cost_gp": 0,
+      "setup_days": 0,
+      "sort_order": 10,
+      "is_archived": false,
+      "group": "queue"
+    },
+    {
+      "name": "Renovation queue: Vault",
+      "description": "Planning flag \u2014 mark purchased when work begins. Adjust cost/days in catalog edit if needed.",
+      "purchase_cost_gp": 0,
+      "setup_days": 0,
+      "sort_order": 20,
+      "is_archived": false,
+      "group": "queue"
+    },
+    {
+      "name": "Renovation queue: Cobbled Street",
+      "description": "Planning flag \u2014 mark purchased when work begins. Adjust cost/days in catalog edit if needed.",
+      "purchase_cost_gp": 0,
+      "setup_days": 0,
+      "sort_order": 30,
+      "is_archived": false,
+      "group": "queue"
+    },
+    {
+      "name": "Renovation queue: Stage",
+      "description": "Planning flag \u2014 mark purchased when work begins. Adjust cost/days in catalog edit if needed.",
+      "purchase_cost_gp": 0,
+      "setup_days": 0,
+      "sort_order": 40,
+      "is_archived": false,
+      "group": "queue"
+    },
+    {
+      "name": "Renovation queue: Snug",
+      "description": "Planning flag \u2014 mark purchased when work begins. Adjust cost/days in catalog edit if needed.",
+      "purchase_cost_gp": 0,
+      "setup_days": 0,
+      "sort_order": 50,
+      "is_archived": false,
+      "group": "queue"
+    },
+    {
+      "name": "[Manor] City Permits and Guild Licenses",
+      "description": "250 gp upfront, 1 day. Enables repairs/improvements; legal compliance.",
+      "purchase_cost_gp": 250,
+      "setup_days": 1,
+      "sort_order": 60,
+      "is_archived": false,
+      "group": "manor_required_once"
+    },
+    {
+      "name": "[Manor] Gutting, Cleaning, Structural and Cosmetic Repairs",
+      "description": "1,000 gp, 12 days. Enables further improvements; minimal furnishings baseline; long rest HP +1 until next LR.",
+      "purchase_cost_gp": 1000,
+      "setup_days": 12,
+      "sort_order": 70,
+      "is_archived": false,
+      "group": "manor_required_once"
+    },
+    {
+      "name": "[Manor] Guild Contract Fees",
+      "description": "5 gp/tenday. Enables improvements; legal compliance during renovations/business.",
+      "purchase_cost_gp": 0,
+      "setup_days": 0,
+      "sort_order": 80,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 5
+      },
+      "group": "manor_regular"
+    },
+    {
+      "name": "[Manor] City Services and Regular Maintenance",
+      "description": "5 gp/tenday. Water/sewer; guilds prevent disrepair.",
+      "purchase_cost_gp": 0,
+      "setup_days": 0,
+      "sort_order": 90,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 5
+      },
+      "group": "manor_regular"
+    },
+    {
+      "name": "[Manor] Membership \u2014 Fellowship of Innkeepers",
+      "description": "2 gp/tenday if operating as tavern/inn; party covered.",
+      "purchase_cost_gp": 0,
+      "setup_days": 0,
+      "sort_order": 100,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 2
+      },
+      "group": "manor_regular"
+    },
+    {
+      "name": "[Manor] Additional Guild Memberships (each)",
+      "description": "2 gp/tenday per additional guild (brewers, musicians, magists, smiths, etc.).",
+      "purchase_cost_gp": 0,
+      "setup_days": 0,
+      "sort_order": 110,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 2
+      },
+      "group": "manor_regular"
+    },
+    {
+      "name": "[Manor] Basic Manor Staff",
+      "description": "15 gp/tenday, 3 days. Prereq: Furnishings Basic, Kitchen Cheap. THP = half level on LR.",
+      "purchase_cost_gp": 100,
+      "setup_days": 3,
+      "sort_order": 120,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 15
+      },
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Manor Service Staff",
+      "description": "30 gp/tenday, 5 days. Prereq: Basic Staff, Furnishings Comfortable, Kitchen Mod, Larder Cheap. THP = level on LR; servants' quarters.",
+      "purchase_cost_gp": 100,
+      "setup_days": 5,
+      "sort_order": 130,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 30
+      },
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Manor Noble Staff",
+      "description": "50 gp/tenday, 10 days. Prereq: Service Staff, Furnishings Lavish, Barracks, Shrine or Library, Cobbled Streets, Kitchen Quality, Larder Mod, Cellar Mod. Noble benefits.",
+      "purchase_cost_gp": 100,
+      "setup_days": 10,
+      "sort_order": 140,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 50
+      },
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Manor Furnishings \u2014 Minimal",
+      "description": "20 gp, 5 days. HP bonus tier 0 on LR (see doc).",
+      "purchase_cost_gp": 20,
+      "setup_days": 5,
+      "sort_order": 150,
+      "is_archived": false,
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Manor Furnishings \u2014 Basic",
+      "description": "200 gp, 5 days. HP bonus tier +3 on LR.",
+      "purchase_cost_gp": 200,
+      "setup_days": 5,
+      "sort_order": 160,
+      "is_archived": false,
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Manor Furnishings \u2014 Comfortable",
+      "description": "400 gp, 5 days. HP bonus tier +9 on LR.",
+      "purchase_cost_gp": 400,
+      "setup_days": 5,
+      "sort_order": 170,
+      "is_archived": false,
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Manor Furnishings \u2014 Lavish",
+      "description": "1,200 gp, 5 days. HP bonus tier +27 on LR.",
+      "purchase_cost_gp": 1200,
+      "setup_days": 5,
+      "sort_order": 180,
+      "is_archived": false,
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Vault \u2014 Basic",
+      "description": "400 gp, 10 days. DC 18 lock; 50 cu ft; traps per DMG; door not magic.",
+      "purchase_cost_gp": 400,
+      "setup_days": 10,
+      "sort_order": 190,
+      "is_archived": false,
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Vault \u2014 Moderate",
+      "description": "900 gp, 10 days. DC 23; 500 cu ft.",
+      "purchase_cost_gp": 900,
+      "setup_days": 10,
+      "sort_order": 200,
+      "is_archived": false,
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Vault \u2014 Complex",
+      "description": "1,800 gp, 10 days. DC 30; 5,000 cu ft; 1 deadly trap option; magic passphrase option.",
+      "purchase_cost_gp": 1800,
+      "setup_days": 10,
+      "sort_order": 210,
+      "is_archived": false,
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Security Enhancements",
+      "description": "200 gp, 2 days. Heavy cover vs outside assault; harder doors/windows.",
+      "purchase_cost_gp": 200,
+      "setup_days": 2,
+      "sort_order": 220,
+      "is_archived": false,
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Magical Security System (minimum)",
+      "description": "500+ gp, 5+ days. Prereq: Security Enhancements. Alarm 1st dusk\u2013dawn; scalable per doc.",
+      "purchase_cost_gp": 500,
+      "setup_days": 5,
+      "sort_order": 230,
+      "is_archived": false,
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Barracks",
+      "description": "100 gp + 30 gp/tenday, 4 days. Prereq: Basic Staff, Security. 4 guards + veteran master at arms.",
+      "purchase_cost_gp": 100,
+      "setup_days": 4,
+      "sort_order": 240,
+      "is_archived": false,
+      "effect_json": [
+        {
+          "kind": "recurring_cost_gp_per_tenday",
+          "amount": 30
+        },
+        {
+          "kind": "flag",
+          "key": "manor_barracks"
+        }
+      ],
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Noble Retinue (per 20 soldiers block)",
+      "description": "100 gp per 20 soldiers + 30 gp per 10 soldiers/tenday (max 70); 12 days; Prereq Barracks, Noble Staff.",
+      "purchase_cost_gp": 100,
+      "setup_days": 12,
+      "sort_order": 250,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "flag",
+        "key": "noble_retinue"
+      },
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Basic Manor Insurance",
+      "description": "10 gp/tenday, 1 day. Fire/storm/flood/subsidence.",
+      "purchase_cost_gp": 0,
+      "setup_days": 1,
+      "sort_order": 260,
+      "is_archived": false,
+      "effect_json": [
+        {
+          "kind": "recurring_cost_gp_per_tenday",
+          "amount": 10
+        },
+        {
+          "kind": "flag",
+          "key": "manor_insurance_basic"
+        }
+      ],
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Enhanced Manor Insurance",
+      "description": "20 gp/tenday, 1 day. Prereq: Basic Manor Insurance. Hostile physical/magical damage.",
+      "purchase_cost_gp": 0,
+      "setup_days": 1,
+      "sort_order": 270,
+      "is_archived": false,
+      "effect_json": [
+        {
+          "kind": "recurring_cost_gp_per_tenday",
+          "amount": 20
+        },
+        {
+          "kind": "flag",
+          "key": "manor_insurance_enhanced"
+        }
+      ],
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Local Informants",
+      "description": "15 gp/tenday, 3 days. Prereq: Basic Manor Staff. Defenders not surprised; neighbourhood intel.",
+      "purchase_cost_gp": 0,
+      "setup_days": 3,
+      "sort_order": 280,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 15
+      },
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Information Connection (each org)",
+      "description": "20 gp/tenday, 7 days. Prereq: Local Informants, Basic Tavern Staff. Advantage on deals/recall with chosen guild/faction.",
+      "purchase_cost_gp": 0,
+      "setup_days": 7,
+      "sort_order": 290,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 20
+      },
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Spy Network (each org)",
+      "description": "40 gp/tenday, 30 days. Prereq: Information Connection, Snug. 1 question + 1 order per tenday.",
+      "purchase_cost_gp": 0,
+      "setup_days": 30,
+      "sort_order": 300,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 40
+      },
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Garden (each roof side, max 2)",
+      "description": "300 gp, 12 days. Prereq: Basic Manor Staff. Inspiration once; herbs; uses roof space.",
+      "purchase_cost_gp": 300,
+      "setup_days": 12,
+      "sort_order": 310,
+      "is_archived": false,
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Shrine",
+      "description": "1,000 gp, 7 days. Prereq: Basic Manor Staff. Divine prep slot bonus; Religion advantage.",
+      "purchase_cost_gp": 1000,
+      "setup_days": 7,
+      "sort_order": 320,
+      "is_archived": false,
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Library",
+      "description": "1,000 gp, 7 days. Prereq: Basic Manor Staff. Arcane prep slot bonus; Int checks except Religion.",
+      "purchase_cost_gp": 1000,
+      "setup_days": 7,
+      "sort_order": 330,
+      "is_archived": false,
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Clinic",
+      "description": "200 gp + 10 gp/tenday, 6 days. Prereq: Basic Manor Staff. Medicine advantage on LR; death save feature after 7 LRs.",
+      "purchase_cost_gp": 200,
+      "setup_days": 6,
+      "sort_order": 340,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 10
+      },
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Laboratory",
+      "description": "300 gp + 25 gp/tenday, 9 days. Prereq: Basic Staff, Vault. Random potion/tenday; request common potion.",
+      "purchase_cost_gp": 300,
+      "setup_days": 9,
+      "sort_order": 350,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 25
+      },
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Smithy",
+      "description": "400 gp + 25 gp/tenday, 8 days. Prereq: Basic Staff, Vault. Random metal gear/tenday; maintenance reduction.",
+      "purchase_cost_gp": 400,
+      "setup_days": 8,
+      "sort_order": 360,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 25
+      },
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] House Finance Office",
+      "description": "150 gp + 15 gp/tenday, 8 days. Prereq: Service Staff, Vault. Reduces guild fees / loss risk (narrative).",
+      "purchase_cost_gp": 150,
+      "setup_days": 8,
+      "sort_order": 370,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 15
+      },
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Training Course",
+      "description": "150 gp, 4 days. Speed +5 or +1 init for a month after training tendays.",
+      "purchase_cost_gp": 150,
+      "setup_days": 4,
+      "sort_order": 380,
+      "is_archived": false,
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Cobbled Street",
+      "description": "200 gp, 15 days. Half travel time around manor; +1 business roll if Basic Tavern Staff; Persuasion advantage vs neighbours.",
+      "purchase_cost_gp": 200,
+      "setup_days": 15,
+      "sort_order": 390,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "business_roll_bonus",
+        "amount": 1
+      },
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Custom: Cartography Studio",
+      "description": "200 gp, 5 days. Cartographer advantage after 7 LRs; Work downtime profit doubled with tools.",
+      "purchase_cost_gp": 200,
+      "setup_days": 5,
+      "sort_order": 400,
+      "is_archived": false,
+      "group": "manor_upgrade"
+    },
+    {
+      "name": "[Manor] Custom Manor Renovation",
+      "description": "Cost TBD. Discuss with DM.",
+      "purchase_cost_gp": 0,
+      "setup_days": 0,
+      "sort_order": 410,
+      "is_archived": false,
+      "group": "manor_custom"
+    },
+    {
+      "name": "[Tavern] Basic Tavern Staff",
+      "description": "10 gp/tenday, 2 days. Required to operate tavern.",
+      "purchase_cost_gp": 0,
+      "setup_days": 2,
+      "sort_order": 420,
+      "is_archived": false,
+      "effect_json": [
+        {
+          "kind": "recurring_cost_gp_per_tenday",
+          "amount": 10
+        },
+        {
+          "kind": "flag",
+          "key": "basic_tavern_staff"
+        }
+      ],
+      "group": "tavern_core"
+    },
+    {
+      "name": "[Tavern] Tavern Service Staff",
+      "description": "15 gp/tenday, 4 days. Prereq: Basic Staff, Taproom Mod, Kitchen Mod. Valuation +1; required for Quality Taproom.",
+      "purchase_cost_gp": 0,
+      "setup_days": 4,
+      "sort_order": 430,
+      "is_archived": false,
+      "effect_json": [
+        {
+          "kind": "recurring_cost_gp_per_tenday",
+          "amount": 15
+        },
+        {
+          "kind": "valuation_bonus",
+          "amount": 1
+        }
+      ],
+      "group": "tavern_core"
+    },
+    {
+      "name": "[Tavern] Tavern Bouncers",
+      "description": "10 gp/tenday, 6 days. Prereq: Basic Staff, Taproom Cheap. Violence/crime risk; 2 bandits; synergy Barracks/Noble Retinue per doc.",
+      "purchase_cost_gp": 0,
+      "setup_days": 6,
+      "sort_order": 440,
+      "is_archived": false,
+      "effect_json": [
+        {
+          "kind": "recurring_cost_gp_per_tenday",
+          "amount": 10
+        },
+        {
+          "kind": "flag",
+          "key": "tavern_bouncers"
+        }
+      ],
+      "group": "tavern_core"
+    },
+    {
+      "name": "[Tavern] Tavern Preventative Maintenance",
+      "description": "10 gp/tenday. May reduce future expenses.",
+      "purchase_cost_gp": 0,
+      "setup_days": 0,
+      "sort_order": 450,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 10
+      },
+      "group": "tavern_core"
+    },
+    {
+      "name": "[Tavern] Basic Tavern Insurance",
+      "description": "10 gp/tenday, 1 day. Natural disasters. Halved if Basic Manor Insurance.",
+      "purchase_cost_gp": 0,
+      "setup_days": 1,
+      "sort_order": 460,
+      "is_archived": false,
+      "effect_json": [
+        {
+          "kind": "recurring_cost_gp_per_tenday",
+          "amount": 10
+        },
+        {
+          "kind": "flag",
+          "key": "tavern_insurance_basic"
+        }
+      ],
+      "group": "tavern_core"
+    },
+    {
+      "name": "[Tavern] Enhanced Tavern Insurance",
+      "description": "20 gp/tenday, 1 day. Prereq: Basic Tavern Insurance. Hostile damage. Halved if Enhanced Manor Insurance.",
+      "purchase_cost_gp": 0,
+      "setup_days": 1,
+      "sort_order": 470,
+      "is_archived": false,
+      "effect_json": [
+        {
+          "kind": "recurring_cost_gp_per_tenday",
+          "amount": 20
+        },
+        {
+          "kind": "flag",
+          "key": "tavern_insurance_enhanced"
+        }
+      ],
+      "group": "tavern_core"
+    },
+    {
+      "name": "[Tavern] Membership \u2014 Fellowship of Innkeepers",
+      "description": "2 gp/tenday (duplicate of manor line if not combined \u2014 archive one if using single entry).",
+      "purchase_cost_gp": 0,
+      "setup_days": 0,
+      "sort_order": 480,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 2
+      },
+      "group": "tavern_regular"
+    },
+    {
+      "name": "[Tavern] Guild Contract Fees (tavern op)",
+      "description": "5 gp/tenday if tracked separately from manor.",
+      "purchase_cost_gp": 0,
+      "setup_days": 0,
+      "sort_order": 490,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 5
+      },
+      "group": "tavern_regular"
+    },
+    {
+      "name": "[Tavern] City Services (tavern)",
+      "description": "5 gp/tenday if tracked separately from manor.",
+      "purchase_cost_gp": 0,
+      "setup_days": 0,
+      "sort_order": 500,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "recurring_cost_gp_per_tenday",
+        "amount": 5
+      },
+      "group": "tavern_regular"
+    },
+    {
+      "name": "[Tavern] Taproom (Cheap)",
+      "description": "200 gp, 12 days. Valuation +1. Minimum cheap to operate.",
+      "purchase_cost_gp": 200,
+      "setup_days": 12,
+      "sort_order": 510,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 1
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Taproom (Moderate)",
+      "description": "500 gp, 12 days. Valuation +3. Minimum cheap to operate.",
+      "purchase_cost_gp": 500,
+      "setup_days": 12,
+      "sort_order": 520,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 3
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Taproom (Quality)",
+      "description": "1000 gp, 12 days. Valuation +5. Minimum cheap to operate.",
+      "purchase_cost_gp": 1000,
+      "setup_days": 12,
+      "sort_order": 530,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 5
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Kitchen (Cheap)",
+      "description": "200 gp, 7 days. Valuation +1. Enables Hold Feast.",
+      "purchase_cost_gp": 200,
+      "setup_days": 7,
+      "sort_order": 540,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 1
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Kitchen (Moderate)",
+      "description": "500 gp, 7 days. Valuation +3. Enables Hold Feast.",
+      "purchase_cost_gp": 500,
+      "setup_days": 7,
+      "sort_order": 550,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 3
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Kitchen (Quality)",
+      "description": "1000 gp, 7 days. Valuation +5. Enables Hold Feast.",
+      "purchase_cost_gp": 1000,
+      "setup_days": 7,
+      "sort_order": 560,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 5
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Larder (Cheap)",
+      "description": "200 gp, 3 days. Prereq Kitchen Cheap. Valuation +1.",
+      "purchase_cost_gp": 200,
+      "setup_days": 3,
+      "sort_order": 570,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 1
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Larder (Moderate)",
+      "description": "500 gp, 3 days. Prereq Kitchen Cheap. Valuation +3.",
+      "purchase_cost_gp": 500,
+      "setup_days": 3,
+      "sort_order": 580,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 3
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Larder (Quality)",
+      "description": "1000 gp, 3 days. Prereq Kitchen Cheap. Valuation +5.",
+      "purchase_cost_gp": 1000,
+      "setup_days": 3,
+      "sort_order": 590,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 5
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Cellar (Cheap)",
+      "description": "400 gp, 5 days. Valuation +1. Smuggling downtime.",
+      "purchase_cost_gp": 400,
+      "setup_days": 5,
+      "sort_order": 600,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 1
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Cellar (Moderate)",
+      "description": "650 gp, 5 days. Valuation +3. Smuggling downtime.",
+      "purchase_cost_gp": 650,
+      "setup_days": 5,
+      "sort_order": 610,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 3
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Cellar (Quality)",
+      "description": "800 gp, 5 days. Valuation +5. Smuggling downtime.",
+      "purchase_cost_gp": 800,
+      "setup_days": 5,
+      "sort_order": 620,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 5
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Privy (Cheap)",
+      "description": "200 gp, 6 days. Prereq Taproom Cheap. Valuation +2.",
+      "purchase_cost_gp": 200,
+      "setup_days": 6,
+      "sort_order": 630,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 2
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Privy (Moderate)",
+      "description": "500 gp, 6 days. Prereq Taproom Cheap. Valuation +3.",
+      "purchase_cost_gp": 500,
+      "setup_days": 6,
+      "sort_order": 640,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 3
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Privy (Quality)",
+      "description": "1000 gp, 6 days. Prereq Taproom Cheap. Valuation +4.",
+      "purchase_cost_gp": 1000,
+      "setup_days": 6,
+      "sort_order": 650,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 4
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Brewery \u2014 Cheap",
+      "description": "200 gp, 5 days. Prereq Cellar Cheap. Valuation +1; half cellar; Brewing downtime.",
+      "purchase_cost_gp": 200,
+      "setup_days": 5,
+      "sort_order": 660,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 1
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Brewery \u2014 Moderate",
+      "description": "450 gp, 5 days. Valuation +3.",
+      "purchase_cost_gp": 450,
+      "setup_days": 5,
+      "sort_order": 670,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 3
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Brewery \u2014 Quality",
+      "description": "600 gp, 5 days. Valuation +5.",
+      "purchase_cost_gp": 600,
+      "setup_days": 5,
+      "sort_order": 680,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 5
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Distillery \u2014 Cheap",
+      "description": "400 gp, 5 days. Prereq Cellar Cheap. Valuation +1.",
+      "purchase_cost_gp": 400,
+      "setup_days": 5,
+      "sort_order": 690,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 1
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Distillery \u2014 Moderate",
+      "description": "650 gp, 5 days. Valuation +3.",
+      "purchase_cost_gp": 650,
+      "setup_days": 5,
+      "sort_order": 700,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 3
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Distillery \u2014 Quality",
+      "description": "800 gp, 5 days. Valuation +5.",
+      "purchase_cost_gp": 800,
+      "setup_days": 5,
+      "sort_order": 710,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 5
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Winery \u2014 Cheap",
+      "description": "500 gp, 7 days. Prereq Cellar Moderate. Valuation +2; vineyard; half cellar.",
+      "purchase_cost_gp": 500,
+      "setup_days": 7,
+      "sort_order": 720,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 2
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Winery \u2014 Moderate",
+      "description": "750 gp, 7 days. Valuation +4.",
+      "purchase_cost_gp": 750,
+      "setup_days": 7,
+      "sort_order": 730,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 4
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Winery \u2014 Quality",
+      "description": "1,200 gp, 7 days. Valuation +6.",
+      "purchase_cost_gp": 1200,
+      "setup_days": 7,
+      "sort_order": 740,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 6
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Steam-Powered Tap",
+      "description": "650 gp, 10 days. Prereq Cellar w/ beer space. Valuation +4. Beer Festival downtime.",
+      "purchase_cost_gp": 650,
+      "setup_days": 10,
+      "sort_order": 750,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 4
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Beer Garden",
+      "description": "200 gp, 3 days. Prereq Taproom Cheap. Valuation +2. Outdoor BBQ; not winter.",
+      "purchase_cost_gp": 200,
+      "setup_days": 3,
+      "sort_order": 760,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 2
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Stage (per taproom/saloon/beer garden)",
+      "description": "200 gp, 3 days. Prereq Taproom Cheap, Service Staff. Valuation +1. Perform downtime.",
+      "purchase_cost_gp": 200,
+      "setup_days": 3,
+      "sort_order": 770,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 1
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Dance Floor (per indoor stage)",
+      "description": "300 gp, 4 days. Prereq Entertainment, Stage. Valuation +1. Dance Night downtime.",
+      "purchase_cost_gp": 300,
+      "setup_days": 4,
+      "sort_order": 780,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 1
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Snug",
+      "description": "400 gp, 6 days. Prereq Taproom Cheap. Valuation +1. Spying downtime.",
+      "purchase_cost_gp": 400,
+      "setup_days": 6,
+      "sort_order": 790,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 1
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Tavern Entertainment (per stage)",
+      "description": "15 gp/tenday, 6 days. Prereq Basic Staff, Taproom Cheap, Stage. Valuation +1; d6 odd +1 / even +3 to business table (DM).",
+      "purchase_cost_gp": 0,
+      "setup_days": 6,
+      "sort_order": 800,
+      "is_archived": false,
+      "effect_json": [
+        {
+          "kind": "recurring_cost_gp_per_tenday",
+          "amount": 15
+        },
+        {
+          "kind": "valuation_bonus",
+          "amount": 1
+        }
+      ],
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Saloon Bar \u2014 Cheap",
+      "description": "500 gp, 12 days. Prereq Taproom Cheap, Kitchen Cheap, Snug, Entertainment. Valuation +2. Carousing advantage.",
+      "purchase_cost_gp": 500,
+      "setup_days": 12,
+      "sort_order": 810,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 2
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Saloon Bar \u2014 Moderate",
+      "description": "700 gp, 12 days. Valuation +4.",
+      "purchase_cost_gp": 700,
+      "setup_days": 12,
+      "sort_order": 820,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 4
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Saloon Bar \u2014 Quality",
+      "description": "1,200 gp, 12 days. Valuation +6.",
+      "purchase_cost_gp": 1200,
+      "setup_days": 12,
+      "sort_order": 830,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 6
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Feasting Hall \u2014 Cheap",
+      "description": "500 gp, 8 days. Prereq Service Staff, Kitchen Mod, Larder Mod. Valuation +2. Banquet downtime.",
+      "purchase_cost_gp": 500,
+      "setup_days": 8,
+      "sort_order": 840,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 2
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Feasting Hall \u2014 Moderate",
+      "description": "750 gp, 8 days. Valuation +4.",
+      "purchase_cost_gp": 750,
+      "setup_days": 8,
+      "sort_order": 850,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 4
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Feasting Hall \u2014 Quality",
+      "description": "1,200 gp, 8 days. Valuation +6.",
+      "purchase_cost_gp": 1200,
+      "setup_days": 8,
+      "sort_order": 860,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 6
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Business Office",
+      "description": "200 gp, 6 days. Prereq Taproom Cheap, Basic Staff. Valuation +1. Marketing downtime.",
+      "purchase_cost_gp": 200,
+      "setup_days": 6,
+      "sort_order": 870,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 1
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Splendorous Window",
+      "description": "Special: valuation +1 (stack with DM approval).",
+      "purchase_cost_gp": 0,
+      "setup_days": 0,
+      "sort_order": 880,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 1
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Guest Rooms (1 room)",
+      "description": "400 gp, 10 days. Valuation +1. Recruit hirelings downtime. Prereq per doc.",
+      "purchase_cost_gp": 400,
+      "setup_days": 10,
+      "sort_order": 890,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 1
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Guest Rooms (2 rooms)",
+      "description": "650 gp, 10 days. Valuation +3. Recruit hirelings downtime. Prereq per doc.",
+      "purchase_cost_gp": 650,
+      "setup_days": 10,
+      "sort_order": 900,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 3
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Guest Rooms (3 rooms)",
+      "description": "900 gp, 10 days. Valuation +5. Recruit hirelings downtime. Prereq per doc.",
+      "purchase_cost_gp": 900,
+      "setup_days": 10,
+      "sort_order": 910,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 5
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Guest Rooms (4 rooms)",
+      "description": "1150 gp, 10 days. Valuation +7. Recruit hirelings downtime. Prereq per doc.",
+      "purchase_cost_gp": 1150,
+      "setup_days": 10,
+      "sort_order": 920,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 7
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Guest Rooms (5 rooms)",
+      "description": "1400 gp, 10 days. Valuation +9. Recruit hirelings downtime. Prereq per doc.",
+      "purchase_cost_gp": 1400,
+      "setup_days": 10,
+      "sort_order": 930,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 9
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Guest Rooms (6 rooms)",
+      "description": "1650 gp, 10 days. Valuation +11. Recruit hirelings downtime. Prereq per doc.",
+      "purchase_cost_gp": 1650,
+      "setup_days": 10,
+      "sort_order": 940,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 11
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Stable \u2014 Cheap",
+      "description": "400 gp, 20 days. Prereq Guest 1+. Valuation +2.",
+      "purchase_cost_gp": 400,
+      "setup_days": 20,
+      "sort_order": 950,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 2
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Stable \u2014 Moderate",
+      "description": "650 gp, 20 days. Valuation +4.",
+      "purchase_cost_gp": 650,
+      "setup_days": 20,
+      "sort_order": 960,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 4
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Stable \u2014 Quality",
+      "description": "800 gp, 20 days. Valuation +6.",
+      "purchase_cost_gp": 800,
+      "setup_days": 20,
+      "sort_order": 970,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 6
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Coach House \u2014 Cheap",
+      "description": "400 gp, 20 days. Prereq Guest 4+, Stable Quality. Valuation +1. Noble connection downtime.",
+      "purchase_cost_gp": 400,
+      "setup_days": 20,
+      "sort_order": 980,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 1
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Coach House \u2014 Moderate",
+      "description": "650 gp, 20 days. Valuation +3.",
+      "purchase_cost_gp": 650,
+      "setup_days": 20,
+      "sort_order": 990,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 3
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Coach House \u2014 Quality",
+      "description": "800 gp, 20 days. Valuation +5.",
+      "purchase_cost_gp": 800,
+      "setup_days": 20,
+      "sort_order": 1000,
+      "is_archived": false,
+      "effect_json": {
+        "kind": "valuation_bonus",
+        "amount": 5
+      },
+      "group": "tavern_structure"
+    },
+    {
+      "name": "[Tavern] Custom Tavern Renovation",
+      "description": "Cost TBD. Discuss with DM.",
+      "purchase_cost_gp": 0,
+      "setup_days": 0,
+      "sort_order": 1010,
+      "is_archived": false,
+      "group": "tavern_custom"
+    }
+  ]
+}
