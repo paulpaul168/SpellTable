@@ -9,6 +9,7 @@ import tempfile
 import zipfile
 from dataclasses import dataclass
 from datetime import datetime
+from typing import cast
 
 from fastapi import (
     APIRouter,
@@ -340,13 +341,13 @@ def _add_tavern_data_to_zip(zip_file: zipfile.ZipFile, db: Session) -> None:
             )
 
         def_id_to_name: dict[int, str] = {
-            d.id: d.name for d in definitions
+            cast(int, d.id): cast(str, d.name) for d in definitions
         }
 
         instances_out = []
         for i in instances:
             cname = id_to_name.get(i.campaign_id)
-            dname = def_id_to_name.get(i.definition_id)
+            dname = def_id_to_name.get(cast(int, i.definition_id))
             if not cname or not dname:
                 continue
             instances_out.append(
@@ -684,7 +685,7 @@ def _import_tavern_from_backup(zip_file: zipfile.ZipFile, db: Session) -> None:
                 )
                 db.add(row)
                 db.flush()
-                name_to_def_id[row.name] = row.id
+                name_to_def_id[cast(str, row.name)] = cast(int, row.id)
 
             for ins in instances:
                 if ins.get("campaign_name") != cname:
