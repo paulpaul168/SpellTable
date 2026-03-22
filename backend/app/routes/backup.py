@@ -714,9 +714,7 @@ def _import_tavern_from_backup(zip_file: zipfile.ZipFile, db: Session) -> None:
                 raw_ca = le.get("created_at")
                 if isinstance(raw_ca, str):
                     try:
-                        created = datetime.fromisoformat(
-                            raw_ca.replace("Z", "+00:00")
-                        )
+                        created = datetime.fromisoformat(raw_ca.replace("Z", "+00:00"))
                     except ValueError:
                         pass
                 db.add(
