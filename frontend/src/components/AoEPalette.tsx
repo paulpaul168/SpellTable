@@ -71,7 +71,8 @@ const commonAoEs = [
 
 // Common D&D spells with AoE
 const commonSpells = [
-    { name: 'Fireball', shape: 'circle', size: 20, color: '#FF5A5A' },
+    // 20′ radius in D&D 5e → 40′ diameter (sizeInFeet is the shape width/diameter on the map)
+    { name: 'Fireball', shape: 'circle', size: 40, color: '#FF5A5A' },
     { name: 'Burning Hands', shape: 'cone', size: 15, color: '#FF5A5A' },
     { name: 'Lightning Bolt', shape: 'line', size: 100, color: '#5AD5FF' },
     { name: 'Cone of Cold', shape: 'cone', size: 60, color: '#5AD5FF' },

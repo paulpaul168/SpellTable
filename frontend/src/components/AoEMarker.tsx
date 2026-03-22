@@ -194,7 +194,9 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         let newPosition: { x: number; y: number };
         let useGridCoordinates: boolean;
 
-        if (aoeSnapToGrid) {
+        const snapNow = aoeSnapToGrid || e.ctrlKey;
+
+        if (snapNow) {
             const rawGridPos = {
                 x: offsetMouseX / cellWidth,
                 y: offsetMouseY / cellHeight
