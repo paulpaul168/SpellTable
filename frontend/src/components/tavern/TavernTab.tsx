@@ -22,6 +22,7 @@ import {
     TavernBusinessTableResponse,
     TavernCatalogFile,
     TavernEffectJson,
+    TavernLedgerEntry,
     TavernOptionDefinition,
     TavernOptionInstance,
 } from '@/services/tavern';
@@ -79,6 +80,19 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
     const [importText, setImportText] = useState('');
     const importFileRef = useRef<HTMLInputElement>(null);
 
+    const [catalogFilter, setCatalogFilter] = useState('');
+    const [purchaseFilter, setPurchaseFilter] = useState('');
+
+    const [ledgerEditOpen, setLedgerEditOpen] = useState(false);
+    const [ledgerEditTarget, setLedgerEditTarget] = useState<TavernLedgerEntry | null>(null);
+    const [ledgerEditDay, setLedgerEditDay] = useState('');
+    const [ledgerEditNet, setLedgerEditNet] = useState('');
+
+    const [ledgerManualOpen, setLedgerManualOpen] = useState(false);
+    const [ledgerManualDay, setLedgerManualDay] = useState('');
+    const [ledgerManualNet, setLedgerManualNet] = useState('');
+    const [ledgerManualNote, setLedgerManualNote] = useState('');
+
     const load = useCallback(async () => {
         try {
             setLoading(true);
@@ -132,6 +146,25 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
         bundle?.definitions.forEach((d) => m.set(d.id, d));
         return m;
     }, [bundle?.definitions]);
+
+    const filteredCatalogDefs = useMemo(() => {
+        const q = catalogFilter.trim().toLowerCase();
+        if (!bundle) return [];
+        return bundle.definitions.filter((d) => {
+            if (!q) return true;
+            return `${d.name} ${d.description ?? ''}`.toLowerCase().includes(q);
+        });
+    }, [bundle, catalogFilter]);
+
+    const filteredInstances = useMemo(() => {
+        const q = purchaseFilter.trim().toLowerCase();
+        if (!bundle) return [];
+        return bundle.instances.filter((i) => {
+            if (!q) return true;
+            const name = defById.get(i.definition_id)?.name ?? '';
+            return `${name} ${i.status} ${i.id}`.toLowerCase().includes(q);
+        });
+    }, [bundle, purchaseFilter, defById]);
 
     const syncFormsFromBundle = (b: TavernBundle) => {
         setEditCurrentDay(String(b.state.current_day));
@@ -302,6 +335,110 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
             toast({
                 title: 'Error',
                 description: e instanceof Error ? e.message : 'Failed',
+                variant: 'destructive',
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const openLedgerEdit = (e: TavernLedgerEntry) => {
+        setLedgerEditTarget(e);
+        setLedgerEditDay(String(e.settled_day));
+        setLedgerEditNet(String(e.net_change_gp));
+        setLedgerEditOpen(true);
+    };
+
+    const saveLedgerEdit = async () => {
+        if (!ledgerEditTarget || !isAdmin) return;
+        const day = parseInt(ledgerEditDay, 10);
+        const net = parseInt(ledgerEditNet, 10);
+        if (Number.isNaN(day) || day < 0) {
+            toast({ title: 'Invalid day', description: 'Use a non-negative campaign day.', variant: 'destructive' });
+            return;
+        }
+        if (Number.isNaN(net)) {
+            toast({ title: 'Invalid amount', description: 'Net change must be a whole number (gp).', variant: 'destructive' });
+            return;
+        }
+        try {
+            setSaving(true);
+            const b = await tavernService.patchLedgerEntry(campaign.id, ledgerEditTarget.id, {
+                settled_day: day,
+                net_change_gp: net,
+            });
+            setBundle(b);
+            syncFormsFromBundle(b);
+            setLedgerEditOpen(false);
+            setLedgerEditTarget(null);
+            toast({ title: 'Ledger updated', description: 'Treasury adjusted if net amount changed.' });
+        } catch (err) {
+            toast({
+                title: 'Error',
+                description: err instanceof Error ? err.message : 'Failed',
+                variant: 'destructive',
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const removeLedgerEntry = async (e: TavernLedgerEntry) => {
+        if (!isAdmin) return;
+        if (
+            !window.confirm(
+                `Remove ledger line (day ${e.settled_day}, ${e.net_change_gp >= 0 ? '+' : ''}${e.net_change_gp} gp)? Treasury will be adjusted.`
+            )
+        ) {
+            return;
+        }
+        try {
+            setSaving(true);
+            const b = await tavernService.deleteLedgerEntry(campaign.id, e.id);
+            setBundle(b);
+            syncFormsFromBundle(b);
+            toast({ title: 'Removed', description: 'Ledger entry deleted; treasury updated.' });
+        } catch (err) {
+            toast({
+                title: 'Error',
+                description: err instanceof Error ? err.message : 'Failed',
+                variant: 'destructive',
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const saveManualLedger = async () => {
+        if (!isAdmin) return;
+        const day = parseInt(ledgerManualDay, 10);
+        const net = parseInt(ledgerManualNet, 10);
+        if (Number.isNaN(day) || day < 0) {
+            toast({ title: 'Invalid day', description: 'Use a non-negative campaign day.', variant: 'destructive' });
+            return;
+        }
+        if (Number.isNaN(net)) {
+            toast({ title: 'Invalid amount', description: 'Net change must be a whole number (gp).', variant: 'destructive' });
+            return;
+        }
+        try {
+            setSaving(true);
+            const b = await tavernService.createLedgerEntry(campaign.id, {
+                settled_day: day,
+                net_change_gp: net,
+                note: ledgerManualNote.trim() || undefined,
+            });
+            setBundle(b);
+            syncFormsFromBundle(b);
+            setLedgerManualOpen(false);
+            setLedgerManualDay('');
+            setLedgerManualNet('');
+            setLedgerManualNote('');
+            toast({ title: 'Ledger line added', description: 'Treasury updated.' });
+        } catch (err) {
+            toast({
+                title: 'Error',
+                description: err instanceof Error ? err.message : 'Failed',
                 variant: 'destructive',
             });
         } finally {
@@ -781,106 +918,134 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
             )}
 
             <Card className="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between space-y-0">
                     <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">Catalog & purchases</CardTitle>
                     {isAdmin && (
-                        <Button size="sm" onClick={openNewDef} className="bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900">
+                        <Button size="sm" onClick={openNewDef} className="bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 shrink-0">
                             + New option
                         </Button>
                     )}
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-5">
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        effect_json: one object or array — fixed_income_gp_per_tenday,
-                        recurring_cost_gp_per_tenday, business_roll_bonus, valuation_bonus, flag (e.g.
-                        tavern_bouncers)
+                        effect_json: fixed_income / recurring_cost / roll & valuation bonuses / flags — edit options in
+                        the dialog.
                     </p>
+
                     <div className="space-y-2">
-                        {bundle.definitions.length === 0 ? (
-                            <p className="text-zinc-500 text-sm">No catalog entries yet.</p>
-                        ) : (
-                            bundle.definitions.map((d) => (
-                                <div
-                                    key={d.id}
-                                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50/50 dark:bg-zinc-900/40"
-                                >
-                                    <div>
-                                        <div className="font-medium text-zinc-900 dark:text-zinc-100">
-                                            {d.name}
-                                            {d.is_archived && (
-                                                <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
-                                                    archived
-                                                </span>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
+                            <h3 className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Catalog</h3>
+                            <Input
+                                value={catalogFilter}
+                                onChange={(e) => setCatalogFilter(e.target.value)}
+                                placeholder="Search catalog…"
+                                className="sm:max-w-xs border-zinc-200 dark:border-zinc-700 h-9 text-sm"
+                            />
+                        </div>
+                        <div className="rounded-md border border-zinc-200 dark:border-zinc-600 max-h-52 overflow-y-auto">
+                            {bundle.definitions.length === 0 ? (
+                                <p className="text-zinc-500 text-sm p-3">No catalog entries yet.</p>
+                            ) : filteredCatalogDefs.length === 0 ? (
+                                <p className="text-zinc-500 text-sm p-3">No matches.</p>
+                            ) : (
+                                <ul className="divide-y divide-zinc-200 dark:divide-zinc-700 text-sm">
+                                    {filteredCatalogDefs.map((d) => (
+                                        <li
+                                            key={d.id}
+                                            className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
+                                        >
+                                            <div className="min-w-0">
+                                                <div className="font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                                                    {d.name}
+                                                    {d.is_archived && (
+                                                        <span className="ml-2 text-xs text-amber-600 dark:text-amber-400 font-normal">
+                                                            archived
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="text-xs text-zinc-500 tabular-nums">
+                                                    {d.purchase_cost_gp} gp · {d.setup_days}d setup
+                                                </div>
+                                            </div>
+                                            {isAdmin && (
+                                                <div className="flex shrink-0 gap-1.5">
+                                                    <Button size="sm" variant="outline" className="h-8" onClick={() => openEditDef(d)}>
+                                                        Edit
+                                                    </Button>
+                                                    {!d.is_archived && (
+                                                        <Button size="sm" className="h-8" onClick={() => purchase(d.id)} disabled={saving}>
+                                                            Buy
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             )}
-                                        </div>
-                                        <div className="text-xs text-zinc-500">
-                                            {d.purchase_cost_gp} gp · setup {d.setup_days} day(s)
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {isAdmin && (
-                                            <>
-                                                <Button size="sm" variant="outline" onClick={() => openEditDef(d)}>
-                                                    Edit
-                                                </Button>
-                                                {!d.is_archived && (
-                                                    <Button size="sm" onClick={() => purchase(d.id)} disabled={saving}>
-                                                        Mark purchased
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                        <p className="text-xs text-zinc-400">
+                            Showing {filteredCatalogDefs.length} of {bundle.definitions.length}
+                        </p>
+                    </div>
+
+                    <div className="space-y-2 border-t border-zinc-200 dark:border-zinc-600 pt-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
+                            <h3 className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Purchased / upgrades</h3>
+                            <Input
+                                value={purchaseFilter}
+                                onChange={(e) => setPurchaseFilter(e.target.value)}
+                                placeholder="Search purchases…"
+                                className="sm:max-w-xs border-zinc-200 dark:border-zinc-700 h-9 text-sm"
+                            />
+                        </div>
+                        <div className="rounded-md border border-zinc-200 dark:border-zinc-600 max-h-40 overflow-y-auto">
+                            {bundle.instances.length === 0 ? (
+                                <p className="text-zinc-500 text-sm p-3">No instances yet.</p>
+                            ) : filteredInstances.length === 0 ? (
+                                <p className="text-zinc-500 text-sm p-3">No matches.</p>
+                            ) : (
+                                <ul className="divide-y divide-zinc-200 dark:divide-zinc-700 text-sm">
+                                    {filteredInstances.map((i: TavernOptionInstance) => {
+                                        const dn = defById.get(i.definition_id)?.name ?? `#${i.definition_id}`;
+                                        const pending =
+                                            i.status === 'pending_setup' && state.current_day < i.activates_on_day;
+                                        return (
+                                            <li
+                                                key={i.id}
+                                                className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
+                                            >
+                                                <span className="text-zinc-800 dark:text-zinc-200 min-w-0">
+                                                    <span className="font-medium">{dn}</span>{' '}
+                                                    <span className="text-zinc-500">· {i.status}</span>
+                                                    {pending && (
+                                                        <span className="block text-xs text-zinc-500">
+                                                            Ready day {i.activates_on_day} (
+                                                            {i.activates_on_day - state.current_day}d left)
+                                                        </span>
+                                                    )}
+                                                </span>
+                                                {isAdmin && i.status !== 'cancelled' && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="destructive"
+                                                        className="h-8 shrink-0"
+                                                        onClick={() => cancelInstance(i.id)}
+                                                        disabled={saving}
+                                                    >
+                                                        Cancel
                                                     </Button>
                                                 )}
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-                            ))
-                        )}
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
+                        </div>
+                        <p className="text-xs text-zinc-400">
+                            Showing {filteredInstances.length} of {bundle.instances.length}
+                        </p>
                     </div>
-                </CardContent>
-            </Card>
-
-            <Card className="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
-                <CardHeader>
-                    <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">Purchased / upgrades</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {bundle.instances.length === 0 ? (
-                        <p className="text-zinc-500 text-sm">No instances yet.</p>
-                    ) : (
-                        <ul className="space-y-2 text-sm">
-                            {bundle.instances.map((i: TavernOptionInstance) => {
-                                const dn = defById.get(i.definition_id)?.name ?? `#${i.definition_id}`;
-                                const pending =
-                                    i.status === 'pending_setup' && state.current_day < i.activates_on_day;
-                                return (
-                                    <li
-                                        key={i.id}
-                                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-2"
-                                    >
-                                        <span className="text-zinc-800 dark:text-zinc-200">
-                                            {dn} — <strong>{i.status}</strong>
-                                            {pending && (
-                                                <span className="text-zinc-500">
-                                                    {' '}
-                                                    (ready day {i.activates_on_day},{' '}
-                                                    {i.activates_on_day - state.current_day} day(s) left)
-                                                </span>
-                                            )}
-                                        </span>
-                                        {isAdmin && i.status !== 'cancelled' && (
-                                            <Button
-                                                size="sm"
-                                                variant="destructive"
-                                                onClick={() => cancelInstance(i.id)}
-                                                disabled={saving}
-                                            >
-                                                Cancel
-                                            </Button>
-                                        )}
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    )}
                 </CardContent>
             </Card>
 
@@ -1174,36 +1339,176 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
             </Card>
 
             <Card className="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
-                <CardHeader>
+                <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between space-y-0">
                     <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">Ledger</CardTitle>
+                    {isAdmin && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                                setLedgerManualDay(String(state.current_day));
+                                setLedgerManualNet('');
+                                setLedgerManualNote('');
+                                setLedgerManualOpen(true);
+                            }}
+                        >
+                            Add manual line
+                        </Button>
+                    )}
                 </CardHeader>
                 <CardContent>
+                    {isAdmin && (
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
+                            Edit or delete lines to fix mistakes; treasury changes by the difference in net gp. Delete
+                            reverses that line’s effect on treasury.
+                        </p>
+                    )}
                     {ledger.length === 0 ? (
                         <p className="text-zinc-500 text-sm">No settlements recorded.</p>
                     ) : (
-                        <ul className="space-y-2 text-sm max-h-64 overflow-y-auto">
+                        <ul className="space-y-1 text-sm max-h-64 overflow-y-auto border border-zinc-200 dark:border-zinc-600 rounded-md divide-y divide-zinc-200 dark:divide-zinc-700">
                             {ledger.map((e) => (
                                 <li
                                     key={e.id}
-                                    className="flex justify-between border-b border-zinc-200 dark:border-zinc-700 pb-1"
+                                    className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-3 py-2"
                                 >
-                                    <span className="text-zinc-600 dark:text-zinc-400">Day {e.settled_day}</span>
-                                    <span
-                                        className={
-                                            e.net_change_gp >= 0
-                                                ? 'text-green-700 dark:text-green-400'
-                                                : 'text-red-700 dark:text-red-400'
-                                        }
-                                    >
-                                        {e.net_change_gp >= 0 ? '+' : ''}
-                                        {e.net_change_gp} gp
-                                    </span>
+                                    <div className="flex items-baseline gap-3 min-w-0">
+                                        <span className="text-zinc-600 dark:text-zinc-400 tabular-nums shrink-0">
+                                            Day {e.settled_day}
+                                        </span>
+                                        <span
+                                            className={
+                                                e.net_change_gp >= 0
+                                                    ? 'text-green-700 dark:text-green-400 font-medium tabular-nums'
+                                                    : 'text-red-700 dark:text-red-400 font-medium tabular-nums'
+                                            }
+                                        >
+                                            {e.net_change_gp >= 0 ? '+' : ''}
+                                            {e.net_change_gp} gp
+                                        </span>
+                                        {Boolean(e.payload_json?.manual_entry) && (
+                                            <span className="text-xs text-zinc-500 truncate">manual</span>
+                                        )}
+                                    </div>
+                                    {isAdmin && (
+                                        <div className="flex gap-1.5 shrink-0">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-8"
+                                                onClick={() => openLedgerEdit(e)}
+                                                disabled={saving}
+                                            >
+                                                Edit
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="destructive"
+                                                className="h-8"
+                                                onClick={() => void removeLedgerEntry(e)}
+                                                disabled={saving}
+                                            >
+                                                Delete
+                                            </Button>
+                                        </div>
+                                    )}
                                 </li>
                             ))}
                         </ul>
                     )}
                 </CardContent>
             </Card>
+
+            <Dialog
+                open={ledgerEditOpen}
+                onOpenChange={(open) => {
+                    setLedgerEditOpen(open);
+                    if (!open) setLedgerEditTarget(null);
+                }}
+            >
+                <DialogContent className="max-w-md bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700">
+                    <DialogHeader>
+                        <DialogTitle>Edit ledger line</DialogTitle>
+                        <DialogDescription>
+                            Changing net gp adjusts treasury by the difference. Day is the campaign day recorded for
+                            this line.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                        <div className="space-y-1">
+                            <Label>Campaign day</Label>
+                            <Input
+                                value={ledgerEditDay}
+                                onChange={(e) => setLedgerEditDay(e.target.value)}
+                                className="border-zinc-200 dark:border-zinc-700"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label>Net change (gp)</Label>
+                            <Input
+                                value={ledgerEditNet}
+                                onChange={(e) => setLedgerEditNet(e.target.value)}
+                                className="border-zinc-200 dark:border-zinc-700"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button variant="outline" onClick={() => setLedgerEditOpen(false)}>
+                                Cancel
+                            </Button>
+                            <Button onClick={() => void saveLedgerEdit()} disabled={saving}>
+                                Save
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={ledgerManualOpen} onOpenChange={setLedgerManualOpen}>
+                <DialogContent className="max-w-md bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700">
+                    <DialogHeader>
+                        <DialogTitle>Add ledger line</DialogTitle>
+                        <DialogDescription>
+                            One-off adjustment (e.g. correction). Net gp is applied to treasury immediately.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                        <div className="space-y-1">
+                            <Label>Campaign day</Label>
+                            <Input
+                                value={ledgerManualDay}
+                                onChange={(e) => setLedgerManualDay(e.target.value)}
+                                className="border-zinc-200 dark:border-zinc-700"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label>Net change (gp)</Label>
+                            <Input
+                                value={ledgerManualNet}
+                                onChange={(e) => setLedgerManualNet(e.target.value)}
+                                placeholder="e.g. -50 or 120"
+                                className="border-zinc-200 dark:border-zinc-700"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label>Note (optional)</Label>
+                            <Input
+                                value={ledgerManualNote}
+                                onChange={(e) => setLedgerManualNote(e.target.value)}
+                                placeholder="Reason / reference"
+                                className="border-zinc-200 dark:border-zinc-700"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button variant="outline" onClick={() => setLedgerManualOpen(false)}>
+                                Cancel
+                            </Button>
+                            <Button onClick={() => void saveManualLedger()} disabled={saving}>
+                                Add
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={defDialogOpen} onOpenChange={setDefDialogOpen}>
                 <DialogContent className="max-w-lg bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700">

@@ -2,11 +2,13 @@
 Per-campaign tavern simulation: state, option catalog, purchases, ledger.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import (
     JSON,
     Boolean,
@@ -268,6 +270,30 @@ class TavernLedgerEntryResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TavernLedgerEntryPatch(BaseModel):
+    settled_day: int | None = Field(None, ge=0)
+    net_change_gp: int | None = None
+    payload_json: dict | None = None
+
+    @model_validator(mode="after")
+    def at_least_one_field(self) -> TavernLedgerEntryPatch:
+        if (
+            self.settled_day is None
+            and self.net_change_gp is None
+            and self.payload_json is None
+        ):
+            raise ValueError(
+                "At least one of settled_day, net_change_gp, payload_json must be provided"
+            )
+        return self
+
+
+class TavernLedgerManualBody(BaseModel):
+    settled_day: int = Field(..., ge=0)
+    net_change_gp: int
+    note: str | None = Field(None, max_length=500)
 
 
 class TavernBundleResponse(BaseModel):

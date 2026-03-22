@@ -328,4 +328,47 @@ export const tavernService = {
         if (!res.ok) throw new Error(await parseError(res));
         return res.json();
     },
+
+    async createLedgerEntry(
+        campaignId: number,
+        body: { settled_day: number; net_change_gp: number; note?: string | null }
+    ): Promise<TavernBundle> {
+        const res = await fetch(`${base()}/campaigns/${campaignId}/tavern/ledger`, {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(await parseError(res));
+        return res.json();
+    },
+
+    async patchLedgerEntry(
+        campaignId: number,
+        entryId: number,
+        body: {
+            settled_day?: number;
+            net_change_gp?: number;
+            payload_json?: Record<string, unknown>;
+        }
+    ): Promise<TavernBundle> {
+        const res = await fetch(
+            `${base()}/campaigns/${campaignId}/tavern/ledger/${entryId}`,
+            {
+                method: 'PATCH',
+                headers: headers(),
+                body: JSON.stringify(body),
+            }
+        );
+        if (!res.ok) throw new Error(await parseError(res));
+        return res.json();
+    },
+
+    async deleteLedgerEntry(campaignId: number, entryId: number): Promise<TavernBundle> {
+        const res = await fetch(`${base()}/campaigns/${campaignId}/tavern/ledger/${entryId}`, {
+            method: 'DELETE',
+            headers: headers(false),
+        });
+        if (!res.ok) throw new Error(await parseError(res));
+        return res.json();
+    },
 };

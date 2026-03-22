@@ -37,7 +37,9 @@ from ..models.campaign_tavern import (
     TavernCatalogImportResult,
     TavernInstanceStatus,
     TavernLedgerEntry,
+    TavernLedgerEntryPatch,
     TavernLedgerEntryResponse,
+    TavernLedgerManualBody,
     TavernOptionDefinition,
     TavernOptionDefinitionCreate,
     TavernOptionDefinitionResponse,
@@ -640,3 +642,99 @@ async def settle_tavern_tenday(
         treasury_gp_after=treasury_after,
         ledger_entry=ledger_entry,
     )
+
+
+@router.post(
+    "/campaigns/{campaign_id}/tavern/ledger",
+    response_model=TavernBundleResponse,
+)
+async def add_tavern_ledger_entry(
+    campaign_id: int,
+    body: TavernLedgerManualBody,
+    _admin: User = Depends(require_admin_role),
+    db: Session = Depends(get_db),
+):
+    campaign = _get_campaign(db, campaign_id)
+    _campaign_access(campaign, _admin)
+    state = _get_or_create_state(db, campaign_id)
+    payload: dict = {
+        "manual_entry": True,
+        "note": body.note or "",
+        "settlement": {"net_change_gp": body.net_change_gp, "manual": True},
+    }
+    state.treasury_gp += body.net_change_gp
+    db.add(
+        TavernLedgerEntry(
+            campaign_id=campaign_id,
+            settled_day=body.settled_day,
+            payload_json=payload,
+            net_change_gp=body.net_change_gp,
+        )
+    )
+    db.commit()
+    return _build_bundle(db, campaign_id)
+
+
+@router.patch(
+    "/campaigns/{campaign_id}/tavern/ledger/{entry_id}",
+    response_model=TavernBundleResponse,
+)
+async def patch_tavern_ledger_entry(
+    campaign_id: int,
+    entry_id: int,
+    body: TavernLedgerEntryPatch,
+    _admin: User = Depends(require_admin_role),
+    db: Session = Depends(get_db),
+):
+    campaign = _get_campaign(db, campaign_id)
+    _campaign_access(campaign, _admin)
+    state = _get_or_create_state(db, campaign_id)
+    entry = (
+        db.query(TavernLedgerEntry)
+        .filter(
+            TavernLedgerEntry.id == entry_id,
+            TavernLedgerEntry.campaign_id == campaign_id,
+        )
+        .first()
+    )
+    if not entry:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ledger entry not found")
+    if body.net_change_gp is not None:
+        delta = body.net_change_gp - entry.net_change_gp
+        state.treasury_gp += delta
+        entry.net_change_gp = body.net_change_gp
+    if body.settled_day is not None:
+        entry.settled_day = body.settled_day
+    if body.payload_json is not None:
+        entry.payload_json = body.payload_json
+    db.commit()
+    return _build_bundle(db, campaign_id)
+
+
+@router.delete(
+    "/campaigns/{campaign_id}/tavern/ledger/{entry_id}",
+    response_model=TavernBundleResponse,
+)
+async def delete_tavern_ledger_entry(
+    campaign_id: int,
+    entry_id: int,
+    _admin: User = Depends(require_admin_role),
+    db: Session = Depends(get_db),
+):
+    campaign = _get_campaign(db, campaign_id)
+    _campaign_access(campaign, _admin)
+    state = _get_or_create_state(db, campaign_id)
+    entry = (
+        db.query(TavernLedgerEntry)
+        .filter(
+            TavernLedgerEntry.id == entry_id,
+            TavernLedgerEntry.campaign_id == campaign_id,
+        )
+        .first()
+    )
+    if not entry:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ledger entry not found")
+    state.treasury_gp -= entry.net_change_gp
+    db.delete(entry)
+    db.commit()
+    return _build_bundle(db, campaign_id)
