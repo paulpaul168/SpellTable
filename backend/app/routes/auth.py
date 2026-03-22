@@ -93,7 +93,7 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
 
 @router.get("/users", response_model=list[UserResponse])
 async def get_users(
-    current_user: User = Depends(require_admin_role), db: Session = Depends(get_db)
+    _current_user: User = Depends(require_admin_role), db: Session = Depends(get_db)
 ):
     """Get all users (admin only)."""
     users = db.query(User).all()
@@ -103,7 +103,7 @@ async def get_users(
 @router.get("/users/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: int,
-    current_user: User = Depends(require_admin_role),
+    _current_user: User = Depends(require_admin_role),
     db: Session = Depends(get_db),
 ):
     """Get a specific user (admin only)."""
@@ -119,7 +119,7 @@ async def get_user(
 async def update_user(
     user_id: int,
     user_update: UserUpdate,
-    current_user: User = Depends(require_admin_role),
+    _current_user: User = Depends(require_admin_role),
     db: Session = Depends(get_db),
 ):
     """Update a user (admin only)."""

@@ -222,7 +222,7 @@ async def update_campaign(
 @router.delete("/{campaign_id}")
 async def delete_campaign(
     campaign_id: int,
-    current_user: User = Depends(require_admin_role),
+    _current_user: User = Depends(require_admin_role),
     db: Session = Depends(get_db),
 ):
     """Delete a campaign (admin only)."""

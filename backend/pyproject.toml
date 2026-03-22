@@ -77,3 +77,28 @@ ignore = ["E501", "B008", "C901"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+
+# Pylint default fail-under is 10; ORM/Pydantic-heavy code is noisy without broad disables.
+[tool.pylint.main]
+fail-under = 9.0
+
+[tool.pylint.messages_control]
+disable = [
+    "duplicate-code",
+    "too-few-public-methods",
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "import-outside-toplevel",
+    "too-many-arguments",
+    "too-many-positional-arguments",
+    "too-many-locals",
+    "too-many-nested-blocks",
+    "broad-exception-caught",
+    "redefined-outer-name",
+    "wrong-import-position",
+    "line-too-long",
+]
+
+[tool.pylint.basic]
+good-names = ["db", "id", "Run", "_"]

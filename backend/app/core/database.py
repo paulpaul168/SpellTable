@@ -18,8 +18,8 @@ engine = create_engine(
     connect_args={"check_same_thread": False},  # Needed for SQLite
 )
 
-# Create SessionLocal class
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Create SessionLocal class (SQLAlchemy naming; not UPPER_CASE)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)  # pylint: disable=invalid-name
 
 # Create Base class - this will be shared across all models
 Base = declarative_base()

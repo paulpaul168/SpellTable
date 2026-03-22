@@ -20,5 +20,4 @@ jobs:
       run: uv sync --locked --extra dev
     - name: Analysing the code with pylint
       working-directory: ./backend
-      run: |
-        uv run pylint $(git ls-files 'app/**/*.py' '*.py' | sort -u | tr '\n' ' ')
+      run: uv run pylint app init_db.py main.py

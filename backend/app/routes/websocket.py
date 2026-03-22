@@ -98,26 +98,28 @@ async def _handle_highlight_marker(
         await _broadcast_to_others(websocket, highlight_message)
 
 
-async def _handle_blank_viewer(websocket: WebSocket, message: dict[str, Any]) -> None:
+async def _handle_blank_viewer(websocket: WebSocket, _message: dict[str, Any]) -> None:
     """Handle blank viewer messages."""
     blank_message = {"type": "blank_viewer", "isBlank": True}
     await _broadcast_to_others(websocket, blank_message)
 
 
-async def _handle_unblank_viewer(websocket: WebSocket, message: dict[str, Any]) -> None:
+async def _handle_unblank_viewer(
+    websocket: WebSocket, _message: dict[str, Any]
+) -> None:
     """Handle unblank viewer messages."""
     unblank_message = {"type": "unblank_viewer", "isBlank": False}
     await _broadcast_to_others(websocket, unblank_message)
 
 
-async def _handle_rotate_viewer(websocket: WebSocket, message: dict[str, Any]) -> None:
+async def _handle_rotate_viewer(websocket: WebSocket, _message: dict[str, Any]) -> None:
     """Handle rotate viewer messages."""
     rotate_message = {"type": "rotate_viewer", "isRotated": True}
     await _broadcast_to_others(websocket, rotate_message)
 
 
 async def _handle_unrotate_viewer(
-    websocket: WebSocket, message: dict[str, Any]
+    websocket: WebSocket, _message: dict[str, Any]
 ) -> None:
     """Handle unrotate viewer messages."""
     unrotate_message = {"type": "unrotate_viewer", "isRotated": False}
