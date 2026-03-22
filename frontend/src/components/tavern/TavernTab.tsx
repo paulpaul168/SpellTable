@@ -93,6 +93,12 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
     const [ledgerManualNet, setLedgerManualNet] = useState('');
     const [ledgerManualNote, setLedgerManualNote] = useState('');
 
+    /** Viewer: catalog / purchase row opens detail modal */
+    const [viewerOptionDetail, setViewerOptionDetail] = useState<{
+        def: TavernOptionDefinition;
+        subtitle?: string;
+    } | null>(null);
+
     const load = useCallback(async () => {
         try {
             setLoading(true);
@@ -927,10 +933,16 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
                     )}
                 </CardHeader>
                 <CardContent className="space-y-5">
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        effect_json: fixed_income / recurring_cost / roll & valuation bonuses / flags — edit options in
-                        the dialog.
-                    </p>
+                    {isAdmin ? (
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                            effect_json: fixed_income / recurring_cost / roll & valuation bonuses / flags — edit options
+                            in the dialog.
+                        </p>
+                    ) : (
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                            Tap a catalog or purchase row to read the full description.
+                        </p>
+                    )}
 
                     <div className="space-y-2">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
@@ -950,34 +962,56 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
                             ) : (
                                 <ul className="divide-y divide-zinc-200 dark:divide-zinc-700 text-sm">
                                     {filteredCatalogDefs.map((d) => (
-                                        <li
-                                            key={d.id}
-                                            className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
-                                        >
-                                            <div className="min-w-0">
-                                                <div className="font-medium text-zinc-900 dark:text-zinc-100 truncate">
-                                                    {d.name}
-                                                    {d.is_archived && (
-                                                        <span className="ml-2 text-xs text-amber-600 dark:text-amber-400 font-normal">
-                                                            archived
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="text-xs text-zinc-500 tabular-nums">
-                                                    {d.purchase_cost_gp} gp · {d.setup_days}d setup
-                                                </div>
-                                            </div>
-                                            {isAdmin && (
-                                                <div className="flex shrink-0 gap-1.5">
-                                                    <Button size="sm" variant="outline" className="h-8" onClick={() => openEditDef(d)}>
-                                                        Edit
-                                                    </Button>
-                                                    {!d.is_archived && (
-                                                        <Button size="sm" className="h-8" onClick={() => purchase(d.id)} disabled={saving}>
-                                                            Buy
+                                        <li key={d.id} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+                                            {isAdmin ? (
+                                                <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between w-full px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
+                                                    <div className="min-w-0">
+                                                        <div className="font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                                                            {d.name}
+                                                            {d.is_archived && (
+                                                                <span className="ml-2 text-xs text-amber-600 dark:text-amber-400 font-normal">
+                                                                    archived
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-xs text-zinc-500 tabular-nums">
+                                                            {d.purchase_cost_gp} gp · {d.setup_days}d setup
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex shrink-0 gap-1.5">
+                                                        <Button size="sm" variant="outline" className="h-8" onClick={() => openEditDef(d)}>
+                                                            Edit
                                                         </Button>
-                                                    )}
+                                                        {!d.is_archived && (
+                                                            <Button size="sm" className="h-8" onClick={() => purchase(d.id)} disabled={saving}>
+                                                                Buy
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </div>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setViewerOptionDetail({ def: d })}
+                                                    className="w-full text-left flex flex-col gap-1 px-3 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:focus-visible:ring-zinc-600 rounded-sm"
+                                                >
+                                                    <div className="font-medium text-zinc-900 dark:text-zinc-100">
+                                                        {d.name}
+                                                        {d.is_archived && (
+                                                            <span className="ml-2 text-xs text-amber-600 dark:text-amber-400 font-normal">
+                                                                archived
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-xs text-zinc-500 tabular-nums">
+                                                        {d.purchase_cost_gp} gp · {d.setup_days}d setup
+                                                    </div>
+                                                    {d.description?.trim() && (
+                                                        <div className="text-xs text-zinc-500 line-clamp-2 mt-0.5">
+                                                            {d.description}
+                                                        </div>
+                                                    )}
+                                                </button>
                                             )}
                                         </li>
                                     ))}
@@ -1007,34 +1041,80 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
                             ) : (
                                 <ul className="divide-y divide-zinc-200 dark:divide-zinc-700 text-sm">
                                     {filteredInstances.map((i: TavernOptionInstance) => {
-                                        const dn = defById.get(i.definition_id)?.name ?? `#${i.definition_id}`;
+                                        const defn = defById.get(i.definition_id);
+                                        const dn = defn?.name ?? `#${i.definition_id}`;
                                         const pending =
                                             i.status === 'pending_setup' && state.current_day < i.activates_on_day;
+                                        const purchaseSubtitle = [
+                                            i.status,
+                                            `bought day ${i.purchased_on_day}`,
+                                            pending
+                                                ? `ready day ${i.activates_on_day} (${i.activates_on_day - state.current_day}d left)`
+                                                : null,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' · ');
                                         return (
                                             <li
                                                 key={i.id}
-                                                className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
+                                                className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between"
                                             >
-                                                <span className="text-zinc-800 dark:text-zinc-200 min-w-0">
-                                                    <span className="font-medium">{dn}</span>{' '}
-                                                    <span className="text-zinc-500">· {i.status}</span>
-                                                    {pending && (
-                                                        <span className="block text-xs text-zinc-500">
-                                                            Ready day {i.activates_on_day} (
-                                                            {i.activates_on_day - state.current_day}d left)
+                                                {isAdmin ? (
+                                                    <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between w-full px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
+                                                        <span className="text-zinc-800 dark:text-zinc-200 min-w-0">
+                                                            <span className="font-medium">{dn}</span>{' '}
+                                                            <span className="text-zinc-500">· {i.status}</span>
+                                                            {pending && (
+                                                                <span className="block text-xs text-zinc-500">
+                                                                    Ready day {i.activates_on_day} (
+                                                                    {i.activates_on_day - state.current_day}d left)
+                                                                </span>
+                                                            )}
                                                         </span>
-                                                    )}
-                                                </span>
-                                                {isAdmin && i.status !== 'cancelled' && (
-                                                    <Button
-                                                        size="sm"
-                                                        variant="destructive"
-                                                        className="h-8 shrink-0"
-                                                        onClick={() => cancelInstance(i.id)}
-                                                        disabled={saving}
+                                                        {i.status !== 'cancelled' && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="destructive"
+                                                                className="h-8 shrink-0"
+                                                                onClick={() => cancelInstance(i.id)}
+                                                                disabled={saving}
+                                                            >
+                                                                Cancel
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        disabled={!defn}
+                                                        onClick={() => {
+                                                            if (defn) {
+                                                                setViewerOptionDetail({
+                                                                    def: defn,
+                                                                    subtitle: purchaseSubtitle,
+                                                                });
+                                                            }
+                                                        }}
+                                                        className="w-full text-left flex flex-col gap-1 px-3 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:focus-visible:ring-zinc-600 rounded-sm disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
-                                                        Cancel
-                                                    </Button>
+                                                        <div>
+                                                            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                                                                {dn}
+                                                            </span>
+                                                            <span className="text-zinc-500"> · {i.status}</span>
+                                                        </div>
+                                                        {pending && (
+                                                            <span className="text-xs text-zinc-500">
+                                                                Ready day {i.activates_on_day} (
+                                                                {i.activates_on_day - state.current_day}d left)
+                                                            </span>
+                                                        )}
+                                                        {defn?.description?.trim() && (
+                                                            <div className="text-xs text-zinc-500 line-clamp-2">
+                                                                {defn.description}
+                                                            </div>
+                                                        )}
+                                                    </button>
                                                 )}
                                             </li>
                                         );
@@ -1418,6 +1498,50 @@ export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
                     )}
                 </CardContent>
             </Card>
+
+            <Dialog
+                open={viewerOptionDetail !== null}
+                onOpenChange={(open) => {
+                    if (!open) setViewerOptionDetail(null);
+                }}
+            >
+                <DialogContent className="max-w-lg bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 max-h-[85vh] overflow-y-auto">
+                    {viewerOptionDetail && (
+                        <>
+                            <DialogHeader>
+                                <DialogTitle className="text-zinc-900 dark:text-zinc-100 pr-8">
+                                    {viewerOptionDetail.def.name}
+                                    {viewerOptionDetail.def.is_archived && (
+                                        <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
+                                            archived
+                                        </span>
+                                    )}
+                                </DialogTitle>
+                                {viewerOptionDetail.subtitle ? (
+                                    <DialogDescription className="text-zinc-600 dark:text-zinc-400">
+                                        {viewerOptionDetail.subtitle}
+                                    </DialogDescription>
+                                ) : (
+                                    <DialogDescription className="sr-only">
+                                        Description of this tavern catalog option.
+                                    </DialogDescription>
+                                )}
+                            </DialogHeader>
+                            <div className="space-y-3 text-sm">
+                                <div className="text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed">
+                                    {viewerOptionDetail.def.description?.trim()
+                                        ? viewerOptionDetail.def.description
+                                        : 'No description provided.'}
+                                </div>
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400 border-t border-zinc-200 dark:border-zinc-700 pt-3">
+                                    {viewerOptionDetail.def.purchase_cost_gp} gp · {viewerOptionDetail.def.setup_days}d
+                                    setup
+                                </p>
+                            </div>
+                        </>
+                    )}
+                </DialogContent>
+            </Dialog>
 
             <Dialog
                 open={ledgerEditOpen}
