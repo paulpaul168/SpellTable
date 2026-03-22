@@ -20,6 +20,7 @@ from app.routes import (
     scenes,
     websocket,
     monsters,
+    encounters
 )
 
 
@@ -50,6 +51,7 @@ def get_application() -> FastAPI:
     local_app.include_router(maps.router, prefix="/maps")
     local_app.include_router(backup.router, prefix="/backup")
     local_app.include_router(monsters.router, prefix="/monsters")
+    local_app.include_router(encounters.router, prefix="/encounters")
 
     return local_app
 

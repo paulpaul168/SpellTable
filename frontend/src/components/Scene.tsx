@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import { Scene as SceneType, MapData, AoEMarker as AoEMarkerType, FogOfWar as FogOfWarType } from '../types/map';
 import { Map } from './Map';
 import { websocketService } from '@/services/websocket';
@@ -26,7 +26,7 @@ import {
     RotateCw,
     UserPlus,
     Shield,
-    BookOpen, Skull
+    BookOpen, Skull, Dice5
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -39,7 +39,7 @@ import { SaveSceneDialog } from './SaveSceneDialog';
 import { LoadSceneDialog } from './LoadSceneDialog';
 import { MapListSidebar } from './MapListSidebar';
 import { useToast } from "@/components/ui/use-toast";
-import { InitiativeSidebar } from './InitiativeSidebar';
+import {InitiativeSidebar, InitiativeSidebarHandle} from './InitiativeSidebar';
 import { InitiativeEntry } from '@/types/map';
 import { SceneManagement } from './SceneManagement';
 import { Soundboard } from './Soundboard';
@@ -57,6 +57,7 @@ import { UserManagementDialog } from './UserManagementDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import {getApiUrl} from "@/utils/api";
 import {MonsterManagementDialog} from "@/components/MonsterManagementDialog";
+import {EncounterGeneratorDialog} from "@/components/EncounterGeneratorDialog";
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -133,6 +134,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isViewerMode] = useState(false);
     const [showMapList, setShowMapList] = useState(false);
     const [showInitiative, setShowInitiative] = useState(true);
+    const initiativeRef = useRef<InitiativeSidebarHandle | null>(null);
     const [isSceneManagementOpen, setIsSceneManagementOpen] = useState(false);
     const [isSoundboardOpen, setIsSoundboardOpen] = useState(false);
     const [isCleanLayout, setIsCleanLayout] = useState(false);
@@ -149,6 +151,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isViewerRotated, setIsViewerRotated] = useState(false);
     const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
     const [isMonsterManagementOpen, setIsMonsterManagementOpen] = useState(false);
+    const [isEncounterGeneratorOpen, setIsEncounterGeneratorOpen] = useState(false);
 
     // Remove display scale functionality, using fixed 1.0 scale
     const displayScale = 1.0;
@@ -1309,6 +1312,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             {showInitiative && (
                 <div className="!z-[9999]">
                     <InitiativeSidebar
+                        ref={initiativeRef}
                         isAdmin={isAdmin}
                         entries={scene.initiativeOrder}
                         onUpdate={handleInitiativeUpdate}
@@ -1396,6 +1400,14 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             >
                                 <Zap className="h-4 w-4 mr-2" />
                                 {isAoEPaletteOpen ? 'Hide AoE Palette' : 'Show AoE Palette'}
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem
+                                className="text-xs cursor-pointer"
+                                onClick={() => setIsEncounterGeneratorOpen(true)}
+                            >
+                                <Dice5 className="h-4 w-4 mr-2" />
+                                Encounter Generator
                             </DropdownMenuItem>
 
                             <DropdownMenuSeparator className="bg-zinc-800" />
@@ -1719,6 +1731,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             <MonsterManagementDialog
                 isOpen={isMonsterManagementOpen}
                 onClose={() => setIsMonsterManagementOpen(false)}
+            />
+
+            {/* Encounter Generator Dialog */}
+            <EncounterGeneratorDialog
+                isOpen={isEncounterGeneratorOpen}
+                onClose={() => setIsEncounterGeneratorOpen(false)}
+                initiativeSidebarRef={initiativeRef}
             />
 
             {/* AoE and Fog of War Palette Toggle Buttons - Only show when not in clean layout */}
