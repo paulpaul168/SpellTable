@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -83,6 +83,63 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
     const gameboardRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
+    const createRippleEffect = useCallback((x: number, y: number, broadcast = true) => {
+        setRipplePosition({ x, y });
+        setShowRipple(true);
+
+        setTimeout(() => {
+            setShowRipple(false);
+        }, 3000);
+
+        if (broadcast) {
+            websocketService.send({
+                type: 'scene_event',
+                eventType: 'ripple_effect',
+                x,
+                y
+            });
+        }
+    }, []);
+
+    const toggleLightningEffect = useCallback((broadcast = true) => {
+        if (typeof document !== 'undefined') {
+            const lightning = document.createElement('div');
+            lightning.className = 'fixed inset-0 bg-white/30 z-[900] pointer-events-none';
+            document.body.appendChild(lightning);
+
+            setTimeout(() => {
+                lightning.className = 'fixed inset-0 bg-white/10 z-[900] pointer-events-none';
+                setTimeout(() => {
+                    lightning.className = 'fixed inset-0 bg-white/60 z-[900] pointer-events-none';
+                    setTimeout(() => {
+                        lightning.className = 'fixed inset-0 bg-white/20 z-[900] pointer-events-none';
+                        setTimeout(() => {
+                            document.body.removeChild(lightning);
+                        }, 100);
+                    }, 50);
+                }, 80);
+            }, 40);
+
+            if (broadcast) {
+                websocketService.send({
+                    type: 'scene_event',
+                    eventType: 'lightning_effect'
+                });
+            }
+        }
+    }, []);
+
+    const toggleShakeEffect = useCallback((broadcast = true) => {
+        setIsShaking(true);
+
+        if (broadcast) {
+            websocketService.send({
+                type: 'scene_event',
+                eventType: 'shake_effect'
+            });
+        }
+    }, []);
+
     // Listen for remote ripple effects from admin
     useEffect(() => {
         const handleRemoteEvents = (data: any) => {
@@ -105,7 +162,7 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
         return () => {
             unsubscribe();
         };
-    }, []);
+    }, [createRippleEffect, toggleLightningEffect, toggleShakeEffect]);
 
     // Apply shake effect to body
     useEffect(() => {
@@ -173,74 +230,10 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
             document.removeEventListener('click', handleDocumentClick);
             document.body.style.cursor = '';
         };
-    }, [activeTool, justActivatedMarker]);
-
-    // Methods for various effects
-    const createRippleEffect = (x: number, y: number, broadcast = true) => {
-        setRipplePosition({ x, y });
-        setShowRipple(true);
-
-        // Remove ripple effect after animation completes
-        setTimeout(() => {
-            setShowRipple(false);
-        }, 3000); // Increased to match the longer animation
-
-        // Broadcast the ripple effect to all viewers
-        if (broadcast) {
-            websocketService.send({
-                type: 'scene_event',
-                eventType: 'ripple_effect',
-                x,
-                y
-            });
-        }
-    };
+    }, [activeTool, justActivatedMarker, createRippleEffect]);
 
     const handlePointerClick = (e: React.MouseEvent) => {
         // Function no longer needed, we use document-level click handler instead
-    };
-
-    const toggleLightningEffect = (broadcast = true) => {
-        // Flash the screen briefly with lightning effect
-        if (typeof document !== 'undefined') {
-            const lightning = document.createElement('div');
-            lightning.className = 'fixed inset-0 bg-white/30 z-[900] pointer-events-none';
-            document.body.appendChild(lightning);
-
-            // Flash sequence
-            setTimeout(() => {
-                lightning.className = 'fixed inset-0 bg-white/10 z-[900] pointer-events-none';
-                setTimeout(() => {
-                    lightning.className = 'fixed inset-0 bg-white/60 z-[900] pointer-events-none';
-                    setTimeout(() => {
-                        lightning.className = 'fixed inset-0 bg-white/20 z-[900] pointer-events-none';
-                        setTimeout(() => {
-                            document.body.removeChild(lightning);
-                        }, 100);
-                    }, 50);
-                }, 80);
-            }, 40);
-
-            // Broadcast the lightning effect to viewers
-            if (broadcast) {
-                websocketService.send({
-                    type: 'scene_event',
-                    eventType: 'lightning_effect'
-                });
-            }
-        }
-    };
-
-    const toggleShakeEffect = (broadcast = true) => {
-        setIsShaking(true);
-
-        // Broadcast the shake effect to viewers
-        if (broadcast) {
-            websocketService.send({
-                type: 'scene_event',
-                eventType: 'shake_effect'
-            });
-        }
     };
 
     const toggleDayNight = () => {

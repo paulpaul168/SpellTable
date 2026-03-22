@@ -41,6 +41,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const [isResizing, setIsResizing] = useState(false);
     const [showSizeIndicator, setShowSizeIndicator] = useState(false);
     const [highlightAnimation, setHighlightAnimation] = useState(false);
+    const [highlightRippleKey, setHighlightRippleKey] = useState(0);
     const lastUpdateRef = useRef<number>(0);
     const pendingUpdateRef = useRef<AoEMarkerType | null>(null);
     const dragOffsetRef = useRef<DragOffset>({ startX: 0, startY: 0, startPosition: { x: 0, y: 0 } });
@@ -72,8 +73,10 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     // Watch for highlight prop changes
     useEffect(() => {
         if (isHighlighted) {
-            // Start the highlight animation
-            setHighlightAnimation(true);
+            queueMicrotask(() => {
+                setHighlightRippleKey((k) => k + 1);
+                setHighlightAnimation(true);
+            });
 
             // Clear any existing timer
             if (highlightTimerRef.current) {
@@ -490,7 +493,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         >
             {/* Highlight ripple animation with correct shape outline */}
             {highlightAnimation && (
-                <div key={Date.now()}>
+                <div key={highlightRippleKey}>
                     {/* First ripple */}
                     {marker.shape === 'cone' ? (
                         <svg

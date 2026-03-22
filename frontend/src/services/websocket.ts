@@ -1,6 +1,36 @@
 import { Scene } from '@/types/map';
 import { getApiUrl } from "@/utils/api";
 
+/**
+ * Build a valid WebSocket URL from NEXT_PUBLIC_API_URL / getApiUrl().
+ * Absolute API bases (e.g. http://localhost:8010) must use that host — not
+ * `${window.location.host}${fullUrl}` — or the URL is invalid and WebSocket throws.
+ */
+function resolveWebSocketUrl(): string {
+    const apiBase = getApiUrl().trim();
+    const isAbsolute = /^https?:\/\//i.test(apiBase);
+
+    if (isAbsolute) {
+        let parsed: URL;
+        try {
+            parsed = new URL(apiBase);
+        } catch {
+            throw new SyntaxError(`Invalid NEXT_PUBLIC_API_URL / API base: ${apiBase}`);
+        }
+        const wsProtocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+        // FastAPI mounts the socket at /ws on the API origin (no /api prefix).
+        return `${wsProtocol}//${parsed.host}/ws`;
+    }
+
+    if (typeof window === 'undefined') {
+        return `ws://localhost/api/ws`;
+    }
+
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const path = apiBase.replace(/\/$/, '') || '';
+    return `${wsProtocol}//${window.location.host}${path}/ws`;
+}
+
 interface WebSocketMessage {
     type: string;
     scene?: Scene;
@@ -10,6 +40,8 @@ interface WebSocketMessage {
 
 class WebSocketService {
     private ws: WebSocket | null = null;
+    /** Last URL passed to `new WebSocket()` (for diagnostics; `onerror` only receives an empty Event). */
+    private lastWsUrl: string | null = null;
     private listeners: ((data: WebSocketMessage) => void)[] = [];
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
@@ -24,21 +56,20 @@ class WebSocketService {
         }
 
         this.isConnecting = true;
-        const API_BASE_URL = getApiUrl();
 
-        // Determine the correct WebSocket protocol based on the current page protocol
         let wsUrl: string;
-        if (typeof window !== 'undefined') {
-            // Client-side: use the same protocol as the current page
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const host = window.location.host;
-            wsUrl = `${protocol}//${host}${API_BASE_URL}/ws`;
-        } else {
-            // Server-side: fallback to secure WebSocket
-            wsUrl = `wss://${API_BASE_URL.replace('/api', '')}/api/ws`;
+        try {
+            wsUrl = resolveWebSocketUrl();
+        } catch (e) {
+            console.error('Failed to create WebSocket connection:', e);
+            this.isConnecting = false;
+            this.notifyListeners({ type: 'connection_status', status: 'error' });
+            this.handleReconnect();
+            return;
         }
 
         console.log('Attempting WebSocket connection to:', wsUrl);
+        this.lastWsUrl = wsUrl;
 
         try {
             this.ws = new WebSocket(wsUrl);
@@ -82,7 +113,7 @@ class WebSocketService {
         };
 
         this.ws.onclose = (event) => {
-            console.log('🔌 WebSocket disconnected:', event.code, event.reason);
+            console.log('🔌 WebSocket disconnected:', event.code, event.reason || '(no reason)');
             this.isConnecting = false;
             this.stopConnectionHealthCheck();
             this.notifyListeners({ type: 'connection_status', status: 'disconnected' });
@@ -93,8 +124,12 @@ class WebSocketService {
             }
         };
 
-        this.ws.onerror = (error) => {
-            console.error('❌ WebSocket error:', error);
+        this.ws.onerror = () => {
+            // The browser passes a generic Event with no message; details appear on `onclose`.
+            console.error('❌ WebSocket error (no details from browser)', {
+                url: this.lastWsUrl,
+                readyState: this.ws?.readyState,
+            });
             this.isConnecting = false;
             this.stopConnectionHealthCheck();
             this.notifyListeners({ type: 'connection_status', status: 'error' });

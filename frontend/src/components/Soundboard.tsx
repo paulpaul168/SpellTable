@@ -18,6 +18,27 @@ interface SoundboardProps {
     onClose: () => void;
 }
 
+const IGNORED_CONSOLE_ERROR_SNIPPETS = [
+    'postMessage on disconnected port',
+    'Failed to get subsystem status for purpose',
+    'Promised response from onMessage listener went out of scope',
+];
+
+/** Mutes known browser-extension noise; returns restore function. */
+function suppressKnownConsoleNoise(): () => void {
+    const original = console.error;
+    console.error = (...args: unknown[]) => {
+        const text = args.map((a) => (typeof a === 'string' ? a : String(a))).join(' ');
+        if (IGNORED_CONSOLE_ERROR_SNIPPETS.some((s) => text.includes(s))) {
+            return;
+        }
+        original.apply(console, args);
+    };
+    return () => {
+        console.error = original;
+    };
+}
+
 // Interface for folder structure
 interface AudioFolder {
     name: string;
@@ -91,60 +112,12 @@ export const Soundboard: React.FC<SoundboardProps> = ({ isOpen, onClose }) => {
         };
     }, [isPlaying, currentTrack]);
 
-    // Install global error handler
-    useEffect(() => {
-        // Create a more robust error handler
-        const originalConsoleError = console.error;
-        const ignoredErrors = [
-            'postMessage on disconnected port',
-            'Failed to get subsystem status for purpose',
-            'Promised response from onMessage listener went out of scope'
-        ];
-
-        console.error = (...args: any[]) => {
-            // Convert args to string for easier filtering
-            const errorMsg = args.join(' ');
-
-            // Skip reporting disconnected port errors
-            if (ignoredErrors.some(err => errorMsg.includes(err))) {
-                return; // Ignore these errors
-            }
-
-            // Pass through all other errors
-            originalConsoleError.apply(console, args);
-        };
-
-        return () => {
-            // Restore original console.error
-            console.error = originalConsoleError;
-        };
-    }, []);
-
-    // Initial data fetch when component mounts
+    // Load audio once; filter extension noise without stacking multiple console.error patches.
     useEffect(() => {
         loadAudioFiles();
-
-        // Set up global error handlers to catch port disconnection errors
-        const originalConsoleError = console.error;
-        console.error = (...args) => {
-            // Ignore specific errors related to port disconnection
-            const errorText = args.join(' ');
-            if (
-                errorText.includes('postMessage on disconnected port') ||
-                errorText.includes('Failed to get subsystem status for purpose')
-            ) {
-                // Ignore these errors
-                return;
-            }
-
-            // Pass all other errors to the original console.error
-            originalConsoleError.apply(console, args);
-        };
-
-        // Restore original on cleanup
+        const restoreConsoleError = suppressKnownConsoleNoise();
         return () => {
-            console.error = originalConsoleError;
-            // Stop all playing audio before unmounting
+            restoreConsoleError();
             stopAllAudio();
         };
     }, []);

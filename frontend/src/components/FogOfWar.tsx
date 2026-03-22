@@ -42,6 +42,7 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
     const [isHovered, setIsHovered] = useState(false);
     const [editingPointIndex, setEditingPointIndex] = useState<number | null>(null);
     const [highlightAnimation, setHighlightAnimation] = useState(false);
+    const [highlightRippleKey, setHighlightRippleKey] = useState(0);
     const lastUpdateRef = useRef<number>(0);
     const pendingUpdateRef = useRef<FogOfWarType | null>(null);
     const dragOffsetRef = useRef<DragOffset>({ startX: 0, startY: 0, startPositions: [] });
@@ -63,8 +64,10 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
     // Watch for highlight prop changes
     useEffect(() => {
         if (highlighted) {
-            // Start the highlight animation
-            setHighlightAnimation(true);
+            queueMicrotask(() => {
+                setHighlightRippleKey((k) => k + 1);
+                setHighlightAnimation(true);
+            });
 
             // Clear any existing timer
             if (highlightTimerRef.current) {
@@ -524,7 +527,7 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
 
             {/* Highlight ripple animation */}
             {highlightAnimation && (
-                <div key={Date.now()}>
+                <div key={highlightRippleKey}>
                     {/* First ripple */}
                     <div
                         className="absolute animate-ripple-1"

@@ -21,6 +21,7 @@ export function LoginForm() {
 
     // Check for query parameters on mount
     useEffect(() => {
+        if (!searchParams) return;
         const username = searchParams.get('username');
         const password = searchParams.get('password');
 

@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: true,
-    swcMinify: true,
 
     // Add security headers
     async headers() {
@@ -29,11 +28,6 @@ const nextConfig = {
             }
         ];
     },
-
-    // Enable WebSocket support
-    experimental: {
-        serverComponentsExternalPackages: []
-    }
 }
 
 export default nextConfig 

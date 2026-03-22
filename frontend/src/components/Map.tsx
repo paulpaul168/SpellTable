@@ -61,6 +61,7 @@ export const Map: React.FC<MapProps> = ({
     const [mapScale, setMapScale] = useState(map.data.scale);
     const [currentDisplayPos, setCurrentDisplayPos] = useState({ x: 0, y: 0 });
     const [highlightedMarkerId, setHighlightedMarkerId] = useState<string | null>(null);
+    const [isMapDragging, setIsMapDragging] = useState(false);
 
     // Use refs for tracking state that shouldn't trigger re-renders
     const lastUpdateRef = useRef<number>(0);
@@ -107,22 +108,35 @@ export const Map: React.FC<MapProps> = ({
 
         // Only update position if it has changed or it's a new map
         const positionChanged = JSON.stringify(map.data.position) !== JSON.stringify(position);
-        if (map.data.position && (isNewMap || positionChanged || dataChanged)) {
-            setPosition(map.data.position);
-            positionRef.current = map.data.position;
-        }
+        const nextPosition =
+            map.data.position && (isNewMap || positionChanged || dataChanged) ? map.data.position : null;
 
         // Only update rotation if it has changed or it's a new map
         const rotationChanged = map.data.rotation !== rotation;
-        if (map.data.rotation !== undefined && (isNewMap || rotationChanged || dataChanged)) {
-            setRotation(map.data.rotation);
-        }
+        const nextRotation =
+            map.data.rotation !== undefined && (isNewMap || rotationChanged || dataChanged)
+                ? map.data.rotation
+                : undefined;
 
         // Only update scale if it has changed or it's a new map
         const scaleChanged = map.data.scale !== mapScale;
-        if (map.data.scale !== undefined && (isNewMap || scaleChanged || dataChanged)) {
-            setMapScale(map.data.scale);
-        }
+        const nextScale =
+            map.data.scale !== undefined && (isNewMap || scaleChanged || dataChanged)
+                ? map.data.scale
+                : undefined;
+
+        queueMicrotask(() => {
+            if (nextPosition) {
+                setPosition(nextPosition);
+                positionRef.current = nextPosition;
+            }
+            if (nextRotation !== undefined) {
+                setRotation(nextRotation);
+            }
+            if (nextScale !== undefined) {
+                setMapScale(nextScale);
+            }
+        });
     }, [map, position, rotation, mapScale]);
 
     // Update position ref when position state changes
@@ -204,7 +218,7 @@ export const Map: React.FC<MapProps> = ({
     // Update display position whenever relevant data changes
     useEffect(() => {
         const newDisplayPos = calculateDisplayPosition();
-        setCurrentDisplayPos(newDisplayPos);
+        queueMicrotask(() => setCurrentDisplayPos(newDisplayPos));
     }, [calculateDisplayPosition, position, map.data.useGridCoordinates]);
 
     // Handle window resize
@@ -267,6 +281,7 @@ export const Map: React.FC<MapProps> = ({
             });
 
             isDraggingRef.current = false;
+            setIsMapDragging(false);
             document.body.style.cursor = 'default';
         }
     }, [throttledUpdate]);
@@ -275,6 +290,7 @@ export const Map: React.FC<MapProps> = ({
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (e.key === 'Escape' && isDraggingRef.current) {
             isDraggingRef.current = false;
+            setIsMapDragging(false);
             document.body.style.cursor = 'default';
         }
     }, []);
@@ -309,6 +325,7 @@ export const Map: React.FC<MapProps> = ({
         };
 
         isDraggingRef.current = true;
+        setIsMapDragging(true);
         document.body.style.cursor = 'grabbing';
 
         // Add event listeners when dragging starts
@@ -382,7 +399,7 @@ export const Map: React.FC<MapProps> = ({
         <>
             <div
                 ref={dragRef}
-                className={`absolute ${isActive ? 'cursor-grab' : ''} ${isDraggingRef.current ? 'cursor-grabbing' : ''}`}
+                className={`absolute ${isActive ? 'cursor-grab' : ''} ${isMapDragging ? 'cursor-grabbing' : ''}`}
                 style={getImageStyle()}
                 onMouseDown={handleMouseDown}
                 onWheel={handleWheel}

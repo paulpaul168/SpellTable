@@ -59,15 +59,17 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
 
     // Recalculate when the props change
     useEffect(() => {
-        setGridSize(currentGridSize);
-        if (gridSettings) {
-            setShowGrid(gridSettings.showGrid);
-            setGridColor(gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)');
-            setGridOpacity(gridSettings.gridOpacity || 0.5);
-            setUseFixedGrid(gridSettings.useFixedGrid || false);
-            setGridCellsX(gridSettings.gridCellsX || 25);
-            setGridCellsY(gridSettings.gridCellsY || 13);
-        }
+        queueMicrotask(() => {
+            setGridSize(currentGridSize);
+            if (gridSettings) {
+                setShowGrid(gridSettings.showGrid);
+                setGridColor(gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)');
+                setGridOpacity(gridSettings.gridOpacity || 0.5);
+                setUseFixedGrid(gridSettings.useFixedGrid || false);
+                setGridCellsX(gridSettings.gridCellsX || 25);
+                setGridCellsY(gridSettings.gridCellsY || 13);
+            }
+        });
     }, [currentGridSize, gridSettings]);
 
     // Calculation for optimal grid size based on viewport
@@ -82,10 +84,10 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
 
             // Update the grid size if different from current
             if (optimalSize !== gridSize && optimalSize > 0) {
-                setGridSize(optimalSize);
+                queueMicrotask(() => setGridSize(optimalSize));
             }
         }
-    }, [isOpen, useFixedGrid, gridCellsX, gridCellsY]);
+    }, [isOpen, useFixedGrid, gridCellsX, gridCellsY, gridSize]);
 
     // Calculations for display metrics
     const diagonalPixels = Math.sqrt(

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { websocketService } from '../services/websocket';
 
 // Add keyframe animations to the global stylesheet
@@ -45,6 +45,47 @@ export const RippleViewer: React.FC = () => {
     const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
     const [isShaking, setIsShaking] = useState(false);
 
+    const createRippleEffect = useCallback((x: number, y: number) => {
+        if (typeof window !== 'undefined') {
+            const normalizedX = (x / window.innerWidth) * window.innerWidth;
+            const normalizedY = (y / window.innerHeight) * window.innerHeight;
+            setRipplePosition({ x: normalizedX, y: normalizedY });
+        } else {
+            setRipplePosition({ x, y });
+        }
+
+        setShowRipple(true);
+
+        setTimeout(() => {
+            setShowRipple(false);
+        }, 3000);
+    }, []);
+
+    const createLightningEffect = useCallback(() => {
+        if (typeof document !== 'undefined') {
+            const lightning = document.createElement('div');
+            lightning.className = 'fixed inset-0 bg-white/30 z-[900] pointer-events-none';
+            document.body.appendChild(lightning);
+
+            setTimeout(() => {
+                lightning.className = 'fixed inset-0 bg-white/10 z-[900] pointer-events-none';
+                setTimeout(() => {
+                    lightning.className = 'fixed inset-0 bg-white/60 z-[900] pointer-events-none';
+                    setTimeout(() => {
+                        lightning.className = 'fixed inset-0 bg-white/20 z-[900] pointer-events-none';
+                        setTimeout(() => {
+                            document.body.removeChild(lightning);
+                        }, 100);
+                    }, 50);
+                }, 80);
+            }, 40);
+        }
+    }, []);
+
+    const createShakeEffect = useCallback(() => {
+        setIsShaking(true);
+    }, []);
+
     // Listen for ripple effects from admin
     useEffect(() => {
         const handleRemoteEvents = (data: any) => {
@@ -73,7 +114,7 @@ export const RippleViewer: React.FC = () => {
         return () => {
             unsubscribe();
         };
-    }, []);
+    }, [createRippleEffect, createLightningEffect, createShakeEffect]);
 
     // Apply shake effect to body
     useEffect(() => {
@@ -92,54 +133,6 @@ export const RippleViewer: React.FC = () => {
             };
         }
     }, [isShaking]);
-
-    // Methods for various effects
-    const createRippleEffect = (x: number, y: number) => {
-        // Convert coordinates if needed - this is a crucial fix
-        // Browser might be different sizes on admin vs viewer
-        if (typeof window !== 'undefined') {
-            // Normalize by converting to percentage of window
-            const normalizedX = (x / window.innerWidth) * window.innerWidth;
-            const normalizedY = (y / window.innerHeight) * window.innerHeight;
-            setRipplePosition({ x: normalizedX, y: normalizedY });
-        } else {
-            setRipplePosition({ x, y });
-        }
-
-        setShowRipple(true);
-
-        // Remove ripple effect after animation completes
-        setTimeout(() => {
-            setShowRipple(false);
-        }, 3000); // Increased to match animation duration
-    };
-
-    const createLightningEffect = () => {
-        // Flash the screen briefly with lightning effect
-        if (typeof document !== 'undefined') {
-            const lightning = document.createElement('div');
-            lightning.className = 'fixed inset-0 bg-white/30 z-[900] pointer-events-none';
-            document.body.appendChild(lightning);
-
-            // Flash sequence
-            setTimeout(() => {
-                lightning.className = 'fixed inset-0 bg-white/10 z-[900] pointer-events-none';
-                setTimeout(() => {
-                    lightning.className = 'fixed inset-0 bg-white/60 z-[900] pointer-events-none';
-                    setTimeout(() => {
-                        lightning.className = 'fixed inset-0 bg-white/20 z-[900] pointer-events-none';
-                        setTimeout(() => {
-                            document.body.removeChild(lightning);
-                        }, 100);
-                    }, 50);
-                }, 80);
-            }, 40);
-        }
-    };
-
-    const createShakeEffect = () => {
-        setIsShaking(true);
-    };
 
     return (
         <>

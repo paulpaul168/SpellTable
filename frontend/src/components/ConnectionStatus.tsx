@@ -6,7 +6,9 @@ import { websocketService } from '../services/websocket';
 import { Wifi, WifiOff, AlertCircle, Loader2 } from 'lucide-react';
 
 export function ConnectionStatus() {
-    const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error' | 'failed'>('disconnected');
+    const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error' | 'failed'>(() =>
+        websocketService.getConnectionStatus()
+    );
 
     useEffect(() => {
         const unsubscribe = websocketService.addListener((data) => {
@@ -14,9 +16,6 @@ export function ConnectionStatus() {
                 setStatus(data.status as any);
             }
         });
-
-        // Get initial status
-        setStatus(websocketService.getConnectionStatus());
 
         return unsubscribe;
     }, []);
