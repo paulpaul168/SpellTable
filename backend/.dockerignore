@@ -1,0 +1,14 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+maps/
+scenes/
+sounds/
+logs/
+campaign_images/
+*.db
+*.log

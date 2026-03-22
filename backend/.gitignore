@@ -50,6 +50,7 @@ sounds/*
 logs/
 
 venv/
+.venv/
 
 # Database
 *.db

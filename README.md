@@ -111,7 +111,8 @@ A modern, local web-based virtual tabletop designed for in-person D&D sessions w
 
 ### Prerequisites
 
-- Python 3.x
+- Python 3.13 (see `backend/pyproject.toml` for the supported range)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) (backend dependencies and virtualenv)
 - Node.js (latest LTS version recommended)
 - npm or yarn
 
@@ -124,7 +125,7 @@ A modern, local web-based virtual tabletop designed for in-person D&D sessions w
    cd spelltable
    ```
 
-2. Run the development servers:
+2. Run the development servers (uses [uv](https://docs.astral.sh/uv/getting-started/installation/) for the backend):
 
    ```bash
    chmod +x run.sh  # Only needed once
@@ -149,20 +150,17 @@ A modern, local web-based virtual tabletop designed for in-person D&D sessions w
 
 ```bash
 cd backend
-python -m venv
+uv sync --extra dev
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r requirements-dev.txt
 uvicorn main:app --reload --host 0.0.0.0 --port 8010
 ```
 
-#### Alternative Backend Setup (using [uv](https://docs.astral.sh/uv/getting-started/installation/))
+Or without activating the venv:
 
 ```bash
 cd backend
 uv sync --extra dev
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-# Install uv if not already installed
-uvicorn main:app --reload --host 0.0.0.0 --port 8010
+uv run uvicorn main:app --reload --host 0.0.0.0 --port 8010
 ```
 
 #### Frontend
@@ -206,8 +204,9 @@ spelltable/
 │   ├── maps/                # Uploaded map storage
 │   ├── scenes/              # Scene/session data
 │   ├── sounds/              # Audio files for soundboard
-│   ├── requirements.txt     # Python dependencies
-│   ├── requirements-dev.txt # Development dependencies
+│   ├── uv.lock              # Locked Python dependencies (used by uv)
+│   ├── requirements.txt     # Exported pins (optional; regenerate with uv export)
+│   ├── requirements-dev.txt # Exported pins incl. dev (optional)
 │   ├── pyproject.toml       # Python project configuration
 │   └── Dockerfile           # Backend container config
 │
@@ -294,9 +293,6 @@ uv sync --extra dev
 
 # Install a new package
 uv add package-name
-
-# It also supports pip syntax
-uv pip install package-name
 ```
 
 #### [Ruff](https://docs.astral.sh/ruff/)
