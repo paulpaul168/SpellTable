@@ -1,0 +1,45 @@
+name: Deploy
+
+on:
+  push:
+    branches: [deploy]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ssh
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add SSH known hosts
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          PORT="${SSH_PORT:-22}"
+          if [ "$PORT" = "22" ]; then
+            ssh-keyscan -H "${SSH_HOST}" >> ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "$PORT" -H "${SSH_HOST}" >> ~/.ssh/known_hosts
+          fi
+
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Run deploy on server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          PORT="${SSH_PORT:-22}"
+          ssh -p "$PORT" -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
+            "set -euo pipefail; cd \"${DEPLOY_PATH}\"; git fetch origin deploy; git checkout deploy; git reset --hard origin/deploy; docker compose -f docker-compose.prod.yml up -d --build"
