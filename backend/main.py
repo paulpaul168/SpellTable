@@ -15,12 +15,14 @@ from app.routes import (
     backup,
     campaign_images,
     campaign_notes,
+    campaign_tavern,
     campaigns,
     maps,
     monsters,
     scenes,
     websocket,
 )
+from app.models import campaign_tavern as _campaign_tavern_models  # noqa: F401
 
 
 def get_application() -> FastAPI:
@@ -44,6 +46,7 @@ def get_application() -> FastAPI:
     local_app.include_router(campaigns.router, prefix="/campaigns", tags=["campaigns"])
     local_app.include_router(campaign_notes.router, tags=["campaign_notes"])
     local_app.include_router(campaign_images.router, tags=["campaign_images"])
+    local_app.include_router(campaign_tavern.router, tags=["tavern"])
     local_app.include_router(websocket.router)
     local_app.include_router(scenes.router, prefix="/scenes")
     local_app.include_router(audio.router, prefix="/audio")

@@ -52,6 +52,27 @@ class Campaign(Base):
     images = relationship(
         "CampaignImage", back_populates="campaign", cascade="all, delete-orphan"
     )
+    tavern_state = relationship(
+        "CampaignTavernState",
+        back_populates="campaign",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    tavern_option_definitions = relationship(
+        "TavernOptionDefinition",
+        back_populates="campaign",
+        cascade="all, delete-orphan",
+    )
+    tavern_option_instances = relationship(
+        "TavernOptionInstance",
+        back_populates="campaign",
+        cascade="all, delete-orphan",
+    )
+    tavern_ledger_entries = relationship(
+        "TavernLedgerEntry",
+        back_populates="campaign",
+        cascade="all, delete-orphan",
+    )
 
 
 class CampaignCreate(BaseModel):

@@ -1,0 +1,411 @@
+"""
+Tavern simulation API: state, catalog, purchases, day advancement, tenday settlement.
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from ..core.auth import get_current_active_user, require_admin_role
+from ..core.database import get_db
+from ..core.tavern_rules import (
+    VALID_TAVERN_CONDITIONS,
+    aggregate_effects,
+    business_check_total,
+    multipliers_for_condition,
+    normalize_condition,
+    settle_tenday_net,
+)
+from ..models.campaign import Campaign
+from ..models.campaign_tavern import (
+    CampaignTavernState,
+    TavernActiveEffectsSummary,
+    TavernAdvanceDaysBody,
+    TavernBundleResponse,
+    TavernInstanceStatus,
+    TavernLedgerEntry,
+    TavernLedgerEntryResponse,
+    TavernOptionDefinition,
+    TavernOptionDefinitionCreate,
+    TavernOptionDefinitionResponse,
+    TavernOptionDefinitionUpdate,
+    TavernOptionInstance,
+    TavernOptionInstanceCreate,
+    TavernOptionInstancePatch,
+    TavernOptionInstanceResponse,
+    TavernSettleTendayBody,
+    TavernSettleTendayResult,
+    TavernStateResponse,
+    TavernStateUpdate,
+)
+from ..models.user import User
+
+router = APIRouter()
+
+
+def _campaign_access(campaign: Campaign | None, user: User) -> None:
+    if not campaign:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
+    if user.role != "admin" and user not in campaign.users:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this campaign",
+        )
+
+
+def _get_campaign(db: Session, campaign_id: int) -> Campaign | None:
+    return db.query(Campaign).filter(Campaign.id == campaign_id).first()
+
+
+def _get_or_create_state(db: Session, campaign_id: int) -> CampaignTavernState:
+    row = (
+        db.query(CampaignTavernState)
+        .filter(CampaignTavernState.campaign_id == campaign_id)
+        .first()
+    )
+    if row:
+        return row
+    row = CampaignTavernState(campaign_id=campaign_id)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def _promote_instances(db: Session, campaign_id: int, current_day: int) -> None:
+    pending = (
+        db.query(TavernOptionInstance)
+        .filter(
+            TavernOptionInstance.campaign_id == campaign_id,
+            TavernOptionInstance.status == TavernInstanceStatus.PENDING_SETUP,
+            TavernOptionInstance.activates_on_day <= current_day,
+        )
+        .all()
+    )
+    for inst in pending:
+        inst.status = TavernInstanceStatus.ACTIVE
+    if pending:
+        db.commit()
+
+
+def _active_instance_effects(db: Session, campaign_id: int) -> dict:
+    instances = (
+        db.query(TavernOptionInstance)
+        .filter(
+            TavernOptionInstance.campaign_id == campaign_id,
+            TavernOptionInstance.status == TavernInstanceStatus.ACTIVE,
+        )
+        .all()
+    )
+    effects: list[dict | None] = []
+    for inst in instances:
+        defn = (
+            db.query(TavernOptionDefinition)
+            .filter(TavernOptionDefinition.id == inst.definition_id)
+            .first()
+        )
+        if defn:
+            effects.append(defn.effect_json if isinstance(defn.effect_json, dict) else None)
+    return aggregate_effects(effects)
+
+
+def _build_bundle(db: Session, campaign_id: int) -> TavernBundleResponse:
+    state = _get_or_create_state(db, campaign_id)
+    definitions = (
+        db.query(TavernOptionDefinition)
+        .filter(TavernOptionDefinition.campaign_id == campaign_id)
+        .order_by(
+            TavernOptionDefinition.sort_order,
+            TavernOptionDefinition.id,
+        )
+        .all()
+    )
+    instances = (
+        db.query(TavernOptionInstance)
+        .filter(TavernOptionInstance.campaign_id == campaign_id)
+        .order_by(TavernOptionInstance.id.desc())
+        .all()
+    )
+    ae = _active_instance_effects(db, campaign_id)
+    pm, lm = multipliers_for_condition(state.condition)
+    ledger_rows = (
+        db.query(TavernLedgerEntry)
+        .filter(TavernLedgerEntry.campaign_id == campaign_id)
+        .order_by(TavernLedgerEntry.id.desc())
+        .limit(50)
+        .all()
+    )
+    return TavernBundleResponse(
+        state=TavernStateResponse.model_validate(state),
+        definitions=[TavernOptionDefinitionResponse.model_validate(d) for d in definitions],
+        instances=[TavernOptionInstanceResponse.model_validate(i) for i in instances],
+        active_effects=TavernActiveEffectsSummary(**ae),
+        multipliers={"profit": pm, "loss": lm},
+        ledger=[TavernLedgerEntryResponse.model_validate(e) for e in reversed(ledger_rows)],
+    )
+
+
+@router.get(
+    "/campaigns/{campaign_id}/tavern",
+    response_model=TavernBundleResponse,
+)
+async def get_tavern(
+    campaign_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    campaign = _get_campaign(db, campaign_id)
+    _campaign_access(campaign, current_user)
+    return _build_bundle(db, campaign_id)
+
+
+@router.put(
+    "/campaigns/{campaign_id}/tavern/state",
+    response_model=TavernBundleResponse,
+)
+async def update_tavern_state(
+    campaign_id: int,
+    body: TavernStateUpdate,
+    _admin: User = Depends(require_admin_role),
+    db: Session = Depends(get_db),
+):
+    campaign = _get_campaign(db, campaign_id)
+    _campaign_access(campaign, _admin)
+    state = _get_or_create_state(db, campaign_id)
+    data = body.model_dump(exclude_unset=True)
+    if "condition" in data and data["condition"] is not None:
+        c = normalize_condition(data["condition"])
+        if c not in VALID_TAVERN_CONDITIONS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid condition. Use one of: {sorted(VALID_TAVERN_CONDITIONS)}",
+            )
+        data["condition"] = c
+    for key, val in data.items():
+        setattr(state, key, val)
+    db.commit()
+    db.refresh(state)
+    _promote_instances(db, campaign_id, state.current_day)
+    return _build_bundle(db, campaign_id)
+
+
+@router.post(
+    "/campaigns/{campaign_id}/tavern/advance-days",
+    response_model=TavernBundleResponse,
+)
+async def advance_tavern_days(
+    campaign_id: int,
+    body: TavernAdvanceDaysBody,
+    _admin: User = Depends(require_admin_role),
+    db: Session = Depends(get_db),
+):
+    campaign = _get_campaign(db, campaign_id)
+    _campaign_access(campaign, _admin)
+    state = _get_or_create_state(db, campaign_id)
+    state.current_day += body.days
+    db.commit()
+    _promote_instances(db, campaign_id, state.current_day)
+    return _build_bundle(db, campaign_id)
+
+
+@router.post(
+    "/campaigns/{campaign_id}/tavern/definitions",
+    response_model=TavernBundleResponse,
+)
+async def create_tavern_definition(
+    campaign_id: int,
+    body: TavernOptionDefinitionCreate,
+    _admin: User = Depends(require_admin_role),
+    db: Session = Depends(get_db),
+):
+    campaign = _get_campaign(db, campaign_id)
+    _campaign_access(campaign, _admin)
+    _get_or_create_state(db, campaign_id)
+    row = TavernOptionDefinition(
+        campaign_id=campaign_id,
+        name=body.name.strip(),
+        description=body.description,
+        purchase_cost_gp=body.purchase_cost_gp,
+        setup_days=body.setup_days,
+        effect_json=body.effect_json,
+        sort_order=body.sort_order,
+    )
+    db.add(row)
+    db.commit()
+    return _build_bundle(db, campaign_id)
+
+
+@router.put(
+    "/campaigns/{campaign_id}/tavern/definitions/{definition_id}",
+    response_model=TavernBundleResponse,
+)
+async def update_tavern_definition(
+    campaign_id: int,
+    definition_id: int,
+    body: TavernOptionDefinitionUpdate,
+    _admin: User = Depends(require_admin_role),
+    db: Session = Depends(get_db),
+):
+    campaign = _get_campaign(db, campaign_id)
+    _campaign_access(campaign, _admin)
+    row = (
+        db.query(TavernOptionDefinition)
+        .filter(
+            TavernOptionDefinition.id == definition_id,
+            TavernOptionDefinition.campaign_id == campaign_id,
+        )
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Definition not found")
+    data = body.model_dump(exclude_unset=True)
+    if "name" in data and data["name"] is not None:
+        data["name"] = data["name"].strip()
+    for key, val in data.items():
+        setattr(row, key, val)
+    db.commit()
+    return _build_bundle(db, campaign_id)
+
+
+@router.post(
+    "/campaigns/{campaign_id}/tavern/instances",
+    response_model=TavernBundleResponse,
+)
+async def create_tavern_instance(
+    campaign_id: int,
+    body: TavernOptionInstanceCreate,
+    _admin: User = Depends(require_admin_role),
+    db: Session = Depends(get_db),
+):
+    campaign = _get_campaign(db, campaign_id)
+    _campaign_access(campaign, _admin)
+    state = _get_or_create_state(db, campaign_id)
+    defn = (
+        db.query(TavernOptionDefinition)
+        .filter(
+            TavernOptionDefinition.id == body.definition_id,
+            TavernOptionDefinition.campaign_id == campaign_id,
+        )
+        .first()
+    )
+    if not defn:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Definition not found")
+    purchased = state.current_day
+    activates = purchased + defn.setup_days
+    st = (
+        TavernInstanceStatus.ACTIVE
+        if activates <= state.current_day
+        else TavernInstanceStatus.PENDING_SETUP
+    )
+    inst = TavernOptionInstance(
+        campaign_id=campaign_id,
+        definition_id=defn.id,
+        status=st,
+        purchased_on_day=purchased,
+        activates_on_day=activates,
+    )
+    db.add(inst)
+    db.commit()
+    _promote_instances(db, campaign_id, state.current_day)
+    return _build_bundle(db, campaign_id)
+
+
+@router.patch(
+    "/campaigns/{campaign_id}/tavern/instances/{instance_id}",
+    response_model=TavernBundleResponse,
+)
+async def patch_tavern_instance(
+    campaign_id: int,
+    instance_id: int,
+    body: TavernOptionInstancePatch,
+    _admin: User = Depends(require_admin_role),
+    db: Session = Depends(get_db),
+):
+    campaign = _get_campaign(db, campaign_id)
+    _campaign_access(campaign, _admin)
+    inst = (
+        db.query(TavernOptionInstance)
+        .filter(
+            TavernOptionInstance.id == instance_id,
+            TavernOptionInstance.campaign_id == campaign_id,
+        )
+        .first()
+    )
+    if not inst:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Instance not found")
+    if body.status is not None:
+        if body.status != TavernInstanceStatus.CANCELLED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only status 'cancelled' is supported",
+            )
+        inst.status = TavernInstanceStatus.CANCELLED
+    db.commit()
+    return _build_bundle(db, campaign_id)
+
+
+@router.post(
+    "/campaigns/{campaign_id}/tavern/settle-tenday",
+    response_model=TavernSettleTendayResult,
+)
+async def settle_tavern_tenday(
+    campaign_id: int,
+    body: TavernSettleTendayBody,
+    _admin: User = Depends(require_admin_role),
+    db: Session = Depends(get_db),
+):
+    campaign = _get_campaign(db, campaign_id)
+    _campaign_access(campaign, _admin)
+    state = _get_or_create_state(db, campaign_id)
+    ae = _active_instance_effects(db, campaign_id)
+    try:
+        settlement = settle_tenday_net(
+            raw_table_gp=body.raw_table_gp,
+            is_profit=body.is_profit,
+            condition=state.condition,
+            fixed_income_gp_per_tenday=ae["fixed_income_gp_per_tenday"],
+            recurring_cost_gp_per_tenday=ae["recurring_cost_gp_per_tenday"],
+            manual_adjustment_gp=body.manual_adjustment_gp,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+    check_total = business_check_total(
+        body.d100_roll,
+        state.valuation,
+        state.situational_business_bonus,
+        ae["business_roll_bonus"],
+    )
+    preview = {
+        "settlement": settlement,
+        "d100_roll": body.d100_roll,
+        "business_check_total": check_total,
+        "active_flags": ae["flags"],
+    }
+    ledger_entry = None
+    treasury_after = None
+    if body.apply:
+        state.treasury_gp += settlement["net_change_gp"]
+        db.add(
+            TavernLedgerEntry(
+                campaign_id=campaign_id,
+                settled_day=state.current_day,
+                payload_json=preview,
+                net_change_gp=settlement["net_change_gp"],
+            )
+        )
+        db.commit()
+        db.refresh(state)
+        treasury_after = state.treasury_gp
+        le = (
+            db.query(TavernLedgerEntry)
+            .filter(TavernLedgerEntry.campaign_id == campaign_id)
+            .order_by(TavernLedgerEntry.id.desc())
+            .first()
+        )
+        if le:
+            ledger_entry = TavernLedgerEntryResponse.model_validate(le)
+    return TavernSettleTendayResult(
+        preview=preview,
+        treasury_gp_after=treasury_after,
+        ledger_entry=ledger_entry,
+    )

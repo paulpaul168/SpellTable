@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import zipfile
 from dataclasses import dataclass
+from datetime import datetime
 
 from fastapi import (
     APIRouter,
@@ -29,6 +30,12 @@ from ..core.database import get_db
 from ..models.campaign import Campaign
 from ..models.campaign_images import CampaignImage
 from ..models.campaign_notes import CampaignNote
+from ..models.campaign_tavern import (
+    CampaignTavernState,
+    TavernLedgerEntry,
+    TavernOptionDefinition,
+    TavernOptionInstance,
+)
 
 router = APIRouter()
 
@@ -282,8 +289,104 @@ def _add_campaign_data_to_zip(zip_file: zipfile.ZipFile, db: Session) -> None:
         )
         logger.info(f"Added {len(campaign_data)} campaigns to backup")
 
+        _add_tavern_data_to_zip(zip_file, db)
+
     except Exception as e:
         logger.error(f"Error adding campaign data to backup: {e}")
+
+
+def _add_tavern_data_to_zip(zip_file: zipfile.ZipFile, db: Session) -> None:
+    """Export tavern simulation rows keyed by campaign name (IDs are not stable across restores)."""
+    try:
+        id_to_name = {c.id: c.name for c in db.query(Campaign).all()}
+        states = db.query(CampaignTavernState).all()
+        definitions = db.query(TavernOptionDefinition).all()
+        instances = db.query(TavernOptionInstance).all()
+        ledger = db.query(TavernLedgerEntry).all()
+
+        states_out = []
+        for s in states:
+            name = id_to_name.get(s.campaign_id)
+            if not name:
+                continue
+            states_out.append(
+                {
+                    "campaign_name": name,
+                    "current_day": s.current_day,
+                    "valuation": s.valuation,
+                    "condition": s.condition,
+                    "situational_business_bonus": s.situational_business_bonus,
+                    "treasury_gp": s.treasury_gp,
+                    "days_per_tenday": s.days_per_tenday,
+                }
+            )
+
+        definitions_out = []
+        for d in definitions:
+            name = id_to_name.get(d.campaign_id)
+            if not name:
+                continue
+            definitions_out.append(
+                {
+                    "campaign_name": name,
+                    "name": d.name,
+                    "description": d.description,
+                    "purchase_cost_gp": d.purchase_cost_gp,
+                    "setup_days": d.setup_days,
+                    "effect_json": d.effect_json,
+                    "sort_order": d.sort_order,
+                    "is_archived": d.is_archived,
+                }
+            )
+
+        def_id_to_name: dict[int, str] = {
+            d.id: d.name for d in definitions
+        }
+
+        instances_out = []
+        for i in instances:
+            cname = id_to_name.get(i.campaign_id)
+            dname = def_id_to_name.get(i.definition_id)
+            if not cname or not dname:
+                continue
+            instances_out.append(
+                {
+                    "campaign_name": cname,
+                    "definition_name": dname,
+                    "status": i.status,
+                    "purchased_on_day": i.purchased_on_day,
+                    "activates_on_day": i.activates_on_day,
+                }
+            )
+
+        ledger_out = []
+        for e in ledger:
+            cname = id_to_name.get(e.campaign_id)
+            if not cname:
+                continue
+            ledger_out.append(
+                {
+                    "campaign_name": cname,
+                    "settled_day": e.settled_day,
+                    "payload_json": e.payload_json,
+                    "net_change_gp": e.net_change_gp,
+                    "created_at": e.created_at.isoformat() if e.created_at else None,
+                }
+            )
+
+        payload = {
+            "version": 1,
+            "states": states_out,
+            "definitions": definitions_out,
+            "instances": instances_out,
+            "ledger": ledger_out,
+        }
+        zip_file.writestr("campaigns/tavern.json", json.dumps(payload, indent=2))
+        logger.info(
+            f"Added tavern backup: {len(states_out)} states, {len(definitions_out)} definitions"
+        )
+    except Exception as e:
+        logger.error(f"Error adding tavern data to backup: {e}")
 
 
 def _add_diary_content_to_zip(zip_file: zipfile.ZipFile, db: Session) -> None:
@@ -494,6 +597,141 @@ def _import_campaigns_from_backup(zip_file: zipfile.ZipFile, db: Session) -> Non
 
     except Exception as e:
         logger.error(f"Error importing campaigns from backup: {e}")
+        db.rollback()
+        raise
+
+
+def _import_tavern_from_backup(zip_file: zipfile.ZipFile, db: Session) -> None:
+    """Replace tavern data per campaign from campaigns/tavern.json (after campaigns import)."""
+    path = "campaigns/tavern.json"
+    if path not in zip_file.namelist():
+        logger.info("No tavern data in backup")
+        return
+    try:
+        from ..models.campaign import Campaign
+
+        raw = json.loads(zip_file.read(path).decode("utf-8"))
+        if not isinstance(raw, dict) or raw.get("version") != 1:
+            logger.warning("Unsupported tavern backup format; skipping")
+            return
+
+        states = raw.get("states") or []
+        definitions = raw.get("definitions") or []
+        instances = raw.get("instances") or []
+        ledger_rows = raw.get("ledger") or []
+
+        names: set[str] = set()
+        for block in (states, definitions, instances, ledger_rows):
+            for row in block:
+                if isinstance(row, dict) and row.get("campaign_name"):
+                    names.add(row["campaign_name"])
+
+        for cname in names:
+            campaign = db.query(Campaign).filter(Campaign.name == cname).first()
+            if not campaign:
+                logger.warning(f"Tavern import: campaign not found, skip: {cname}")
+                continue
+            cid = campaign.id
+            db.query(TavernLedgerEntry).filter(
+                TavernLedgerEntry.campaign_id == cid
+            ).delete()
+            db.query(TavernOptionInstance).filter(
+                TavernOptionInstance.campaign_id == cid
+            ).delete()
+            db.query(TavernOptionDefinition).filter(
+                TavernOptionDefinition.campaign_id == cid
+            ).delete()
+            db.query(CampaignTavernState).filter(
+                CampaignTavernState.campaign_id == cid
+            ).delete()
+            db.flush()
+
+            st = next(
+                (s for s in states if s.get("campaign_name") == cname),
+                None,
+            )
+            if st:
+                db.add(
+                    CampaignTavernState(
+                        campaign_id=cid,
+                        current_day=int(st.get("current_day", 0)),
+                        valuation=int(st.get("valuation", 0)),
+                        condition=str(st.get("condition", "modest")),
+                        situational_business_bonus=int(
+                            st.get("situational_business_bonus", 0)
+                        ),
+                        treasury_gp=int(st.get("treasury_gp", 0)),
+                        days_per_tenday=int(st.get("days_per_tenday", 10)),
+                    )
+                )
+            else:
+                db.add(CampaignTavernState(campaign_id=cid))
+
+            name_to_def_id: dict[str, int] = {}
+            for d in sorted(
+                [x for x in definitions if x.get("campaign_name") == cname],
+                key=lambda x: (x.get("sort_order", 0), x.get("name", "")),
+            ):
+                row = TavernOptionDefinition(
+                    campaign_id=cid,
+                    name=d.get("name", "Unnamed"),
+                    description=d.get("description"),
+                    purchase_cost_gp=int(d.get("purchase_cost_gp", 0)),
+                    setup_days=int(d.get("setup_days", 0)),
+                    effect_json=d.get("effect_json"),
+                    sort_order=int(d.get("sort_order", 0)),
+                    is_archived=bool(d.get("is_archived", False)),
+                )
+                db.add(row)
+                db.flush()
+                name_to_def_id[row.name] = row.id
+
+            for ins in instances:
+                if ins.get("campaign_name") != cname:
+                    continue
+                dname = ins.get("definition_name")
+                did = name_to_def_id.get(dname or "")
+                if did is None:
+                    logger.warning(
+                        f"Tavern import: instance missing definition {dname!r} in {cname}"
+                    )
+                    continue
+                db.add(
+                    TavernOptionInstance(
+                        campaign_id=cid,
+                        definition_id=did,
+                        status=str(ins.get("status", "pending_setup")),
+                        purchased_on_day=int(ins.get("purchased_on_day", 0)),
+                        activates_on_day=int(ins.get("activates_on_day", 0)),
+                    )
+                )
+
+            for le in ledger_rows:
+                if le.get("campaign_name") != cname:
+                    continue
+                created = datetime.utcnow()
+                raw_ca = le.get("created_at")
+                if isinstance(raw_ca, str):
+                    try:
+                        created = datetime.fromisoformat(
+                            raw_ca.replace("Z", "+00:00")
+                        )
+                    except ValueError:
+                        pass
+                db.add(
+                    TavernLedgerEntry(
+                        campaign_id=cid,
+                        settled_day=int(le.get("settled_day", 0)),
+                        payload_json=le.get("payload_json") or {},
+                        net_change_gp=int(le.get("net_change_gp", 0)),
+                        created_at=created,
+                    )
+                )
+
+        db.commit()
+        logger.info(f"Tavern import finished for {len(names)} campaign(s)")
+    except Exception as e:
+        logger.error(f"Error importing tavern data from backup: {e}")
         db.rollback()
         raise
 
@@ -794,6 +1032,7 @@ async def import_backup(
                 if options.get("campaigns", False):
                     logger.info("Importing campaign data from backup")
                     _import_campaigns_from_backup(zip_file, db)
+                    _import_tavern_from_backup(zip_file, db)
 
                 if options.get("diary", False):
                     logger.info("Importing diary content from backup")

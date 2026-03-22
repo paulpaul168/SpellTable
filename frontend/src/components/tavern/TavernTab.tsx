@@ -1,0 +1,755 @@
+'use client';
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/components/ui/use-toast';
+import { Campaign } from '@/components/CampaignManagement';
+import {
+    tavernService,
+    TavernBundle,
+    TavernOptionDefinition,
+    TavernOptionInstance,
+} from '@/services/tavern';
+
+const CONDITIONS = [
+    { value: 'squalid', label: 'Squalid (profit ×1, loss ×3)' },
+    { value: 'poor', label: 'Poor (×3 / ×4)' },
+    { value: 'modest', label: 'Modest (×5 / ×5)' },
+    { value: 'comfortable', label: 'Comfortable (×7 / ×6)' },
+    { value: 'wealthy', label: 'Wealthy (×9 / ×6)' },
+    { value: 'aristocratic', label: 'Aristocratic (×12 / ×4)' },
+] as const;
+
+const EFFECT_EXAMPLE = `{"kind":"fixed_income_gp_per_tenday","amount":60}`;
+
+interface TavernTabProps {
+    campaign: Campaign;
+    isAdmin: boolean;
+}
+
+export function TavernTab({ campaign, isAdmin }: TavernTabProps) {
+    const { toast } = useToast();
+    const [bundle, setBundle] = useState<TavernBundle | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+
+    const [editCurrentDay, setEditCurrentDay] = useState('');
+    const [editValuation, setEditValuation] = useState('');
+    const [editCondition, setEditCondition] = useState('modest');
+    const [editSituational, setEditSituational] = useState('');
+    const [editTreasury, setEditTreasury] = useState('');
+    const [editDaysPerTenday, setEditDaysPerTenday] = useState('10');
+    const [advanceBy, setAdvanceBy] = useState('1');
+
+    const [defDialogOpen, setDefDialogOpen] = useState(false);
+    const [editingDef, setEditingDef] = useState<TavernOptionDefinition | null>(null);
+    const [defName, setDefName] = useState('');
+    const [defDesc, setDefDesc] = useState('');
+    const [defCost, setDefCost] = useState('0');
+    const [defSetup, setDefSetup] = useState('0');
+    const [defEffect, setDefEffect] = useState(EFFECT_EXAMPLE);
+    const [defSort, setDefSort] = useState('0');
+    const [defArchived, setDefArchived] = useState(false);
+
+    const [settleD100, setSettleD100] = useState('');
+    const [settleRaw, setSettleRaw] = useState('');
+    const [settleProfit, setSettleProfit] = useState(true);
+    const [settleManual, setSettleManual] = useState('0');
+    const [settlePreview, setSettlePreview] = useState<Record<string, unknown> | null>(null);
+
+    const load = useCallback(async () => {
+        try {
+            setLoading(true);
+            const b = await tavernService.getBundle(campaign.id);
+            setBundle(b);
+            setEditCurrentDay(String(b.state.current_day));
+            setEditValuation(String(b.state.valuation));
+            setEditCondition(b.state.condition);
+            setEditSituational(String(b.state.situational_business_bonus));
+            setEditTreasury(String(b.state.treasury_gp));
+            setEditDaysPerTenday(String(b.state.days_per_tenday));
+        } catch (e) {
+            toast({
+                title: 'Error',
+                description: e instanceof Error ? e.message : 'Failed to load tavern',
+                variant: 'destructive',
+            });
+        } finally {
+            setLoading(false);
+        }
+    }, [campaign.id, toast]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    const defById = useMemo(() => {
+        const m = new Map<number, TavernOptionDefinition>();
+        bundle?.definitions.forEach((d) => m.set(d.id, d));
+        return m;
+    }, [bundle?.definitions]);
+
+    const syncFormsFromBundle = (b: TavernBundle) => {
+        setEditCurrentDay(String(b.state.current_day));
+        setEditValuation(String(b.state.valuation));
+        setEditCondition(b.state.condition);
+        setEditSituational(String(b.state.situational_business_bonus));
+        setEditTreasury(String(b.state.treasury_gp));
+        setEditDaysPerTenday(String(b.state.days_per_tenday));
+    };
+
+    const handleSaveState = async () => {
+        if (!isAdmin) return;
+        try {
+            setSaving(true);
+            const b = await tavernService.updateState(campaign.id, {
+                current_day: Math.max(0, parseInt(editCurrentDay, 10) || 0),
+                valuation: parseInt(editValuation, 10) || 0,
+                condition: editCondition,
+                situational_business_bonus: parseInt(editSituational, 10) || 0,
+                treasury_gp: parseInt(editTreasury, 10) || 0,
+                days_per_tenday: Math.max(1, parseInt(editDaysPerTenday, 10) || 10),
+            });
+            setBundle(b);
+            syncFormsFromBundle(b);
+            toast({ title: 'Saved', description: 'Tavern state updated.' });
+        } catch (e) {
+            toast({
+                title: 'Error',
+                description: e instanceof Error ? e.message : 'Save failed',
+                variant: 'destructive',
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleAdvance = async (daysOverride?: number) => {
+        if (!isAdmin) return;
+        const n =
+            daysOverride ?? Math.max(1, parseInt(advanceBy, 10) || 1);
+        try {
+            setSaving(true);
+            const b = await tavernService.advanceDays(campaign.id, n);
+            setBundle(b);
+            syncFormsFromBundle(b);
+            toast({ title: 'Time advanced', description: `+${n} day(s).` });
+        } catch (e) {
+            toast({
+                title: 'Error',
+                description: e instanceof Error ? e.message : 'Advance failed',
+                variant: 'destructive',
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const openNewDef = () => {
+        setEditingDef(null);
+        setDefName('');
+        setDefDesc('');
+        setDefCost('0');
+        setDefSetup('0');
+        setDefEffect(EFFECT_EXAMPLE);
+        setDefSort('0');
+        setDefArchived(false);
+        setDefDialogOpen(true);
+    };
+
+    const openEditDef = (d: TavernOptionDefinition) => {
+        setEditingDef(d);
+        setDefName(d.name);
+        setDefDesc(d.description ?? '');
+        setDefCost(String(d.purchase_cost_gp));
+        setDefSetup(String(d.setup_days));
+        setDefEffect(
+            d.effect_json ? JSON.stringify(d.effect_json, null, 2) : EFFECT_EXAMPLE
+        );
+        setDefSort(String(d.sort_order));
+        setDefArchived(d.is_archived);
+        setDefDialogOpen(true);
+    };
+
+    const submitDefinition = async () => {
+        let effect: Record<string, unknown> | null = null;
+        const trimmed = defEffect.trim();
+        if (trimmed) {
+            try {
+                effect = JSON.parse(trimmed) as Record<string, unknown>;
+            } catch {
+                toast({
+                    title: 'Invalid JSON',
+                    description: 'Fix effect_json before saving.',
+                    variant: 'destructive',
+                });
+                return;
+            }
+        }
+        try {
+            setSaving(true);
+            let b: TavernBundle;
+            if (editingDef) {
+                b = await tavernService.updateDefinition(campaign.id, editingDef.id, {
+                    name: defName.trim(),
+                    description: defDesc.trim() || null,
+                    purchase_cost_gp: parseInt(defCost, 10) || 0,
+                    setup_days: parseInt(defSetup, 10) || 0,
+                    effect_json: effect,
+                    sort_order: parseInt(defSort, 10) || 0,
+                    is_archived: defArchived,
+                });
+            } else {
+                b = await tavernService.createDefinition(campaign.id, {
+                    name: defName.trim(),
+                    description: defDesc.trim() || null,
+                    purchase_cost_gp: parseInt(defCost, 10) || 0,
+                    setup_days: parseInt(defSetup, 10) || 0,
+                    effect_json: effect,
+                    sort_order: parseInt(defSort, 10) || 0,
+                });
+            }
+            setBundle(b);
+            setDefDialogOpen(false);
+            toast({
+                title: editingDef ? 'Updated' : 'Created',
+                description: 'Catalog option saved.',
+            });
+        } catch (e) {
+            toast({
+                title: 'Error',
+                description: e instanceof Error ? e.message : 'Save failed',
+                variant: 'destructive',
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const purchase = async (definitionId: number) => {
+        try {
+            setSaving(true);
+            const b = await tavernService.createInstance(campaign.id, definitionId);
+            setBundle(b);
+            toast({ title: 'Recorded', description: 'Purchase / unlock started (setup time applies).' });
+        } catch (e) {
+            toast({
+                title: 'Error',
+                description: e instanceof Error ? e.message : 'Failed',
+                variant: 'destructive',
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const cancelInstance = async (instanceId: number) => {
+        try {
+            setSaving(true);
+            const b = await tavernService.patchInstance(campaign.id, instanceId, 'cancelled');
+            setBundle(b);
+            toast({ title: 'Cancelled', description: 'Option instance cancelled.' });
+        } catch (e) {
+            toast({
+                title: 'Error',
+                description: e instanceof Error ? e.message : 'Failed',
+                variant: 'destructive',
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const runSettle = async (apply: boolean) => {
+        const raw = parseInt(settleRaw, 10);
+        if (Number.isNaN(raw) || raw < 0) {
+            toast({
+                title: 'Invalid raw GP',
+                description: 'Enter a non-negative number from the business table.',
+                variant: 'destructive',
+            });
+            return;
+        }
+        const d100s = settleD100.trim();
+        let d100: number | null | undefined = undefined;
+        if (d100s !== '') {
+            const d = parseInt(d100s, 10);
+            if (Number.isNaN(d) || d < 1 || d > 100) {
+                toast({ title: 'Invalid d100', description: 'Use 1–100 or leave empty.', variant: 'destructive' });
+                return;
+            }
+            d100 = d;
+        } else {
+            d100 = null;
+        }
+        try {
+            setSaving(true);
+            const result = await tavernService.settleTenday(campaign.id, {
+                d100_roll: d100,
+                raw_table_gp: raw,
+                is_profit: settleProfit,
+                manual_adjustment_gp: parseInt(settleManual, 10) || 0,
+                apply,
+            });
+            setSettlePreview(result.preview);
+            if (apply && bundle) {
+                const b = await tavernService.getBundle(campaign.id);
+                setBundle(b);
+                syncFormsFromBundle(b);
+            }
+            toast({
+                title: apply ? 'Applied' : 'Preview',
+                description: apply
+                    ? `Treasury now ${result.treasury_gp_after ?? '—'} gp`
+                    : 'Review breakdown below.',
+            });
+        } catch (e) {
+            toast({
+                title: 'Error',
+                description: e instanceof Error ? e.message : 'Settlement failed',
+                variant: 'destructive',
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading || !bundle) {
+        return (
+            <div className="text-center py-12 text-zinc-600 dark:text-zinc-400">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-900 dark:border-zinc-100 mx-auto mb-2" />
+                Loading tavern…
+            </div>
+        );
+    }
+
+    const { state, active_effects, multipliers, ledger } = bundle;
+    const dpt = Math.max(1, state.days_per_tenday);
+    const dayInTenday = (state.current_day % dpt) + 1;
+    const tendayIndex = Math.floor(state.current_day / dpt) + 1;
+    const staticCheckBonus =
+        state.valuation + state.situational_business_bonus + active_effects.business_roll_bonus;
+
+    return (
+        <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Tavern</h2>
+                {!isAdmin && (
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">Read-only (DM uses admin account)</p>
+                )}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+                <Card className="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
+                    <CardHeader>
+                        <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">Overview</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm text-zinc-700 dark:text-zinc-300">
+                        <p>
+                            <span className="text-zinc-500 dark:text-zinc-400">Campaign day:</span>{' '}
+                            <strong>{state.current_day}</strong>
+                        </p>
+                        <p>
+                            <span className="text-zinc-500 dark:text-zinc-400">Tenday:</span> #{tendayIndex},{' '}
+                            day {dayInTenday} of {dpt}
+                        </p>
+                        <p>
+                            <span className="text-zinc-500 dark:text-zinc-400">Valuation:</span>{' '}
+                            {state.valuation}
+                        </p>
+                        <p>
+                            <span className="text-zinc-500 dark:text-zinc-400">Condition:</span>{' '}
+                            {state.condition} — profit ×{multipliers.profit}, loss ×{multipliers.loss}
+                        </p>
+                        <p>
+                            <span className="text-zinc-500 dark:text-zinc-400">Situational bonus:</span>{' '}
+                            +{state.situational_business_bonus} (e.g. Cobbled Street)
+                        </p>
+                        <p>
+                            <span className="text-zinc-500 dark:text-zinc-400">Treasury:</span>{' '}
+                            <strong>{state.treasury_gp} gp</strong>
+                        </p>
+                        <p>
+                            <span className="text-zinc-500 dark:text-zinc-400">Active effects:</span> fixed +
+                            {active_effects.fixed_income_gp_per_tenday} gp/tenday, recurring −
+                            {active_effects.recurring_cost_gp_per_tenday} gp/tenday, roll +
+                            {active_effects.business_roll_bonus}
+                        </p>
+                        {active_effects.flags.length > 0 && (
+                            <p>
+                                <span className="text-zinc-500 dark:text-zinc-400">Flags:</span>{' '}
+                                {active_effects.flags.join(', ')}
+                            </p>
+                        )}
+                        <p className="text-xs text-zinc-500 dark:text-zinc-500 pt-2 border-t border-zinc-200 dark:border-zinc-600">
+                            Business check (if you roll d100): d100 + valuation ({state.valuation}) +
+                            situational ({state.situational_business_bonus}) + upgrades (
+                            {active_effects.business_roll_bonus}) = d100 + {staticCheckBonus}
+                        </p>
+                    </CardContent>
+                </Card>
+
+                {isAdmin && (
+                    <Card className="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
+                        <CardHeader>
+                            <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">DM controls</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <Label>Campaign day</Label>
+                                    <Input
+                                        value={editCurrentDay}
+                                        onChange={(e) => setEditCurrentDay(e.target.value)}
+                                        className="border-zinc-200 dark:border-zinc-700"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label>Valuation</Label>
+                                    <Input
+                                        value={editValuation}
+                                        onChange={(e) => setEditValuation(e.target.value)}
+                                        className="border-zinc-200 dark:border-zinc-700"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label>Treasury (gp)</Label>
+                                    <Input
+                                        value={editTreasury}
+                                        onChange={(e) => setEditTreasury(e.target.value)}
+                                        className="border-zinc-200 dark:border-zinc-700"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label>Situational bonus</Label>
+                                    <Input
+                                        value={editSituational}
+                                        onChange={(e) => setEditSituational(e.target.value)}
+                                        className="border-zinc-200 dark:border-zinc-700"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label>Days per tenday</Label>
+                                    <Input
+                                        value={editDaysPerTenday}
+                                        onChange={(e) => setEditDaysPerTenday(e.target.value)}
+                                        className="border-zinc-200 dark:border-zinc-700"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <Label>Condition</Label>
+                                <Select value={editCondition} onValueChange={setEditCondition}>
+                                    <SelectTrigger className="border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {CONDITIONS.map((c) => (
+                                            <SelectItem key={c.value} value={c.value}>
+                                                {c.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <Button
+                                onClick={handleSaveState}
+                                disabled={saving}
+                                className="bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900"
+                            >
+                                Save state
+                            </Button>
+                            <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-600">
+                                <div className="space-y-1">
+                                    <Label>Advance days</Label>
+                                    <Input
+                                        value={advanceBy}
+                                        onChange={(e) => setAdvanceBy(e.target.value)}
+                                        className="w-24 border-zinc-200 dark:border-zinc-700"
+                                    />
+                                </div>
+                                <Button variant="outline" onClick={() => void handleAdvance()} disabled={saving}>
+                                    Advance
+                                </Button>
+                                <Button variant="outline" onClick={() => void handleAdvance(1)} disabled={saving}>
+                                    +1 day
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+
+            <Card className="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">Catalog & purchases</CardTitle>
+                    {isAdmin && (
+                        <Button size="sm" onClick={openNewDef} className="bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900">
+                            + New option
+                        </Button>
+                    )}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        effect_json kinds: fixed_income_gp_per_tenday, recurring_cost_gp_per_tenday,
+                        business_roll_bonus, flag (key: bouncers, insurance_basic, …)
+                    </p>
+                    <div className="space-y-2">
+                        {bundle.definitions.length === 0 ? (
+                            <p className="text-zinc-500 text-sm">No catalog entries yet.</p>
+                        ) : (
+                            bundle.definitions.map((d) => (
+                                <div
+                                    key={d.id}
+                                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50/50 dark:bg-zinc-900/40"
+                                >
+                                    <div>
+                                        <div className="font-medium text-zinc-900 dark:text-zinc-100">
+                                            {d.name}
+                                            {d.is_archived && (
+                                                <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
+                                                    archived
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="text-xs text-zinc-500">
+                                            {d.purchase_cost_gp} gp · setup {d.setup_days} day(s)
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {isAdmin && (
+                                            <>
+                                                <Button size="sm" variant="outline" onClick={() => openEditDef(d)}>
+                                                    Edit
+                                                </Button>
+                                                {!d.is_archived && (
+                                                    <Button size="sm" onClick={() => purchase(d.id)} disabled={saving}>
+                                                        Mark purchased
+                                                    </Button>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
+                <CardHeader>
+                    <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">Purchased / upgrades</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    {bundle.instances.length === 0 ? (
+                        <p className="text-zinc-500 text-sm">No instances yet.</p>
+                    ) : (
+                        <ul className="space-y-2 text-sm">
+                            {bundle.instances.map((i: TavernOptionInstance) => {
+                                const dn = defById.get(i.definition_id)?.name ?? `#${i.definition_id}`;
+                                const pending =
+                                    i.status === 'pending_setup' && state.current_day < i.activates_on_day;
+                                return (
+                                    <li
+                                        key={i.id}
+                                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-2"
+                                    >
+                                        <span className="text-zinc-800 dark:text-zinc-200">
+                                            {dn} — <strong>{i.status}</strong>
+                                            {pending && (
+                                                <span className="text-zinc-500">
+                                                    {' '}
+                                                    (ready day {i.activates_on_day},{' '}
+                                                    {i.activates_on_day - state.current_day} day(s) left)
+                                                </span>
+                                            )}
+                                        </span>
+                                        {isAdmin && i.status !== 'cancelled' && (
+                                            <Button
+                                                size="sm"
+                                                variant="destructive"
+                                                onClick={() => cancelInstance(i.id)}
+                                                disabled={saving}
+                                            >
+                                                Cancel
+                                            </Button>
+                                        )}
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    )}
+                </CardContent>
+            </Card>
+
+            <Card className="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
+                <CardHeader>
+                    <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">Tenday settlement</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="space-y-1">
+                            <Label>d100 (optional)</Label>
+                            <Input
+                                value={settleD100}
+                                onChange={(e) => setSettleD100(e.target.value)}
+                                placeholder="1–100"
+                                disabled={!isAdmin}
+                                className="border-zinc-200 dark:border-zinc-700"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label>Raw table gp</Label>
+                            <Input
+                                value={settleRaw}
+                                onChange={(e) => setSettleRaw(e.target.value)}
+                                disabled={!isAdmin}
+                                className="border-zinc-200 dark:border-zinc-700"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label>Manual adj. (gp)</Label>
+                            <Input
+                                value={settleManual}
+                                onChange={(e) => setSettleManual(e.target.value)}
+                                disabled={!isAdmin}
+                                className="border-zinc-200 dark:border-zinc-700"
+                            />
+                        </div>
+                        <div className="space-y-1 flex items-end">
+                            <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                                <input
+                                    type="checkbox"
+                                    checked={settleProfit}
+                                    onChange={(e) => setSettleProfit(e.target.checked)}
+                                    disabled={!isAdmin}
+                                />
+                                Profit (off = loss)
+                            </label>
+                        </div>
+                    </div>
+                    {isAdmin && (
+                        <div className="flex flex-wrap gap-2">
+                            <Button variant="outline" onClick={() => runSettle(false)} disabled={saving}>
+                                Preview
+                            </Button>
+                            <Button onClick={() => runSettle(true)} disabled={saving}>
+                                Apply to treasury
+                            </Button>
+                        </div>
+                    )}
+                    {settlePreview && (
+                        <pre className="text-xs bg-zinc-100 dark:bg-zinc-950 p-3 rounded-md overflow-x-auto text-zinc-800 dark:text-zinc-200">
+                            {JSON.stringify(settlePreview, null, 2)}
+                        </pre>
+                    )}
+                </CardContent>
+            </Card>
+
+            <Card className="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
+                <CardHeader>
+                    <CardTitle className="text-lg text-zinc-900 dark:text-zinc-100">Ledger</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    {ledger.length === 0 ? (
+                        <p className="text-zinc-500 text-sm">No settlements recorded.</p>
+                    ) : (
+                        <ul className="space-y-2 text-sm max-h-64 overflow-y-auto">
+                            {ledger.map((e) => (
+                                <li
+                                    key={e.id}
+                                    className="flex justify-between border-b border-zinc-200 dark:border-zinc-700 pb-1"
+                                >
+                                    <span className="text-zinc-600 dark:text-zinc-400">Day {e.settled_day}</span>
+                                    <span
+                                        className={
+                                            e.net_change_gp >= 0
+                                                ? 'text-green-700 dark:text-green-400'
+                                                : 'text-red-700 dark:text-red-400'
+                                        }
+                                    >
+                                        {e.net_change_gp >= 0 ? '+' : ''}
+                                        {e.net_change_gp} gp
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </CardContent>
+            </Card>
+
+            <Dialog open={defDialogOpen} onOpenChange={setDefDialogOpen}>
+                <DialogContent className="max-w-lg bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700">
+                    <DialogHeader>
+                        <DialogTitle>{editingDef ? 'Edit option' : 'New catalog option'}</DialogTitle>
+                        <DialogDescription>
+                            effect_json: see kinds in Tavern rules (fixed income, recurring cost, roll bonus, flag).
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                        <div className="space-y-1">
+                            <Label>Name</Label>
+                            <Input value={defName} onChange={(e) => setDefName(e.target.value)} />
+                        </div>
+                        <div className="space-y-1">
+                            <Label>Description</Label>
+                            <Input value={defDesc} onChange={(e) => setDefDesc(e.target.value)} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                                <Label>Purchase cost (gp)</Label>
+                                <Input value={defCost} onChange={(e) => setDefCost(e.target.value)} />
+                            </div>
+                            <div className="space-y-1">
+                                <Label>Setup days</Label>
+                                <Input value={defSetup} onChange={(e) => setDefSetup(e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <Label>Sort order</Label>
+                            <Input value={defSort} onChange={(e) => setDefSort(e.target.value)} />
+                        </div>
+                        {editingDef && (
+                            <label className="flex items-center gap-2 text-sm">
+                                <input
+                                    type="checkbox"
+                                    checked={defArchived}
+                                    onChange={(e) => setDefArchived(e.target.checked)}
+                                />
+                                Archived (hide purchase button)
+                            </label>
+                        )}
+                        <div className="space-y-1">
+                            <Label>effect_json</Label>
+                            <textarea
+                                value={defEffect}
+                                onChange={(e) => setDefEffect(e.target.value)}
+                                className="w-full h-28 p-2 border border-zinc-200 dark:border-zinc-700 rounded-md bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-mono text-xs"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button variant="outline" onClick={() => setDefDialogOpen(false)}>
+                                Cancel
+                            </Button>
+                            <Button onClick={submitDefinition} disabled={saving || !defName.trim()}>
+                                Save
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}

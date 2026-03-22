@@ -16,6 +16,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Upload, Image, X, Download, Trash2, ChevronDown, ChevronRight, Folder, SortAsc, SortDesc, Maximize2, Minimize2 } from 'lucide-react';
 import {getApiUrl} from "@/utils/api";
+import { useAuth } from '@/contexts/AuthContext';
+import { TavernTab } from '@/components/tavern/TavernTab';
 
 export interface CampaignNote {
     id: number;
@@ -180,6 +182,7 @@ interface EnhancedCampaignDiaryProps {
 }
 
 export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiaryProps) {
+    const { isAdmin } = useAuth();
     const [notes, setNotes] = useState<CampaignNote[]>([]);
     const [images, setImages] = useState<CampaignImage[]>([]);
     const [imageUrls, setImageUrls] = useState<{ [key: number]: string }>({});
@@ -466,8 +469,8 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
     };
 
     return (
-        <div className="min-h-screen bg-zinc-50 dark:bg-zinc-900">
-            <div className="max-w-7xl mx-auto p-6">
+        <div className="h-[100dvh] overflow-y-auto overflow-x-hidden bg-zinc-50 dark:bg-zinc-900 [scrollbar-width:thin] [&::-webkit-scrollbar]:block">
+            <div className="max-w-7xl mx-auto p-6 pb-12">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                     <div>
@@ -489,9 +492,10 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
 
                 {/* Tabs */}
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
+                    <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="diary">Diary Entries</TabsTrigger>
                         <TabsTrigger value="images">Images</TabsTrigger>
+                        <TabsTrigger value="tavern">Tavern</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="diary" className="space-y-6">
@@ -748,6 +752,10 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
                                 )}
                             </div>
                         )}
+                    </TabsContent>
+
+                    <TabsContent value="tavern" className="space-y-6">
+                        <TavernTab campaign={campaign} isAdmin={isAdmin} />
                     </TabsContent>
                 </Tabs>
 
