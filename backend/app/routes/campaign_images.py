@@ -113,7 +113,7 @@ async def upload_campaign_image(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to upload image: {str(e)}",
-        )
+        ) from e
 
 
 @router.get(
@@ -270,4 +270,4 @@ async def delete_campaign_image(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete image: {str(e)}",
-        )
+        ) from e

@@ -34,7 +34,7 @@ async def save_scene(scene: SceneData) -> dict[str, str]:
             scene_file = os.path.join(SCENES_DIR, f"{scene.id}.json")
 
         with open(file=scene_file, mode="w", encoding="utf-8") as f:
-            json.dump(scene.model_dump(), f)
+            json.dump(scene.model_dump(by_alias=True), f)
         return {"message": "Scene saved successfully"}
     except Exception as e:
         logger.exception(f"Error saving scene: {e}")
@@ -211,7 +211,7 @@ async def update_scene(scene_id: str, scene: SceneData) -> dict[str, str]:
                 scene_file = new_scene_file
 
         with open(file=scene_file, mode="w", encoding="utf-8") as f:
-            json.dump(scene.dict(), f)
+            json.dump(scene.model_dump(by_alias=True), f)
         return {"message": "Scene updated successfully"}
     except HTTPException as e:
         logger.exception(f"HTTPException in update_scene: {e}")

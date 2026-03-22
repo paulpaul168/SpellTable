@@ -96,6 +96,7 @@ class Monster(ModelBase):
     legendary_actions: list[Description] | None = []
 
     @field_validator('size', mode='before')
+    @classmethod
     def normalize_size(cls, value):
         if isinstance(value, str):
             formatted_value = value.replace('_', ' ').replace('-', ' ').strip().lower()
@@ -105,6 +106,7 @@ class Monster(ModelBase):
         return value
 
     @field_validator('alignment', mode='before')
+    @classmethod
     def normalize_alignment(cls, value):
         if isinstance(value, str):
             formatted_value = value.replace('_', ' ').replace('-', ' ').strip().lower()
@@ -114,6 +116,7 @@ class Monster(ModelBase):
         return value
 
     @field_validator('armor', mode='before')
+    @classmethod
     def normalize_armor(cls, value):
         if isinstance(value, dict) and 'type' in value and isinstance(value['type'], str):
             formatted_value = value['type'].replace('_', ' ').replace('-', ' ').strip().lower()

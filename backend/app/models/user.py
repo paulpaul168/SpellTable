@@ -3,7 +3,7 @@ User model and authentication schemas.
 """
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel
 from sqlalchemy import JSON, Boolean, Column, DateTime, Integer, String
@@ -12,7 +12,7 @@ from sqlalchemy.orm import relationship
 from ..core.database import Base
 
 
-class UserRole(str, Enum):
+class UserRole(StrEnum):
     """User roles enumeration."""
 
     ADMIN = "admin"
