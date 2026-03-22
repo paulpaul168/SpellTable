@@ -51,4 +51,6 @@ def setup_logger() -> None:
         format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
     )
 
-    logger.success(f"Logger initialized at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.success(
+        f"Logger initialized at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    )

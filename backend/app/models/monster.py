@@ -95,32 +95,47 @@ class Monster(ModelBase):
     reactions: list[Description] | None = []
     legendary_actions: list[Description] | None = []
 
-    @field_validator('size', mode='before')
+    @field_validator("size", mode="before")
     @classmethod
     def normalize_size(cls, value):
         if isinstance(value, str):
-            formatted_value = value.replace('_', ' ').replace('-', ' ').strip().lower()
+            formatted_value = value.replace("_", " ").replace("-", " ").strip().lower()
             for e in CreatureSize:
-                if e.value.lower() == formatted_value or e.name.lower() == formatted_value:
+                if (
+                    e.value.lower() == formatted_value
+                    or e.name.lower() == formatted_value
+                ):
                     return e
         return value
 
-    @field_validator('alignment', mode='before')
+    @field_validator("alignment", mode="before")
     @classmethod
     def normalize_alignment(cls, value):
         if isinstance(value, str):
-            formatted_value = value.replace('_', ' ').replace('-', ' ').strip().lower()
+            formatted_value = value.replace("_", " ").replace("-", " ").strip().lower()
             for e in Alignment:
-                if e.value.lower() == formatted_value or e.name.lower() == formatted_value:
+                if (
+                    e.value.lower() == formatted_value
+                    or e.name.lower() == formatted_value
+                ):
                     return e
         return value
 
-    @field_validator('armor', mode='before')
+    @field_validator("armor", mode="before")
     @classmethod
     def normalize_armor(cls, value):
-        if isinstance(value, dict) and 'type' in value and isinstance(value['type'], str):
-            formatted_value = value['type'].replace('_', ' ').replace('-', ' ').strip().lower()
+        if (
+            isinstance(value, dict)
+            and "type" in value
+            and isinstance(value["type"], str)
+        ):
+            formatted_value = (
+                value["type"].replace("_", " ").replace("-", " ").strip().lower()
+            )
             for e in Armor:
-                if e.value.lower() == formatted_value or e.name.lower() == formatted_value:
-                    value['type'] = e
+                if (
+                    e.value.lower() == formatted_value
+                    or e.name.lower() == formatted_value
+                ):
+                    value["type"] = e
         return value

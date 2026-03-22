@@ -53,7 +53,9 @@ async def get_audio_file(category: str, filename: str) -> StreamingResponse:
 
         # Check if the file exists
         if not file_path.exists() or not file_path.is_file():
-            raise HTTPException(status_code=404, detail=f"Audio file not found: {filename}")
+            raise HTTPException(
+                status_code=404, detail=f"Audio file not found: {filename}"
+            )
 
         # Add MIME type for mp3 files
         mimetypes.add_type("audio/mpeg", ".mp3")
@@ -96,7 +98,9 @@ async def list_audio_files() -> dict[str, dict[str, list[dict[str, Any]]]]:
         def scan_directory(
             directory: Path, category: str, current_path: str = ""
         ) -> dict[str, list[dict[str, Any]]]:
-            logger.debug(f"Scanning directory: {directory}, exists: {directory.exists()}")
+            logger.debug(
+                f"Scanning directory: {directory}, exists: {directory.exists()}"
+            )
             result: dict[str, list[dict[str, Any]]] = {}
 
             try:
@@ -109,7 +113,10 @@ async def list_audio_files() -> dict[str, dict[str, list[dict[str, Any]]]]:
 
                         # Generate a unique ID based on the path
                         file_id = (
-                            rel_path.replace("/", "-").replace("\\", "-").replace(" ", "_").lower()
+                            rel_path.replace("/", "-")
+                            .replace("\\", "-")
+                            .replace(" ", "_")
+                            .lower()
                         )
                         if file_id.endswith(".mp3"):
                             file_id = file_id[:-4]

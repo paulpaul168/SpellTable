@@ -1,6 +1,7 @@
 """
 This module provides services related to monster management in the game.
 """
+
 import hashlib
 import json
 import threading
@@ -10,7 +11,6 @@ from ..models.monster import Monster
 
 
 class MonsterService:
-
     _instance = None
     _lock = threading.Lock()
 
@@ -34,7 +34,7 @@ class MonsterService:
         # content of a file being read every time when a monster is requested for hash calculation, this is still more
         # efficient than reading the file content and unmarshalling the JSON every time as JSON unmarshalling is quite
         # expensive in terms of performance and the majority of the time there are no changes to the file.
-        self.monster_file_hash: str = ''
+        self.monster_file_hash: str = ""
         self.monster_cache: list[Monster] | None = None
         self._initialized = True
 
@@ -80,7 +80,10 @@ class MonsterService:
     def __load_monsters_from_file(self, ignore_cache=False) -> list[Monster]:
         if not ignore_cache:
             current_hash = self.__calculate_file_hash(self.MONSTER_FILE_PATH)
-            if self.monster_file_hash == current_hash and self.monster_cache is not None:
+            if (
+                self.monster_file_hash == current_hash
+                and self.monster_cache is not None
+            ):
                 return self.monster_cache
             self.monster_file_hash = current_hash
 
@@ -91,13 +94,13 @@ class MonsterService:
         return self.monster_cache
 
     def __save_monsters_to_file(self, monsters: list[Monster]) -> None:
-        self.monster_file_hash = ''
+        self.monster_file_hash = ""
         with open(file=self.MONSTER_FILE_PATH, mode="w", encoding="utf-8") as file:
             json.dump([monster.model_dump() for monster in monsters], file, indent=2)
 
-    def __calculate_file_hash(self, file_path: str, algorithm='sha256') -> str:
+    def __calculate_file_hash(self, file_path: str, algorithm="sha256") -> str:
         hash_function = hashlib.new(algorithm)
-        with open(file_path, 'rb') as file:
+        with open(file_path, "rb") as file:
             while chunk := file.read(8192):
                 hash_function.update(chunk)
         return hash_function.hexdigest()

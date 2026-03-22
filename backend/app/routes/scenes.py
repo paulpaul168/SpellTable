@@ -84,7 +84,9 @@ async def create_folder(request: FolderCreateRequest) -> dict[str, str]:
     """
     try:
         if request.parent_folder:
-            folder_path = os.path.join(SCENES_DIR, request.parent_folder, request.folder_name)
+            folder_path = os.path.join(
+                SCENES_DIR, request.parent_folder, request.folder_name
+            )
         else:
             folder_path = os.path.join(SCENES_DIR, request.folder_name)
 
@@ -222,7 +224,9 @@ async def update_scene(scene_id: str, scene: SceneData) -> dict[str, str]:
 
 
 @router.post("/{scene_id}/image")
-async def upload_scene_image(scene_id: str, file: UploadFile = File(...)) -> dict[str, str]:
+async def upload_scene_image(
+    scene_id: str, file: UploadFile = File(...)
+) -> dict[str, str]:
     """
     Upload a scene image.
     """
@@ -326,7 +330,9 @@ async def delete_scene_image(scene_id: str, image_id: str) -> dict[str, str]:
             os.remove(image_path)
 
         # Update scene data
-        scene_data["images"] = [img for img in scene_data["images"] if img["id"] != image_id]
+        scene_data["images"] = [
+            img for img in scene_data["images"] if img["id"] != image_id
+        ]
         with open(file=scene_file, mode="w", encoding="utf-8") as buffer:
             json.dump(scene_data, buffer)
 
@@ -337,7 +343,9 @@ async def delete_scene_image(scene_id: str, image_id: str) -> dict[str, str]:
 
 
 @router.put("/folder/{folder_path:path}")
-async def rename_folder(folder_path: str, request: FolderRenameRequest) -> dict[str, str]:
+async def rename_folder(
+    folder_path: str, request: FolderRenameRequest
+) -> dict[str, str]:
     """Rename a folder in the scenes directory."""
     try:
         # Ensure folder exists
@@ -371,7 +379,9 @@ async def rename_folder(folder_path: str, request: FolderRenameRequest) -> dict[
                         # Check if this scene's folder needs updating
                         if scene_data.get("folder") == folder_path:
                             scene_data["folder"] = request.new_name
-                            with open(file=file_path, mode="w", encoding="utf-8") as buffer:
+                            with open(
+                                file=file_path, mode="w", encoding="utf-8"
+                            ) as buffer:
                                 json.dump(scene_data, buffer)
                     except FileNotFoundError as e:
                         logger.exception(f"FileNotFoundError in rename_folder: {e}")

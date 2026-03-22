@@ -2,7 +2,6 @@
 Campaign notes routes for managing diary-style notes.
 """
 
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 

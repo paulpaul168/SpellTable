@@ -45,7 +45,9 @@ def get_maps_in_structure() -> list[dict[str, Any]]:
 
     for root, _, files in os.walk(MAPS_DIR):
         for file in files:
-            if file.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg")):
+            if file.endswith(
+                (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg")
+            ):
                 rel_path = os.path.relpath(root, MAPS_DIR) if root != MAPS_DIR else ""
                 folder = rel_path if rel_path != "" else None
 
@@ -197,12 +199,16 @@ def find_map_in_structure(file_name: str) -> dict[str, Any]:
 
 def get_map_paths(file_name: str, map_data: dict[str, Any]) -> tuple[str, str]:
     """Get the folder path and file path for a map."""
-    folder_path = os.path.join(MAPS_DIR, map_data["folder"]) if map_data["folder"] else MAPS_DIR
+    folder_path = (
+        os.path.join(MAPS_DIR, map_data["folder"]) if map_data["folder"] else MAPS_DIR
+    )
     file_path = os.path.join(folder_path, file_name)
 
     if not os.path.exists(file_path):
         logger.error(f"Source file not found at path: {file_path}")
-        raise HTTPException(status_code=404, detail=f"Source file '{file_name}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"Source file '{file_name}' not found"
+        )
 
     return folder_path, file_path
 
@@ -258,7 +264,9 @@ def rename_map_file(old_path: str, new_path: str) -> None:
         os.rename(old_path, new_path)
     except OSError as e:
         logger.error(f"Error renaming map file: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error renaming map file: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"Error renaming map file: {str(e)}"
+        ) from e
 
 
 def update_map_data_file(old_data_path: str, new_data_path: str, new_name: str) -> None:
@@ -305,7 +313,9 @@ async def rename_map(
         # Check if destination file already exists
         if os.path.exists(new_path):
             logger.error(f"Destination file already exists: {new_path}")
-            raise HTTPException(status_code=409, detail=f"A file named '{new_name}' already exists")
+            raise HTTPException(
+                status_code=409, detail=f"A file named '{new_name}' already exists"
+            )
 
         # Update scenes that reference this map
         scenes_updated = update_scenes_for_renamed_map(file_name, new_name)
@@ -333,7 +343,9 @@ async def rename_map(
 
 
 @router.put("/move/{file_name}")
-async def move_map(file_name: str, move_data: dict[str, str] = Body(...)) -> dict[str, str]:
+async def move_map(
+    file_name: str, move_data: dict[str, str] = Body(...)
+) -> dict[str, str]:
     """Move a map file to a different folder."""
     target_folder = move_data.get("folder")
 
@@ -345,8 +357,12 @@ async def move_map(file_name: str, move_data: dict[str, str] = Body(...)) -> dic
         raise HTTPException(status_code=404, detail=f"Map '{file_name}' not found")
 
     # Determine source and target paths
-    source_folder = os.path.join(MAPS_DIR, map_data["folder"]) if map_data["folder"] else MAPS_DIR
-    target_folder_path = os.path.join(MAPS_DIR, target_folder) if target_folder else MAPS_DIR
+    source_folder = (
+        os.path.join(MAPS_DIR, map_data["folder"]) if map_data["folder"] else MAPS_DIR
+    )
+    target_folder_path = (
+        os.path.join(MAPS_DIR, target_folder) if target_folder else MAPS_DIR
+    )
 
     source_path = os.path.join(source_folder, file_name)
     target_path = os.path.join(target_folder_path, file_name)
@@ -368,7 +384,9 @@ def delete_map_file(file_path: str) -> None:
         os.remove(file_path)
     except OSError as e:
         logger.error(f"Error removing map file: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error removing map file: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"Error removing map file: {str(e)}"
+        ) from e
 
 
 def delete_map_data_file(folder_path: str, file_name: str) -> None:
@@ -414,7 +432,9 @@ async def store_map_data(map_data: MapData) -> dict[str, str]:
     """Store map data including folder information."""
     try:
         # Determine target folder
-        target_dir = os.path.join(MAPS_DIR, map_data.folder) if map_data.folder else MAPS_DIR
+        target_dir = (
+            os.path.join(MAPS_DIR, map_data.folder) if map_data.folder else MAPS_DIR
+        )
         ensure_folder_exists(target_dir)
 
         # Store the map data

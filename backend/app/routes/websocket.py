@@ -88,7 +88,9 @@ async def _handle_scene_update(message: dict[str, Any]) -> None:
     await broadcast_scene_update(scene_data)
 
 
-async def _handle_highlight_marker(websocket: WebSocket, message: dict[str, Any]) -> None:
+async def _handle_highlight_marker(
+    websocket: WebSocket, message: dict[str, Any]
+) -> None:
     """Handle highlight marker messages."""
     marker_id = message.get("markerId")
     if marker_id:
@@ -114,7 +116,9 @@ async def _handle_rotate_viewer(websocket: WebSocket, message: dict[str, Any]) -
     await _broadcast_to_others(websocket, rotate_message)
 
 
-async def _handle_unrotate_viewer(websocket: WebSocket, message: dict[str, Any]) -> None:
+async def _handle_unrotate_viewer(
+    websocket: WebSocket, message: dict[str, Any]
+) -> None:
     """Handle unrotate viewer messages."""
     unrotate_message = {"type": "unrotate_viewer", "isRotated": False}
     await _broadcast_to_others(websocket, unrotate_message)

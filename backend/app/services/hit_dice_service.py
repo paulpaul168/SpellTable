@@ -5,7 +5,6 @@ from ..models.die import Die, DiePool
 
 
 class HitDiceService:
-
     _instance = None
     _lock = threading.Lock()
 
@@ -33,7 +32,7 @@ class HitDiceService:
         modifier = 0
 
         for token in tokens:
-            if "d" in token.lower(): # Dice Term
+            if "d" in token.lower():  # Dice Term
                 pattern_match = re.match(r"([+-]?)(\d+)d(\d+)", token, re.IGNORECASE)
                 if not pattern_match:
                     raise ValueError(f"Invalid dice term: {token}")
@@ -44,7 +43,7 @@ class HitDiceService:
                 if sign == "-":
                     raise ValueError(f"Negative dice are not allowed: {token}")
                 dice_terms.append(DiePool(count=count, die=Die(faces=faces)))
-            else: # Pure number
+            else:  # Pure number
                 modifier += int(token)
 
         return {"dice": dice_terms, "modifier": modifier}

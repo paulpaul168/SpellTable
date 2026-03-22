@@ -49,7 +49,15 @@ class ImportStats(BaseModel):
     """Statistics for import operations."""
 
     extracted_files: int = 0
-    processed_files: dict[str, int] = {"maps": 0, "scenes": 0, "sounds": 0, "campaigns": 0, "diary": 0, "users": 0, "other": 0}
+    processed_files: dict[str, int] = {
+        "maps": 0,
+        "scenes": 0,
+        "sounds": 0,
+        "campaigns": 0,
+        "diary": 0,
+        "users": 0,
+        "other": 0,
+    }
     total_size: int = 0
 
 
@@ -91,7 +99,14 @@ def _should_skip_content_type(content_type: str, options: dict[str, bool]) -> bo
     skip_diary = content_type == "diary" and not options.get("diary", True)
     skip_users = content_type == "users" and not options.get("users", True)
 
-    return skip_maps or skip_scenes or skip_audio or skip_campaigns or skip_diary or skip_users
+    return (
+        skip_maps
+        or skip_scenes
+        or skip_audio
+        or skip_campaigns
+        or skip_diary
+        or skip_users
+    )
 
 
 def _get_destination_directory(content_type: str) -> str | None:
@@ -117,7 +132,11 @@ def _process_zip_file(
     logger.info(f"Found {total_files} files in zip archive")
 
     context = ProcessingContext(
-        zip_file=zip_file, temp_dir=temp_dir, options=options, stats=stats, total_files=total_files
+        zip_file=zip_file,
+        temp_dir=temp_dir,
+        options=options,
+        stats=stats,
+        total_files=total_files,
     )
 
     for file_path in file_list:
@@ -148,7 +167,10 @@ def _process_single_file(context: ProcessingContext, file_path: str) -> None:
 
     # Create extraction context
     extraction_context = ExtractionContext(
-        zip_file=context.zip_file, temp_dir=context.temp_dir, dest_dir=dest_dir, stats=context.stats
+        zip_file=context.zip_file,
+        temp_dir=context.temp_dir,
+        dest_dir=dest_dir,
+        stats=context.stats,
     )
 
     # Extract and copy the file
@@ -162,7 +184,9 @@ def _process_single_file(context: ProcessingContext, file_path: str) -> None:
         )
 
 
-def _extract_and_copy_file(context: ExtractionContext, file_path: str, parts: list[str]) -> None:
+def _extract_and_copy_file(
+    context: ExtractionContext, file_path: str, parts: list[str]
+) -> None:
     """Extract a file from zip and copy it to destination."""
     # Extract the file
     extract_path = os.path.join(context.temp_dir, file_path)
@@ -199,7 +223,9 @@ def _save_uploaded_file(backup_file: UploadFile, temp_dir: str) -> tuple[str, in
     return zip_path, file_size
 
 
-async def _save_uploaded_file_async(backup_file: UploadFile, temp_dir: str) -> tuple[str, int]:
+async def _save_uploaded_file_async(
+    backup_file: UploadFile, temp_dir: str
+) -> tuple[str, int]:
     """Save the uploaded file to temp directory and return path and size."""
     zip_path = os.path.join(temp_dir, "backup.zip")
     logger.info(f"Saving uploaded file to {zip_path}")
@@ -237,14 +263,23 @@ def _add_campaign_data_to_zip(zip_file: zipfile.ZipFile, db: Session) -> None:
                 "description": campaign.description,
                 "is_active": campaign.is_active,
                 "created_by": campaign.created_by,
-                "created_at": campaign.created_at.isoformat() if campaign.created_at else None,
-                "updated_at": campaign.updated_at.isoformat() if campaign.updated_at else None,
-                "users": [{"id": user.id, "username": user.username} for user in campaign.users]
+                "created_at": campaign.created_at.isoformat()
+                if campaign.created_at
+                else None,
+                "updated_at": campaign.updated_at.isoformat()
+                if campaign.updated_at
+                else None,
+                "users": [
+                    {"id": user.id, "username": user.username}
+                    for user in campaign.users
+                ],
             }
             campaign_data.append(campaign_dict)
 
         # Add campaign data as JSON
-        zip_file.writestr("campaigns/campaigns.json", json.dumps(campaign_data, indent=2))
+        zip_file.writestr(
+            "campaigns/campaigns.json", json.dumps(campaign_data, indent=2)
+        )
         logger.info(f"Added {len(campaign_data)} campaigns to backup")
 
     except Exception as e:
@@ -266,7 +301,7 @@ def _add_diary_content_to_zip(zip_file: zipfile.ZipFile, db: Session) -> None:
                 "content": note.content,
                 "created_by": note.created_by,
                 "created_at": note.created_at.isoformat() if note.created_at else None,
-                "updated_at": note.updated_at.isoformat() if note.updated_at else None
+                "updated_at": note.updated_at.isoformat() if note.updated_at else None,
             }
             notes_data.append(note_dict)
 
@@ -288,7 +323,9 @@ def _add_diary_content_to_zip(zip_file: zipfile.ZipFile, db: Session) -> None:
                 "file_size": image.file_size,
                 "mime_type": image.mime_type,
                 "description": image.description,
-                "created_at": image.created_at.isoformat() if image.created_at else None
+                "created_at": image.created_at.isoformat()
+                if image.created_at
+                else None,
             }
             images_data.append(image_dict)
 
@@ -298,7 +335,9 @@ def _add_diary_content_to_zip(zip_file: zipfile.ZipFile, db: Session) -> None:
                 zip_file.write(image_path, f"diary/images/{image.filename}")
 
         # Add images metadata as JSON
-        zip_file.writestr("diary/images_metadata.json", json.dumps(images_data, indent=2))
+        zip_file.writestr(
+            "diary/images_metadata.json", json.dumps(images_data, indent=2)
+        )
         logger.info(f"Added {len(images_data)} images metadata to backup")
 
     except Exception as e:
@@ -310,6 +349,7 @@ def _add_users_to_zip(zip_file: zipfile.ZipFile, db: Session) -> None:
     try:
         # Get all users including password hashes for complete backup
         from ..models.user import User
+
         users = db.query(User).all()
         users_data = []
 
@@ -323,13 +363,15 @@ def _add_users_to_zip(zip_file: zipfile.ZipFile, db: Session) -> None:
                 "created_at": user.created_at.isoformat() if user.created_at else None,
                 "updated_at": user.updated_at.isoformat() if user.updated_at else None,
                 "password_hash": user.password_hash,  # Include password hash for complete backup
-                "campaign_ids": [campaign.id for campaign in user.campaigns]
+                "campaign_ids": [campaign.id for campaign in user.campaigns],
             }
             users_data.append(user_dict)
 
         # Add user data as JSON
         zip_file.writestr("users/users.json", json.dumps(users_data, indent=2))
-        logger.info(f"Added {len(users_data)} users to backup (including password hashes)")
+        logger.info(
+            f"Added {len(users_data)} users to backup (including password hashes)"
+        )
 
     except Exception as e:
         logger.error(f"Error adding user data to backup: {e}")
@@ -345,30 +387,36 @@ def _import_users_from_backup(zip_file: zipfile.ZipFile, db: Session) -> None:
             return
 
         # Extract and read users data
-        users_data = json.loads(zip_file.read(users_file_path).decode('utf-8'))
+        users_data = json.loads(zip_file.read(users_file_path).decode("utf-8"))
         logger.info(f"Found {len(users_data)} users in backup")
 
         from ..models.user import User
 
         for user_data in users_data:
             # Check if user already exists
-            existing_user = db.query(User).filter(User.username == user_data['username']).first()
+            existing_user = (
+                db.query(User).filter(User.username == user_data["username"]).first()
+            )
 
             if existing_user:
                 # Update existing user
-                existing_user.email = user_data.get('email', existing_user.email)
-                existing_user.role = user_data.get('role', existing_user.role)
-                existing_user.is_active = user_data.get('is_active', existing_user.is_active)
-                existing_user.password_hash = user_data.get('password_hash', existing_user.password_hash)
+                existing_user.email = user_data.get("email", existing_user.email)
+                existing_user.role = user_data.get("role", existing_user.role)
+                existing_user.is_active = user_data.get(
+                    "is_active", existing_user.is_active
+                )
+                existing_user.password_hash = user_data.get(
+                    "password_hash", existing_user.password_hash
+                )
                 logger.info(f"Updated existing user: {user_data['username']}")
             else:
                 # Create new user
                 new_user = User(
-                    username=user_data['username'],
-                    email=user_data.get('email', ''),
-                    role=user_data.get('role', 'user'),
-                    is_active=user_data.get('is_active', True),
-                    password_hash=user_data.get('password_hash', '')
+                    username=user_data["username"],
+                    email=user_data.get("email", ""),
+                    role=user_data.get("role", "user"),
+                    is_active=user_data.get("is_active", True),
+                    password_hash=user_data.get("password_hash", ""),
                 )
                 db.add(new_user)
                 logger.info(f"Created new user: {user_data['username']}")
@@ -392,7 +440,7 @@ def _import_campaigns_from_backup(zip_file: zipfile.ZipFile, db: Session) -> Non
             return
 
         # Extract and read campaigns data
-        campaigns_data = json.loads(zip_file.read(campaigns_file_path).decode('utf-8'))
+        campaigns_data = json.loads(zip_file.read(campaigns_file_path).decode("utf-8"))
         logger.info(f"Found {len(campaigns_data)} campaigns in backup")
 
         from ..models.campaign import Campaign
@@ -400,28 +448,42 @@ def _import_campaigns_from_backup(zip_file: zipfile.ZipFile, db: Session) -> Non
 
         for campaign_data in campaigns_data:
             # Check if campaign already exists
-            existing_campaign = db.query(Campaign).filter(Campaign.name == campaign_data['name']).first()
+            existing_campaign = (
+                db.query(Campaign)
+                .filter(Campaign.name == campaign_data["name"])
+                .first()
+            )
 
             if existing_campaign:
                 # Update existing campaign
-                existing_campaign.description = campaign_data.get('description', existing_campaign.description)
-                existing_campaign.is_active = campaign_data.get('is_active', existing_campaign.is_active)
+                existing_campaign.description = campaign_data.get(
+                    "description", existing_campaign.description
+                )
+                existing_campaign.is_active = campaign_data.get(
+                    "is_active", existing_campaign.is_active
+                )
                 logger.info(f"Updated existing campaign: {campaign_data['name']}")
             else:
                 # Create new campaign
                 new_campaign = Campaign(
-                    name=campaign_data['name'],
-                    description=campaign_data.get('description', ''),
-                    is_active=campaign_data.get('is_active', True),
-                    created_by=campaign_data.get('created_by', 1)  # Default to first user
+                    name=campaign_data["name"],
+                    description=campaign_data.get("description", ""),
+                    is_active=campaign_data.get("is_active", True),
+                    created_by=campaign_data.get(
+                        "created_by", 1
+                    ),  # Default to first user
                 )
                 db.add(new_campaign)
                 db.flush()  # Get the ID
 
                 # Add users to campaign if specified
-                if 'users' in campaign_data:
-                    for user_info in campaign_data['users']:
-                        user = db.query(User).filter(User.username == user_info['username']).first()
+                if "users" in campaign_data:
+                    for user_info in campaign_data["users"]:
+                        user = (
+                            db.query(User)
+                            .filter(User.username == user_info["username"])
+                            .first()
+                        )
                         if user:
                             new_campaign.users.append(user)
 
@@ -445,23 +507,27 @@ def _import_diary_from_backup(zip_file: zipfile.ZipFile, db: Session) -> None:
         # Import notes
         notes_file_path = "diary/notes.json"
         if notes_file_path in zip_file.namelist():
-            notes_data = json.loads(zip_file.read(notes_file_path).decode('utf-8'))
+            notes_data = json.loads(zip_file.read(notes_file_path).decode("utf-8"))
             logger.info(f"Found {len(notes_data)} notes in backup")
 
             for note_data in notes_data:
                 # Check if note already exists
-                existing_note = db.query(CampaignNote).filter(
-                    CampaignNote.campaign_id == note_data['campaign_id'],
-                    CampaignNote.title == note_data['title']
-                ).first()
+                existing_note = (
+                    db.query(CampaignNote)
+                    .filter(
+                        CampaignNote.campaign_id == note_data["campaign_id"],
+                        CampaignNote.title == note_data["title"],
+                    )
+                    .first()
+                )
 
                 if not existing_note:
                     # Create new note
                     new_note = CampaignNote(
-                        campaign_id=note_data['campaign_id'],
-                        title=note_data['title'],
-                        content=note_data['content'],
-                        created_by=note_data.get('created_by', 1)
+                        campaign_id=note_data["campaign_id"],
+                        title=note_data["title"],
+                        content=note_data["content"],
+                        created_by=note_data.get("created_by", 1),
                     )
                     db.add(new_note)
                     logger.info(f"Created new note: {note_data['title']}")
@@ -472,30 +538,36 @@ def _import_diary_from_backup(zip_file: zipfile.ZipFile, db: Session) -> None:
         # Import images metadata (actual files are handled by file processing)
         images_file_path = "diary/images_metadata.json"
         if images_file_path in zip_file.namelist():
-            images_data = json.loads(zip_file.read(images_file_path).decode('utf-8'))
+            images_data = json.loads(zip_file.read(images_file_path).decode("utf-8"))
             logger.info(f"Found {len(images_data)} images metadata in backup")
 
             for image_data in images_data:
                 # Check if image already exists
-                existing_image = db.query(CampaignImage).filter(
-                    CampaignImage.campaign_id == image_data['campaign_id'],
-                    CampaignImage.filename == image_data['filename']
-                ).first()
+                existing_image = (
+                    db.query(CampaignImage)
+                    .filter(
+                        CampaignImage.campaign_id == image_data["campaign_id"],
+                        CampaignImage.filename == image_data["filename"],
+                    )
+                    .first()
+                )
 
                 if not existing_image:
                     # Create new image record
                     new_image = CampaignImage(
-                        campaign_id=image_data['campaign_id'],
-                        uploaded_by=image_data.get('uploaded_by', 1),
-                        filename=image_data['filename'],
-                        original_filename=image_data['original_filename'],
-                        file_path=image_data['file_path'],
-                        file_size=image_data['file_size'],
-                        mime_type=image_data['mime_type'],
-                        description=image_data.get('description', '')
+                        campaign_id=image_data["campaign_id"],
+                        uploaded_by=image_data.get("uploaded_by", 1),
+                        filename=image_data["filename"],
+                        original_filename=image_data["original_filename"],
+                        file_path=image_data["file_path"],
+                        file_size=image_data["file_size"],
+                        mime_type=image_data["mime_type"],
+                        description=image_data.get("description", ""),
                     )
                     db.add(new_image)
-                    logger.info(f"Created new image record: {image_data['original_filename']}")
+                    logger.info(
+                        f"Created new image record: {image_data['original_filename']}"
+                    )
 
             db.commit()
             logger.info(f"Successfully imported {len(images_data)} images metadata")
@@ -536,7 +608,15 @@ async def export_backup(
         FileResponse with the generated zip file
     """
     # Convert the query parameters to a BackupOptions object
-    options = BackupOptions(maps=maps, scenes=scenes, audio=audio, campaigns=campaigns, diary=diary, users=users, include_folders=include_folders)
+    options = BackupOptions(
+        maps=maps,
+        scenes=scenes,
+        audio=audio,
+        campaigns=campaigns,
+        diary=diary,
+        users=users,
+        include_folders=include_folders,
+    )
 
     try:
         # Create a temporary file for the zip
@@ -550,15 +630,21 @@ async def export_backup(
             # Add selected content to the zip
             if options.maps:
                 logger.info("Adding maps to backup")
-                _add_directory_to_zip(zip_file, str(MAPS_DIR), "maps", options.include_folders)
+                _add_directory_to_zip(
+                    zip_file, str(MAPS_DIR), "maps", options.include_folders
+                )
 
             if options.scenes:
                 logger.info("Adding scenes to backup")
-                _add_directory_to_zip(zip_file, str(SCENES_DIR), "scenes", options.include_folders)
+                _add_directory_to_zip(
+                    zip_file, str(SCENES_DIR), "scenes", options.include_folders
+                )
 
             if options.audio:
                 logger.info("Adding audio to backup")
-                _add_directory_to_zip(zip_file, str(SOUNDS_DIR), "sounds", options.include_folders)
+                _add_directory_to_zip(
+                    zip_file, str(SOUNDS_DIR), "sounds", options.include_folders
+                )
 
             if options.campaigns:
                 logger.info("Adding campaign data to backup")
@@ -580,7 +666,9 @@ async def export_backup(
         background_tasks.add_task(remove_file, zip_path)
 
         return FileResponse(
-            path=zip_path, filename="spelltable_backup.zip", media_type="application/zip"
+            path=zip_path,
+            filename="spelltable_backup.zip",
+            media_type="application/zip",
         )
 
     except Exception as e:
@@ -588,7 +676,9 @@ async def export_backup(
         if "zip_path" in locals():
             os.unlink(zip_path)
         logger.exception(f"Error creating backup: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error creating backup: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"Error creating backup: {str(e)}"
+        ) from e
 
 
 def _add_directory_to_zip(
@@ -613,7 +703,9 @@ def _add_directory_to_zip(
         # Skip this folder if it's not in the include list
         if include_folders is not None:
             rel_path = os.path.relpath(root, source_dir)
-            folder = rel_path.split(os.path.sep, maxsplit=1)[0] if rel_path != "." else ""
+            folder = (
+                rel_path.split(os.path.sep, maxsplit=1)[0] if rel_path != "." else ""
+            )
             if folder and folder not in include_folders:
                 continue
 
@@ -631,9 +723,13 @@ def _add_directory_to_zip(
 
             # Log progress every 10 files
             if file_count % 10 == 0:
-                logger.info(f"Added {file_count} files to {zip_dir} ({total_size / 1024:.2f} KB)")
+                logger.info(
+                    f"Added {file_count} files to {zip_dir} ({total_size / 1024:.2f} KB)"
+                )
 
-    logger.info(f"Completed adding {file_count} files ({total_size / 1024:.2f} KB) to {zip_dir}")
+    logger.info(
+        f"Completed adding {file_count} files ({total_size / 1024:.2f} KB) to {zip_dir}"
+    )
 
 
 @router.post("/import")
@@ -663,7 +759,7 @@ async def import_backup(
     Returns:
         Dictionary with import status
     """
-    if not backup_file.filename.endswith('.zip'):
+    if not backup_file.filename.endswith(".zip"):
         raise HTTPException(status_code=400, detail="Backup file must be a ZIP file")
 
     options = {
@@ -687,7 +783,7 @@ async def import_backup(
             stats.total_size = file_size
 
             # Extract and process zip file
-            with zipfile.ZipFile(zip_path, 'r') as zip_file:
+            with zipfile.ZipFile(zip_path, "r") as zip_file:
                 _process_zip_file(zip_file, temp_dir, options, stats)
 
                 # Handle special data types that need database operations
@@ -715,4 +811,6 @@ async def import_backup(
 
     except Exception as e:
         logger.exception(f"Error importing backup: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error importing backup: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"Error importing backup: {str(e)}"
+        ) from e
