@@ -2,6 +2,8 @@
 This module contains the monster models.
 """
 
+from typing import Any
+
 from pydantic import field_validator
 
 from ..core.model_base import ModelBase
@@ -97,7 +99,7 @@ class Monster(ModelBase):
 
     @field_validator("size", mode="before")
     @classmethod
-    def normalize_size(cls, value):
+    def normalize_size(cls, value: Any) -> Any:
         if isinstance(value, str):
             formatted_value = value.replace("_", " ").replace("-", " ").strip().lower()
             for e in CreatureSize:
@@ -110,7 +112,7 @@ class Monster(ModelBase):
 
     @field_validator("alignment", mode="before")
     @classmethod
-    def normalize_alignment(cls, value):
+    def normalize_alignment(cls, value: Any) -> Any:
         if isinstance(value, str):
             formatted_value = value.replace("_", " ").replace("-", " ").strip().lower()
             for e in Alignment:
@@ -123,7 +125,7 @@ class Monster(ModelBase):
 
     @field_validator("armor", mode="before")
     @classmethod
-    def normalize_armor(cls, value):
+    def normalize_armor(cls, value: Any) -> Any:
         if (
             isinstance(value, dict)
             and "type" in value

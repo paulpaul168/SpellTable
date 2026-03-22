@@ -1,14 +1,17 @@
+from __future__ import annotations
+
 import re
 import threading
+from typing import Self, cast
 
 from ..models.die import Die, DiePool
 
 
 class HitDiceService:
-    _instance = None
+    _instance: HitDiceService | None = None
     _lock = threading.Lock()
 
-    def __new__(cls):
+    def __new__(cls) -> Self:
         """Singleton pattern to ensure only one instance of HitDiceService exists."""
         if cls._instance is None:
             with cls._lock:
@@ -16,7 +19,8 @@ class HitDiceService:
                 # instance is still nonexistent.
                 if not cls._instance:
                     cls._instance = super().__new__(cls)
-        return cls._instance
+        assert cls._instance is not None
+        return cast(Self, cls._instance)
 
     def parse_hit_dice(self, expression: str) -> dict[str, list[DiePool] | int]:
         expression = expression.strip().replace(" ", "")

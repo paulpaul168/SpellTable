@@ -17,7 +17,7 @@ from app.models.campaign import Campaign
 from app.models.user import User, UserRole
 
 
-def create_default_users():
+def create_default_users() -> None:
     """Create default admin and viewer users."""
     db = SessionLocal()
     try:
@@ -57,7 +57,7 @@ def create_default_users():
         db.close()
 
 
-def create_sample_campaigns():
+def create_sample_campaigns() -> None:
     """Create sample campaigns and assign users."""
     db = SessionLocal()
     try:
@@ -111,7 +111,7 @@ def create_sample_campaigns():
         db.close()
 
 
-def main():
+def main() -> None:
     """Main initialization function."""
     logger.info("Initializing database...")
 

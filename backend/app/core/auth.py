@@ -51,10 +51,10 @@ def verify_token(token: str) -> TokenData | None:
     """Verify and decode a JWT token."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        raw_sub = payload.get("sub")
+        if not isinstance(raw_sub, str):
             return None
-        token_data = TokenData(username=username)
+        token_data = TokenData(username=raw_sub)
         return token_data
     except JWTError:
         return None

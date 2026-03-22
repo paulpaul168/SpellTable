@@ -2,10 +2,12 @@
 Database configuration and session management.
 """
 
+from collections.abc import Generator
+
 from loguru import logger
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 # SQLite database URL - use the mounted volume directory
 SQLALCHEMY_DATABASE_URL = "sqlite:///../data/spelltable.db"
@@ -23,7 +25,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-def get_db():
+def get_db() -> Generator[Session, None, None]:
     """Get database session."""
     db = SessionLocal()
     try:
@@ -32,7 +34,7 @@ def get_db():
         db.close()
 
 
-def init_db():
+def init_db() -> None:
     """Initialize database tables."""
     logger.info("Creating database tables")
 
