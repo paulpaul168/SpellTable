@@ -1,8 +1,7 @@
 import re
 import threading
-from typing import Dict, Union
 
-from ..models.die import DiePool, Die
+from ..models.die import Die, DiePool
 
 
 class HitDiceService:
@@ -20,7 +19,7 @@ class HitDiceService:
                     cls._instance = super().__new__(cls)
         return cls._instance
 
-    def parse_hit_dice(self, expression: str) -> Dict[str, Union[list[DiePool], int]]:
+    def parse_hit_dice(self, expression: str) -> dict[str, list[DiePool] | int]:
         expression = expression.strip().replace(" ", "")
         if not expression:
             raise ValueError("Empty expression")

@@ -5,7 +5,7 @@ This module contains the maps routes for the FastAPI app.
 import json
 import os
 import shutil
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from fastapi import APIRouter, Body, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -22,7 +22,7 @@ def ensure_folder_exists(folder_path: str) -> None:
     os.makedirs(folder_path, exist_ok=True)
 
 
-def get_folder_structure() -> List[FolderItem]:
+def get_folder_structure() -> list[FolderItem]:
     """Scan the maps directory and return the folder structure."""
     folders = []
 
@@ -39,7 +39,7 @@ def get_folder_structure() -> List[FolderItem]:
     return folders
 
 
-def get_maps_in_structure() -> List[Dict[str, Any]]:
+def get_maps_in_structure() -> list[dict[str, Any]]:
     """Return all maps with their folder structure."""
     maps = []
 
@@ -107,7 +107,7 @@ async def delete_folder(folder_name: str) -> dict[str, str]:
 
 @router.post("/upload")
 async def upload_map(
-    file: UploadFile = File(...), folder: Optional[str] = Form(None)
+    file: UploadFile = File(...), folder: str | None = Form(None)
 ) -> dict[str, str]:
     """Upload a map file, optionally to a specific folder."""
     try:
@@ -178,12 +178,12 @@ async def get_map(path: str) -> FileResponse:
     except HTTPException as e:
         logger.exception(f"HTTPException in get_map: {e}")
         raise
-    except (OSError, IOError) as e:
+    except OSError as e:
         logger.exception(f"OSError or IOError in get_map: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-def find_map_in_structure(file_name: str) -> Dict[str, Any]:
+def find_map_in_structure(file_name: str) -> dict[str, Any]:
     """Find a map in the folder structure and return its data."""
     maps = get_maps_in_structure()
     map_data = next((m for m in maps if m["name"] == file_name), None)
@@ -195,7 +195,7 @@ def find_map_in_structure(file_name: str) -> Dict[str, Any]:
     return map_data
 
 
-def get_map_paths(file_name: str, map_data: Dict[str, Any]) -> Tuple[str, str]:
+def get_map_paths(file_name: str, map_data: dict[str, Any]) -> tuple[str, str]:
     """Get the folder path and file path for a map."""
     folder_path = os.path.join(MAPS_DIR, map_data["folder"]) if map_data["folder"] else MAPS_DIR
     file_path = os.path.join(folder_path, file_name)
@@ -223,7 +223,7 @@ def update_scenes_for_renamed_map(file_name: str, new_name: str) -> int:
 
         scene_path = os.path.join(scenes_folder, scene_file)
         try:
-            with open(file=scene_path, mode="r", encoding="utf-8") as f:
+            with open(file=scene_path, encoding="utf-8") as f:
                 scene_data = json.load(f)
 
             map_refs_updated = False
@@ -272,7 +272,7 @@ def update_map_data_file(old_data_path: str, new_data_path: str, new_name: str) 
 
         # Update the name inside the JSON file
         try:
-            with open(file=new_data_path, mode="r", encoding="utf-8") as f:
+            with open(file=new_data_path, encoding="utf-8") as f:
                 data = json.load(f)
             if isinstance(data, dict) and "name" in data:
                 data["name"] = new_name
@@ -287,7 +287,7 @@ def update_map_data_file(old_data_path: str, new_data_path: str, new_name: str) 
 @router.put("/rename/{file_name}")
 async def rename_map(
     file_name: str, rename_data: dict[str, str] = Body(...)
-) -> dict[str, Union[str, int]]:
+) -> dict[str, str | int]:
     """Rename a map file and update all scenes that reference it."""
     try:
         new_name = rename_data.get("new_name")
@@ -455,7 +455,7 @@ async def load_map_data(map_name: str) -> dict[str, Any]:
                 },
             }
 
-        with open(file=file_path, mode="r", encoding="utf-8") as f:
+        with open(file=file_path, encoding="utf-8") as f:
             data: dict[str, Any] = json.load(f)
 
         return data

@@ -2,7 +2,6 @@
 Campaign routes for managing campaigns and user assignments.
 """
 
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -70,7 +69,7 @@ async def create_campaign(
     return CampaignResponse(**campaign_dict)
 
 
-@router.get("/", response_model=List[CampaignResponse])
+@router.get("/", response_model=list[CampaignResponse])
 async def get_campaigns(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -135,7 +134,7 @@ async def get_campaign(
     )
 
 
-@router.get("/{campaign_id}/users", response_model=List[UserResponse])
+@router.get("/{campaign_id}/users", response_model=list[UserResponse])
 async def get_campaign_users(
     campaign_id: int,
     current_user: User = Depends(get_current_active_user),

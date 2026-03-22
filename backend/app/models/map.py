@@ -2,7 +2,7 @@
 This module contains the map models.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -13,8 +13,8 @@ class MapData(BaseModel):
     """
 
     name: str
-    folder: Optional[str] = None
-    data: Dict[str, Any]
+    folder: str | None = None
+    data: dict[str, Any]
 
 
 class FolderItem(BaseModel):
@@ -25,4 +25,4 @@ class FolderItem(BaseModel):
     name: str
     type: str = "folder"
     path: str
-    parent: Optional[str] = None
+    parent: str | None = None

@@ -66,7 +66,7 @@ async def list_scenes() -> dict[str, Any]:
                     )
                     scan_directory(item_path, relative_path)
                 elif item.endswith(".json") and item != "current_scene.json":
-                    with open(file=item_path, mode="r", encoding="utf-8") as f:
+                    with open(file=item_path, encoding="utf-8") as f:
                         scene_data = json.load(f)
                         scenes.append(scene_data)
 
@@ -128,7 +128,7 @@ async def load_scene(scene_id: str) -> dict[str, Any]:
             for file in files:
                 if file.endswith(".json") and file != "current_scene.json":
                     file_path = os.path.join(root, file)
-                    with open(file=file_path, mode="r", encoding="utf-8") as f:
+                    with open(file=file_path, encoding="utf-8") as f:
                         data: dict[str, Any] = json.load(f)
                         if data["id"] == scene_id:
                             scene_data = data
@@ -190,7 +190,7 @@ async def update_scene(scene_id: str, scene: SceneData) -> dict[str, str]:
             for file in files:
                 if file.endswith(".json") and file != "current_scene.json":
                     file_path = os.path.join(root, file)
-                    with open(file=file_path, mode="r", encoding="utf-8") as f:
+                    with open(file=file_path, encoding="utf-8") as f:
                         data = json.load(f)
                         if data["id"] == scene_id:
                             scene_file = file_path
@@ -253,7 +253,7 @@ async def upload_scene_image(scene_id: str, file: UploadFile = File(...)) -> dic
             buffer.write(file_content)
 
         # Update scene data
-        with open(file=scene_file, mode="r", encoding="utf-8") as buffer:
+        with open(file=scene_file, encoding="utf-8") as buffer:
             scene_data = json.load(buffer)
 
         scene_data["images"].append(
@@ -308,7 +308,7 @@ async def delete_scene_image(scene_id: str, image_id: str) -> dict[str, str]:
             raise HTTPException(status_code=404, detail="Scene not found")
 
         # Update scene data and delete image
-        with open(file=scene_file, mode="r", encoding="utf-8") as buffer:
+        with open(file=scene_file, encoding="utf-8") as buffer:
             scene_data = json.load(buffer)
 
         image_to_delete = None
@@ -365,7 +365,7 @@ async def rename_folder(folder_path: str, request: FolderRenameRequest) -> dict[
                 if file.endswith(".json") and file != "current_scene.json":
                     file_path = os.path.join(root, file)
                     try:
-                        with open(file=file_path, mode="r", encoding="utf-8") as buffer:
+                        with open(file=file_path, encoding="utf-8") as buffer:
                             scene_data = json.load(buffer)
 
                         # Check if this scene's folder needs updating

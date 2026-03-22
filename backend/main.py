@@ -13,13 +13,13 @@ from app.routes import (
     audio,
     auth,
     backup,
-    campaigns,
-    campaign_notes,
     campaign_images,
+    campaign_notes,
+    campaigns,
     maps,
+    monsters,
     scenes,
     websocket,
-    monsters,
 )
 
 

@@ -1,7 +1,6 @@
 """
 This module contains the monsters routes for the FastAPI app.
 """
-from typing import List
 
 from fastapi import APIRouter, Body, HTTPException
 
@@ -11,7 +10,7 @@ from ..services.monster_service import MonsterService
 router = APIRouter()
 
 @router.get("", status_code=200)
-async def list_monsters() -> List[Monster]:
+async def list_monsters() -> list[Monster]:
     try:
         service = MonsterService()
         return service.load_monsters()

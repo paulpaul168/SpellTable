@@ -2,12 +2,10 @@
 Campaign images routes for managing image uploads.
 """
 
-import os
 import uuid
-from typing import List
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -16,7 +14,6 @@ from ..core.database import get_db
 from ..models.campaign import Campaign
 from ..models.campaign_images import (
     CampaignImage,
-    CampaignImageCreate,
     CampaignImageResponse,
 )
 from ..models.user import User
@@ -120,7 +117,7 @@ async def upload_campaign_image(
 
 
 @router.get(
-    "/campaigns/{campaign_id}/images", response_model=List[CampaignImageResponse]
+    "/campaigns/{campaign_id}/images", response_model=list[CampaignImageResponse]
 )
 async def get_campaign_images(
     campaign_id: int,

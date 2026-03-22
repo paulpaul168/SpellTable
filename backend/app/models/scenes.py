@@ -2,7 +2,7 @@
 This module contains the scene models.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -24,9 +24,9 @@ class SceneData(BaseModel):
 
     id: str
     name: str
-    folder: Optional[str] = None
+    folder: str | None = None
     maps: list[dict[str, Any]] = []
-    activeMapId: Optional[str] = None
+    activeMapId: str | None = None
     gridSettings: dict[str, Any] = {"showGrid": True, "gridSize": 50}
     initiativeOrder: list[dict[str, Any]] = []
     showCurrentPlayer: bool = True
@@ -39,7 +39,7 @@ class FolderCreateRequest(BaseModel):
     """
 
     folder_name: str
-    parent_folder: Optional[str] = None
+    parent_folder: str | None = None
 
 
 class FolderRenameRequest(BaseModel):

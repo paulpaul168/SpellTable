@@ -2,10 +2,10 @@
 Database configuration and session management.
 """
 
+from loguru import logger
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from loguru import logger
 
 # SQLite database URL - use the mounted volume directory
 SQLALCHEMY_DATABASE_URL = "sqlite:///../data/spelltable.db"
@@ -37,7 +37,6 @@ def init_db():
     logger.info("Creating database tables")
 
     # Import models here to ensure they are registered with the Base
-    from ..models.user import User  # This registers the User model with Base
 
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables created successfully")

@@ -4,10 +4,9 @@ User model and authentication schemas.
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional, List
 
 from pydantic import BaseModel
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, JSON
+from sqlalchemy import JSON, Boolean, Column, DateTime, Integer, String
 from sqlalchemy.orm import relationship
 
 from ..core.database import Base
@@ -59,12 +58,12 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     """Schema for updating a user."""
 
-    username: Optional[str] = None
-    email: Optional[str] = None
-    password: Optional[str] = None
-    role: Optional[UserRole] = None
-    is_active: Optional[bool] = None
-    admin_state: Optional[dict] = None
+    username: str | None = None
+    email: str | None = None
+    password: str | None = None
+    role: UserRole | None = None
+    is_active: bool | None = None
+    admin_state: dict | None = None
 
 
 class UserResponse(BaseModel):
@@ -77,7 +76,7 @@ class UserResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
-    admin_state: Optional[dict] = None
+    admin_state: dict | None = None
 
     class Config:
         from_attributes = True
@@ -101,14 +100,14 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     """Schema for token data."""
 
-    username: Optional[str] = None
+    username: str | None = None
 
 
 class AdminState(BaseModel):
     """Schema for admin state data."""
 
-    last_map_id: Optional[str] = None
-    last_scene_id: Optional[str] = None
-    display_scale: Optional[float] = 1.0
-    grid_settings: Optional[dict] = None
-    ui_preferences: Optional[dict] = None
+    last_map_id: str | None = None
+    last_scene_id: str | None = None
+    display_scale: float | None = 1.0
+    grid_settings: dict | None = None
+    ui_preferences: dict | None = None

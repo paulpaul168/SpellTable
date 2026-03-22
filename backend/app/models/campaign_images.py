@@ -3,10 +3,9 @@ Campaign images model and schemas.
 """
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel
-from sqlalchemy import Column, DateTime, Integer, String, Text, ForeignKey
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from .user import Base
@@ -39,7 +38,7 @@ class CampaignImageCreate(BaseModel):
     original_filename: str
     file_size: int
     mime_type: str
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class CampaignImageResponse(BaseModel):
@@ -53,7 +52,7 @@ class CampaignImageResponse(BaseModel):
     file_path: str
     file_size: int
     mime_type: str
-    description: Optional[str]
+    description: str | None
     created_at: datetime
     uploader_name: str
     url: str

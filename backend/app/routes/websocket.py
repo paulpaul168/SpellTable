@@ -5,7 +5,7 @@ This module contains the websocket routes for the FastAPI app.
 import asyncio
 import json
 import os
-from typing import Any, Dict, Set
+from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from loguru import logger
@@ -16,7 +16,7 @@ from ..core.constants import SCENES_DIR
 router = APIRouter()
 
 # Store connected clients
-clients: Set[WebSocket] = set()
+clients: set[WebSocket] = set()
 # Lock for thread-safe operations
 clients_lock = asyncio.Lock()
 
@@ -27,7 +27,7 @@ async def broadcast_scene_update(scene_data: dict[str, Any]) -> None:
     await _broadcast_to_all_clients(message)
 
 
-async def _broadcast_to_all_clients(message: Dict[str, Any]) -> None:
+async def _broadcast_to_all_clients(message: dict[str, Any]) -> None:
     """Broadcast a message to all connected clients."""
     async with clients_lock:
         disconnected_clients = set()
@@ -42,7 +42,7 @@ async def _broadcast_to_all_clients(message: Dict[str, Any]) -> None:
         clients.difference_update(disconnected_clients)
 
 
-async def _broadcast_to_others(websocket: WebSocket, message: Dict[str, Any]) -> None:
+async def _broadcast_to_others(websocket: WebSocket, message: dict[str, Any]) -> None:
     """Broadcast a message to all clients except the sender."""
     async with clients_lock:
         disconnected_clients = set()
@@ -63,14 +63,14 @@ async def _send_initial_scene(websocket: WebSocket) -> None:
     try:
         scene_file = os.path.join(SCENES_DIR, "current_scene.json")
         if os.path.exists(scene_file):
-            with open(file=scene_file, mode="r", encoding="utf-8") as f:
+            with open(file=scene_file, encoding="utf-8") as f:
                 scene_data = json.load(f)
                 await websocket.send_json({"type": "scene_update", "scene": scene_data})
     except (OSError, json.JSONDecodeError) as e:
         logger.exception(f"Error sending initial scene: {e}")
 
 
-async def _save_scene_data(scene_data: Dict[str, Any]) -> None:
+async def _save_scene_data(scene_data: dict[str, Any]) -> None:
     """Save scene data to file."""
     try:
         scene_file = os.path.join(SCENES_DIR, "current_scene.json")
@@ -81,14 +81,14 @@ async def _save_scene_data(scene_data: Dict[str, Any]) -> None:
         logger.exception(f"Error saving scene: {e}")
 
 
-async def _handle_scene_update(message: Dict[str, Any]) -> None:
+async def _handle_scene_update(message: dict[str, Any]) -> None:
     """Handle scene update messages."""
     scene_data = message.get("scene", {})
     await _save_scene_data(scene_data)
     await broadcast_scene_update(scene_data)
 
 
-async def _handle_highlight_marker(websocket: WebSocket, message: Dict[str, Any]) -> None:
+async def _handle_highlight_marker(websocket: WebSocket, message: dict[str, Any]) -> None:
     """Handle highlight marker messages."""
     marker_id = message.get("markerId")
     if marker_id:
@@ -96,25 +96,25 @@ async def _handle_highlight_marker(websocket: WebSocket, message: Dict[str, Any]
         await _broadcast_to_others(websocket, highlight_message)
 
 
-async def _handle_blank_viewer(websocket: WebSocket, message: Dict[str, Any]) -> None:
+async def _handle_blank_viewer(websocket: WebSocket, message: dict[str, Any]) -> None:
     """Handle blank viewer messages."""
     blank_message = {"type": "blank_viewer", "isBlank": True}
     await _broadcast_to_others(websocket, blank_message)
 
 
-async def _handle_unblank_viewer(websocket: WebSocket, message: Dict[str, Any]) -> None:
+async def _handle_unblank_viewer(websocket: WebSocket, message: dict[str, Any]) -> None:
     """Handle unblank viewer messages."""
     unblank_message = {"type": "unblank_viewer", "isBlank": False}
     await _broadcast_to_others(websocket, unblank_message)
 
 
-async def _handle_rotate_viewer(websocket: WebSocket, message: Dict[str, Any]) -> None:
+async def _handle_rotate_viewer(websocket: WebSocket, message: dict[str, Any]) -> None:
     """Handle rotate viewer messages."""
     rotate_message = {"type": "rotate_viewer", "isRotated": True}
     await _broadcast_to_others(websocket, rotate_message)
 
 
-async def _handle_unrotate_viewer(websocket: WebSocket, message: Dict[str, Any]) -> None:
+async def _handle_unrotate_viewer(websocket: WebSocket, message: dict[str, Any]) -> None:
     """Handle unrotate viewer messages."""
     unrotate_message = {"type": "unrotate_viewer", "isRotated": False}
     await _broadcast_to_others(websocket, unrotate_message)

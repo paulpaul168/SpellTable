@@ -4,8 +4,9 @@ This module contains the audio routes for the FastAPI app.
 
 import asyncio
 import mimetypes
+from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
-from typing import Any, AsyncGenerator, Generator
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse

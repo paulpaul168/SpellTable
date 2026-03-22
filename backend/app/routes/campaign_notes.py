@@ -2,7 +2,6 @@
 Campaign notes routes for managing diary-style notes.
 """
 
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -66,7 +65,7 @@ async def create_campaign_note(
     )
 
 
-@router.get("/campaigns/{campaign_id}/notes", response_model=List[CampaignNoteResponse])
+@router.get("/campaigns/{campaign_id}/notes", response_model=list[CampaignNoteResponse])
 async def get_campaign_notes(
     campaign_id: int,
     current_user: User = Depends(get_current_active_user),

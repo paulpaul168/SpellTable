@@ -3,7 +3,6 @@ Authentication routes for user login, registration, and management.
 """
 
 from datetime import timedelta
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -92,7 +91,7 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
     return UserResponse.from_orm(db_user)
 
 
-@router.get("/users", response_model=List[UserResponse])
+@router.get("/users", response_model=list[UserResponse])
 async def get_users(
     current_user: User = Depends(require_admin_role), db: Session = Depends(get_db)
 ):

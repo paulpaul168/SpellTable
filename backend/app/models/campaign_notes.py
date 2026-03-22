@@ -3,10 +3,9 @@ Campaign notes model and schemas.
 """
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel
-from sqlalchemy import Column, DateTime, Integer, String, Text, ForeignKey
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from .user import Base
@@ -42,8 +41,8 @@ class CampaignNoteCreate(BaseModel):
 class CampaignNoteUpdate(BaseModel):
     """Schema for updating a campaign note."""
 
-    title: Optional[str] = None
-    content: Optional[str] = None
+    title: str | None = None
+    content: str | None = None
 
 
 class CampaignNoteResponse(BaseModel):

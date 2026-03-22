@@ -3,23 +3,21 @@ Campaign model and schemas.
 """
 
 from datetime import datetime
-from typing import List, Optional
 
 from pydantic import BaseModel
 from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    ForeignKey,
     Integer,
     String,
-    Text,
-    ForeignKey,
     Table,
+    Text,
 )
 from sqlalchemy.orm import relationship
 
 from .user import Base
-
 
 # Association table for many-to-many relationship between campaigns and users
 campaign_users = Table(
@@ -60,17 +58,17 @@ class CampaignCreate(BaseModel):
     """Schema for creating a new campaign."""
 
     name: str
-    description: Optional[str] = None
-    user_ids: List[int] = []
+    description: str | None = None
+    user_ids: list[int] = []
 
 
 class CampaignUpdate(BaseModel):
     """Schema for updating a campaign."""
 
-    name: Optional[str] = None
-    description: Optional[str] = None
-    is_active: Optional[bool] = None
-    user_ids: Optional[List[int]] = None
+    name: str | None = None
+    description: str | None = None
+    is_active: bool | None = None
+    user_ids: list[int] | None = None
 
 
 class CampaignResponse(BaseModel):
@@ -78,7 +76,7 @@ class CampaignResponse(BaseModel):
 
     id: int
     name: str
-    description: Optional[str]
+    description: str | None
     is_active: bool
     created_by: int
     created_at: datetime

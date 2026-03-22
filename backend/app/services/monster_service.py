@@ -4,10 +4,10 @@ This module provides services related to monster management in the game.
 import hashlib
 import json
 import threading
-from typing import List
 
 from ..core.constants import MONSTERS_DIR
 from ..models.monster import Monster
+
 
 class MonsterService:
 
@@ -35,10 +35,10 @@ class MonsterService:
         # efficient than reading the file content and unmarshalling the JSON every time as JSON unmarshalling is quite
         # expensive in terms of performance and the majority of the time there are no changes to the file.
         self.monster_file_hash: str = ''
-        self.monster_cache: List[Monster] | None = None
+        self.monster_cache: list[Monster] | None = None
         self._initialized = True
 
-    def load_monsters(self) -> List[Monster]:
+    def load_monsters(self) -> list[Monster]:
         """Load all monsters."""
         return self.__load_monsters_from_file()
 
@@ -77,20 +77,20 @@ class MonsterService:
         self.__save_monsters_to_file(monsters)
         return len(monsters) < initial_count
 
-    def __load_monsters_from_file(self, ignore_cache=False) -> List[Monster]:
+    def __load_monsters_from_file(self, ignore_cache=False) -> list[Monster]:
         if not ignore_cache:
             current_hash = self.__calculate_file_hash(self.MONSTER_FILE_PATH)
             if self.monster_file_hash == current_hash and self.monster_cache is not None:
                 return self.monster_cache
             self.monster_file_hash = current_hash
 
-        with open(file=self.MONSTER_FILE_PATH, mode="r", encoding="utf-8") as file:
+        with open(file=self.MONSTER_FILE_PATH, encoding="utf-8") as file:
             data = json.load(file)
 
         self.monster_cache = [Monster(**monster_dict) for monster_dict in data]
         return self.monster_cache
 
-    def __save_monsters_to_file(self, monsters: List[Monster]) -> None:
+    def __save_monsters_to_file(self, monsters: list[Monster]) -> None:
         self.monster_file_hash = ''
         with open(file=self.MONSTER_FILE_PATH, mode="w", encoding="utf-8") as file:
             json.dump([monster.model_dump() for monster in monsters], file, indent=2)

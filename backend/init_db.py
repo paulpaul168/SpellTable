@@ -3,17 +3,18 @@ Database initialization script.
 Creates tables and default users.
 """
 
-import sys
 import os
+import sys
 
 # Add the current directory to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from app.core.database import init_db, SessionLocal
-from app.core.auth import get_password_hash
-from app.models.user import User, UserRole
-from app.models.campaign import Campaign
 from loguru import logger
+
+from app.core.auth import get_password_hash
+from app.core.database import SessionLocal, init_db
+from app.models.campaign import Campaign
+from app.models.user import User, UserRole
 
 
 def create_default_users():
