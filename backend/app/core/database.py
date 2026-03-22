@@ -9,8 +9,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 
-# SQLite database URL - use the mounted volume directory
-SQLALCHEMY_DATABASE_URL = "sqlite:///../data/spelltable.db"
+# Relative to cwd (/app in Docker; ./data is mounted at /app/data).
+SQLALCHEMY_DATABASE_URL = "sqlite:///data/spelltable.db"
 
 # Create engine
 engine = create_engine(
