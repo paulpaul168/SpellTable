@@ -21,11 +21,29 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Slider } from './ui/slider';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from './ui/select';
+import type { AoEEffectTheme } from '@/types/aoeEffect';
+import { AOE_EFFECT_THEMES } from '@/types/aoeEffect';
+import { DEFAULT_AOE_EFFECT_THEME } from '@/types/aoeEffect';
+
+const THEME_LABELS: Record<AoEEffectTheme, string> = {
+    pixel: 'Pixel',
+    realistic: 'Hyper-realistic',
+    none: 'No animations',
+};
 
 interface AoEPaletteProps {
     isOpen: boolean;
     onClose: () => void;
     onAddMarker: (marker: Omit<AoEMarker, 'id' | 'position'>) => void;
+    aoeEffectTheme?: AoEEffectTheme;
+    onThemeChange?: (theme: AoEEffectTheme) => void;
     activeMarkers?: AoEMarker[];
     onDeleteMarker?: (id: string) => void;
     onHighlightMarker?: (id: string) => void;
@@ -89,6 +107,8 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
     isOpen,
     onClose,
     onAddMarker,
+    aoeEffectTheme = DEFAULT_AOE_EFFECT_THEME,
+    onThemeChange,
     activeMarkers = [],
     onDeleteMarker,
     onHighlightMarker,
@@ -172,6 +192,28 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
 
             {/* Content */}
             <div>
+                {onThemeChange && (
+                    <div className="border-b border-border/50 px-3 py-2">
+                        <Label className="text-xs text-muted-foreground">Animation theme</Label>
+                        <Select
+                            value={aoeEffectTheme}
+                            onValueChange={(value) =>
+                                onThemeChange(value as AoEEffectTheme)
+                            }
+                        >
+                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {AOE_EFFECT_THEMES.map((theme) => (
+                                    <SelectItem key={theme} value={theme}>
+                                        {THEME_LABELS[theme]}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
                 {/* Tabs */}
                 <div className="flex items-center border-b border-border/50 p-2">
                     <Button

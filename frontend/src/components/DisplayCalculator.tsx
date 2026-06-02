@@ -6,6 +6,21 @@ import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from './ui/checkbox';
 import { toast } from '@/components/ui/use-toast';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import type { AoEEffectTheme } from '@/types/aoeEffect';
+import { AOE_EFFECT_THEMES, DEFAULT_AOE_EFFECT_THEME } from '@/types/aoeEffect';
+
+const AOE_THEME_LABELS: Record<AoEEffectTheme, string> = {
+    pixel: 'Pixel',
+    realistic: 'Hyper-realistic',
+    none: 'No animations',
+};
 
 // Using divs instead of RadioGroup and Slider since those components might need extra setup
 interface DisplayCalculatorProps {
@@ -22,6 +37,7 @@ interface DisplayCalculatorProps {
         gridCellsY?: number;
         useFixedGrid?: boolean;
         aoeSnapToGrid?: boolean;
+        aoeEffectTheme?: AoEEffectTheme;
     };
     onUpdateGridSettings?: (settings: any) => void;
 }
@@ -55,6 +71,9 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
     const [gridCellsX, setGridCellsX] = useState(gridSettings?.gridCellsX || 25);
     const [gridCellsY, setGridCellsY] = useState(gridSettings?.gridCellsY || 13);
     const [aoeSnapToGrid, setAoeSnapToGrid] = useState(gridSettings?.aoeSnapToGrid !== false);
+    const [aoeEffectTheme, setAoeEffectTheme] = useState<AoEEffectTheme>(
+        gridSettings?.aoeEffectTheme ?? DEFAULT_AOE_EFFECT_THEME,
+    );
 
     // Active tab state
     const [activeTab, setActiveTab] = useState("settings");
@@ -71,6 +90,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 setGridCellsX(gridSettings.gridCellsX || 25);
                 setGridCellsY(gridSettings.gridCellsY || 13);
                 setAoeSnapToGrid(gridSettings.aoeSnapToGrid !== false);
+                setAoeEffectTheme(gridSettings.aoeEffectTheme ?? DEFAULT_AOE_EFFECT_THEME);
             }
         });
     }, [currentGridSize, gridSettings]);
@@ -160,7 +180,8 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 useFixedGrid,
                 gridCellsX,
                 gridCellsY,
-                aoeSnapToGrid
+                aoeSnapToGrid,
+                aoeEffectTheme,
             });
 
             // When we apply new grid settings, show a message about existing elements
@@ -185,7 +206,8 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 useFixedGrid,
                 gridCellsX,
                 gridCellsY,
-                aoeSnapToGrid
+                aoeSnapToGrid,
+                aoeEffectTheme,
             });
         } else {
             onApplyGridSize(useFixedGrid ? calculatedGridSize : gridSize);
@@ -312,6 +334,25 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                         <p className="text-xs text-zinc-500 -mt-1 pl-6">
                             Turn off to place and drag area effects at any position.
                         </p>
+
+                        <div className="space-y-2 pt-2">
+                            <Label className="text-sm">AoE animation theme</Label>
+                            <Select
+                                value={aoeEffectTheme}
+                                onValueChange={(v) => setAoeEffectTheme(v as AoEEffectTheme)}
+                            >
+                                <SelectTrigger className="h-9">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {AOE_EFFECT_THEMES.map((theme) => (
+                                        <SelectItem key={theme} value={theme}>
+                                            {AOE_THEME_LABELS[theme]}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
 
                         <div className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg mt-4">
                             <div className="flex items-center mb-2">

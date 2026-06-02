@@ -3,10 +3,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AoEShape } from '@/types/map';
 import type { AoEEffectMeta } from '@/types/aoeEffect';
+import type { AoEEffectTheme } from '@/types/aoeEffect';
 import { getAoEEffectSheetUrl, loadAoEEffectMeta } from '@/lib/aoeEffects';
 
 interface AoEEffectSpriteProps {
     effectId: string;
+    theme: AoEEffectTheme;
     shape: AoEShape;
     width: number;
     height: number;
@@ -29,7 +31,8 @@ function buildStretchSpriteStyle(
     steps: number,
     animationDelaySec = 0,
 ): React.CSSProperties {
-    const totalShift = width * (meta.frameCount - 1);
+    const frameCount = meta.frameCount ?? 1;
+    const totalShift = width * (frameCount - 1);
     const blendMode = meta.blendMode ?? 'normal';
     return {
         width: '100%',
@@ -37,7 +40,7 @@ function buildStretchSpriteStyle(
         backgroundImage: `url(${sheetUrl})`,
         backgroundRepeat: 'no-repeat',
         backgroundPosition: '0 0',
-        backgroundSize: `${width * meta.frameCount}px ${height}px`,
+        backgroundSize: `${width * frameCount}px ${height}px`,
         imageRendering: 'pixelated',
         opacity,
         mixBlendMode: blendMode === 'normal' ? undefined : blendMode,
@@ -57,7 +60,8 @@ function buildOrbitSpiritStyle(
     steps: number,
     delaySec: number,
 ): React.CSSProperties {
-    const totalShift = spiritSize * (meta.frameCount - 1);
+    const frameCount = meta.frameCount ?? 1;
+    const totalShift = spiritSize * (frameCount - 1);
     const blendMode = meta.blendMode ?? 'normal';
     return {
         width: `${spiritSize}px`,
@@ -65,7 +69,7 @@ function buildOrbitSpiritStyle(
         backgroundImage: `url(${sheetUrl})`,
         backgroundRepeat: 'no-repeat',
         backgroundPosition: '0 0',
-        backgroundSize: `${spiritSize * meta.frameCount}px ${spiritSize}px`,
+        backgroundSize: `${spiritSize * frameCount}px ${spiritSize}px`,
         imageRendering: 'pixelated',
         opacity,
         mixBlendMode: blendMode === 'normal' ? undefined : blendMode,
@@ -92,6 +96,7 @@ function lineGlow(effectId: string): string {
 
 export const AoEEffectSprite: React.FC<AoEEffectSpriteProps> = ({
     effectId,
+    theme,
     shape,
     width,
     height,
@@ -106,7 +111,7 @@ export const AoEEffectSprite: React.FC<AoEEffectSpriteProps> = ({
     useEffect(() => {
         let cancelled = false;
         onMetaLoadedRef.current?.(false);
-        void loadAoEEffectMeta(effectId).then((loaded) => {
+        void loadAoEEffectMeta(effectId, theme).then((loaded) => {
             if (!cancelled) {
                 setMeta(loaded);
                 onMetaLoadedRef.current?.(loaded !== null);
@@ -115,7 +120,7 @@ export const AoEEffectSprite: React.FC<AoEEffectSpriteProps> = ({
         return () => {
             cancelled = true;
         };
-    }, [effectId]);
+    }, [effectId, theme]);
 
     const resolvedFit = useMemo((): AoEEffectMeta['fit'] => {
         if (!meta) return 'stretch';
@@ -130,9 +135,14 @@ export const AoEEffectSprite: React.FC<AoEEffectSpriteProps> = ({
             return null;
         }
 
-        const durationSec = meta.frameCount / meta.fps;
-        const sheetUrl = getAoEEffectSheetUrl(effectId);
-        const steps = Math.max(1, meta.frameCount - 1);
+        const frameCount = meta.frameCount ?? 1;
+        const fps = meta.fps ?? 12;
+        if (!meta.frameCount || !meta.fps) {
+            return null;
+        }
+        const durationSec = frameCount / fps;
+        const sheetUrl = getAoEEffectSheetUrl(theme, effectId);
+        const steps = Math.max(1, frameCount - 1);
 
         const containerBase: React.CSSProperties = {
             width: `${width}px`,
@@ -255,7 +265,7 @@ export const AoEEffectSprite: React.FC<AoEEffectSpriteProps> = ({
                 steps,
             ),
         };
-    }, [meta, width, height, effectId, opacity, resolvedFit]);
+    }, [meta, width, height, effectId, theme, opacity, resolvedFit]);
 
     if (!layout) {
         return null;
@@ -376,7 +386,7 @@ export const AoEEffectSprite: React.FC<AoEEffectSpriteProps> = ({
 
     if (layout.fit === 'orbit' && layout.orbit && meta) {
         const { count, spiritSize, radius, durationSec, steps } = layout.orbit;
-        const sheetUrl = getAoEEffectSheetUrl(effectId);
+        const sheetUrl = getAoEEffectSheetUrl(theme, effectId);
         const orbitDuration = 9;
         return (
             <div style={clippedStyle} aria-hidden>

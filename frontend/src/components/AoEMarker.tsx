@@ -6,7 +6,10 @@ import {
     toDisplayPixels,
 } from '@/utils/aoeCoordinates';
 import { AoEEffectSprite } from './AoEEffectSprite';
-import { prefetchAoEEffectMeta } from '@/lib/aoeEffects';
+import { AoEEffectVideo } from './AoEEffectVideo';
+import { normalizeAoEEffectTheme, prefetchAoEEffectMeta } from '@/lib/aoeEffects';
+import type { AoEEffectTheme } from '@/types/aoeEffect';
+import { DEFAULT_AOE_EFFECT_THEME } from '@/types/aoeEffect';
 
 interface AoEMarkerProps {
     marker: AoEMarkerType;
@@ -22,6 +25,7 @@ interface AoEMarkerProps {
         gridCellsY?: number;
         gridSize: number;
         aoeSnapToGrid?: boolean;
+        aoeEffectTheme?: AoEEffectTheme;
     };
     isHighlighted?: boolean;
     containerRef?: RefObject<HTMLElement | null>;
@@ -79,16 +83,19 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         : gridSize;
 
     const aoeSnapToGrid = gridSettings?.aoeSnapToGrid !== false;
+    const aoeEffectTheme = normalizeAoEEffectTheme(
+        gridSettings?.aoeEffectTheme ?? DEFAULT_AOE_EFFECT_THEME,
+    );
 
     const sizeInPixels = marker.sizeInFeet * effectiveGridSize / 5;
     const adjustedSizeInPixels = sizeInPixels;
 
     useEffect(() => {
-        if (marker.effectId) {
-            prefetchAoEEffectMeta(marker.effectId);
+        if (marker.effectId && aoeEffectTheme !== 'none') {
+            prefetchAoEEffectMeta(marker.effectId, aoeEffectTheme);
             setEffectLoaded(false);
         }
-    }, [marker.effectId]);
+    }, [marker.effectId, aoeEffectTheme]);
 
     useEffect(() => {
         if (isHighlighted) {
@@ -400,7 +407,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
               };
 
     const renderEffectSprite = () => {
-        if (!marker.effectId) {
+        if (!marker.effectId || aoeEffectTheme === 'none') {
             return null;
         }
         return (
@@ -408,15 +415,28 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 className="pointer-events-none absolute left-0 top-0"
                 style={{ width: effectWidth, height: effectHeight }}
             >
-                <AoEEffectSprite
-                    effectId={marker.effectId}
-                    shape={marker.shape}
-                    width={effectWidth}
-                    height={effectHeight}
-                    opacity={marker.opacity}
-                    tintColor={marker.color}
-                    onMetaLoaded={setEffectLoaded}
-                />
+                {aoeEffectTheme === 'realistic' ? (
+                    <AoEEffectVideo
+                        effectId={marker.effectId}
+                        theme={aoeEffectTheme}
+                        shape={marker.shape}
+                        width={effectWidth}
+                        height={effectHeight}
+                        opacity={marker.opacity}
+                        onMetaLoaded={setEffectLoaded}
+                    />
+                ) : (
+                    <AoEEffectSprite
+                        effectId={marker.effectId}
+                        theme={aoeEffectTheme}
+                        shape={marker.shape}
+                        width={effectWidth}
+                        height={effectHeight}
+                        opacity={marker.opacity}
+                        tintColor={marker.color}
+                        onMetaLoaded={setEffectLoaded}
+                    />
+                )}
             </div>
         );
     };
@@ -501,7 +521,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     };
 
     const renderShape = () => {
-        const showSolid = !marker.effectId || !effectLoaded;
+        const showSolid =
+            aoeEffectTheme === 'none' || !marker.effectId || !effectLoaded;
         return (
             <div style={shapeBoundsStyle}>
                 {showSolid && renderSolidShape()}

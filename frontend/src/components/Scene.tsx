@@ -1633,6 +1633,10 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 isOpen={isAoEPaletteOpen}
                 onClose={() => setIsAoEPaletteOpen(false)}
                 onAddMarker={handleAddAoEMarker}
+                aoeEffectTheme={scene.gridSettings.aoeEffectTheme ?? 'pixel'}
+                onThemeChange={(theme) =>
+                    handleUpdateGridSettings({ ...scene.gridSettings, aoeEffectTheme: theme })
+                }
                 activeMarkers={scene.aoeMarkers || []}
                 onDeleteMarker={handleDeleteAoEMarker}
                 onHighlightMarker={(markerId) => {

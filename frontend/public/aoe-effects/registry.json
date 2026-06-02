@@ -1,0 +1,17 @@
+{
+  "themes": {
+    "pixel": {
+      "label": "Pixel",
+      "description": "CC0 pixel-art sprite animations"
+    },
+    "realistic": {
+      "label": "Hyper-realistic",
+      "description": "Looping video VFX overlays"
+    },
+    "none": {
+      "label": "No animations",
+      "description": "Solid color AoE shapes only"
+    }
+  },
+  "defaultTheme": "pixel"
+}

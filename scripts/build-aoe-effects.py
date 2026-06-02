@@ -11,7 +11,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / ".tmp-aoe-downloads"
-OUT = ROOT / "frontend" / "public" / "aoe-effects"
+OUT = ROOT / "frontend" / "public" / "aoe-effects" / "themes" / "pixel"
 FRAME_SIZE = 128
 
 
@@ -95,9 +95,11 @@ def build_smoke_strip(
 
 
 def main() -> None:
-    if OUT.exists():
-        shutil.rmtree(OUT)
-    (OUT / "licenses").mkdir(parents=True)
+    pixel_root = OUT
+    if pixel_root.exists():
+        shutil.rmtree(pixel_root)
+    pixel_root.mkdir(parents=True)
+    (pixel_root / "licenses").mkdir(parents=True)
 
     fx = SRC / "free_pixel_effects"
     smoke = SRC / "smoke" / "PNG"
@@ -241,7 +243,7 @@ def main() -> None:
         size=128,
     )
 
-    (OUT / "licenses" / "README.txt").write_text(
+    (pixel_root / "licenses" / "README.txt").write_text(
         "AoE effect sources (CC0 / public domain):\n"
         "- Free Pixel Effects Pack by CodeManu (OpenGameArt)\n"
         "- Kenney Smoke Particles (CC0, kenney.nl)\n"
@@ -262,8 +264,9 @@ def main() -> None:
         "cloudkill": {"label": "Cloudkill", "source": "Kenney smoke"},
         "darkness": {"label": "Darkness", "source": "CodeManu midnight"},
     }
-    (OUT / "index.json").write_text(json.dumps(index, indent=2) + "\n")
-    print(f"Built {len([p for p in OUT.iterdir() if p.is_dir()])} effect folders under {OUT}")
+    registry_path = ROOT / "frontend" / "public" / "aoe-effects" / "registry.json"
+    print(f"Built {len([p for p in pixel_root.iterdir() if p.is_dir() and p.name != 'licenses'])} pixel effects under {pixel_root}")
+    print(f"Registry: {registry_path}")
 
 
 if __name__ == "__main__":

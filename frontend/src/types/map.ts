@@ -31,6 +31,8 @@ export interface SceneImage {
     path: string;
 }
 
+import type { AoEEffectTheme } from './aoeEffect';
+
 export type AoEShape = 'circle' | 'cone' | 'line' | 'square' | 'cube' | 'cylinder';
 
 export interface AoEMarker {
@@ -77,6 +79,8 @@ export interface Scene {
         gridCellsY?: number;
         /** When false, AoE markers use pixel coordinates and move freely (no cell snapping). Default true. */
         aoeSnapToGrid?: boolean;
+        /** Visual style for spell AoE animations (synced to viewers). Default pixel. */
+        aoeEffectTheme?: AoEEffectTheme;
     };
     initiativeOrder: InitiativeEntry[];
     showCurrentPlayer: boolean;
