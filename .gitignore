@@ -58,3 +58,4 @@ campaign_images/*
 !campaign_images/.gitkeep
 
 # Exceptions
+.cursor/
