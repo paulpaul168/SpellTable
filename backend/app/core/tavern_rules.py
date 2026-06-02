@@ -88,7 +88,9 @@ def effect_from_json(effect_json: Any) -> dict[str, Any] | None:
     return None
 
 
-def _iter_parsed_effects(blob: dict[str, Any] | list[Any] | None) -> list[dict[str, Any]]:
+def _iter_parsed_effects(
+    blob: dict[str, Any] | list[Any] | None,
+) -> list[dict[str, Any]]:
     if blob is None:
         return []
     if isinstance(blob, list):
@@ -105,7 +107,9 @@ def _iter_parsed_effects(blob: dict[str, Any] | list[Any] | None) -> list[dict[s
     return []
 
 
-def aggregate_effects(effect_dicts: list[dict[str, Any] | list[Any] | None]) -> dict[str, Any]:
+def aggregate_effects(
+    effect_dicts: list[dict[str, Any] | list[Any] | None],
+) -> dict[str, Any]:
     fixed_income = 0
     recurring = 0
     business_bonus = 0
@@ -173,7 +177,12 @@ def settle_tenday_net(
         business = raw_table_gp * pm
     else:
         business = -(raw_table_gp * lm)
-    net = business - recurring_cost_gp_per_tenday + fixed_income_gp_per_tenday + manual_adjustment_gp
+    net = (
+        business
+        - recurring_cost_gp_per_tenday
+        + fixed_income_gp_per_tenday
+        + manual_adjustment_gp
+    )
     return {
         "profit_multiplier": pm,
         "loss_multiplier": lm,

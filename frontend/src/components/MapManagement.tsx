@@ -5,6 +5,8 @@ import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { useToast } from './ui/use-toast';
 import { Folder, FolderPlus, FolderMinus, ChevronRight, ChevronDown, Map, Upload, Pencil, Trash2 } from 'lucide-react';
+import { Checkbox } from './ui/checkbox';
+import { MapUploadDialog } from './MapUploadDialog';
 import {
     DndContext,
     closestCenter,
@@ -41,7 +43,8 @@ interface FolderItem {
 interface MapManagementProps {
     isOpen: boolean;
     onClose: () => void;
-    onMapSelect: (mapName: string) => void;
+    onMapSelect?: (mapName: string) => void;
+    onMapsAdd: (mapNames: string[]) => void;
     onRefreshMaps: () => void;
     onMapRename?: (oldName: string, newName: string) => void;
     maps: MapData[];
@@ -51,7 +54,8 @@ interface SortableMapItemProps {
     map: MapData;
     folder: string | null;
     level: number;
-    onSelect: (mapName: string) => void;
+    isSelected: boolean;
+    onToggleSelect: (mapName: string) => void;
     onRename: (map: MapData, newName: string) => void;
     onDelete: (mapName: string) => void;
     dragOverlay?: boolean;
@@ -175,7 +179,8 @@ const SortableMapItem: React.FC<SortableMapItemProps> = ({
     map,
     folder,
     level,
-    onSelect,
+    isSelected,
+    onToggleSelect,
     onRename,
     onDelete,
     dragOverlay
@@ -243,6 +248,14 @@ const SortableMapItem: React.FC<SortableMapItemProps> = ({
             {...(!dragOverlay ? { ...attributes, ...listeners } : {})}
         >
             <div className="flex items-center gap-2 flex-1 min-w-0">
+                {!dragOverlay && (
+                    <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => onToggleSelect(map.name)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="shrink-0"
+                    />
+                )}
                 <Map className="h-4 w-4 text-zinc-400 flex-shrink-0" />
                 {isRenaming && !dragOverlay ? (
                     <form onSubmit={handleRenameSubmit} className="flex-1 min-w-0">
@@ -289,18 +302,6 @@ const SortableMapItem: React.FC<SortableMapItemProps> = ({
                     >
                         <Trash2 className="h-3.5 w-3.5" />
                     </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            console.log("Selected map:", map.name);
-                            onSelect(map.name);
-                        }}
-                    >
-                        Use
-                    </Button>
                 </div>
             )}
         </div>
@@ -310,7 +311,7 @@ const SortableMapItem: React.FC<SortableMapItemProps> = ({
 export const MapManagement: React.FC<MapManagementProps> = ({
     isOpen,
     onClose,
-    onMapSelect,
+    onMapsAdd,
     onRefreshMaps,
     onMapRename,
     maps
@@ -330,6 +331,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
     const [allAvailableMaps, setAllAvailableMaps] = useState<MapData[]>([]);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<{ type: 'map' | 'folder', name: string } | null>(null);
+    const [selectedMapNames, setSelectedMapNames] = useState<Set<string>>(new Set());
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -431,6 +433,8 @@ export const MapManagement: React.FC<MapManagementProps> = ({
             console.log("MapManagement dialog opened, loading data...");
             loadAllMaps();
             loadMapFolders();
+        } else {
+            setSelectedMapNames(new Set());
         }
     }, [isOpen]);
 
@@ -503,35 +507,36 @@ export const MapManagement: React.FC<MapManagementProps> = ({
         }
     };
 
-    const handleUploadMap = async (file: File, folder: string | null) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        if (folder) {
-            formData.append('folder', folder);
-        }
+    const toggleMapSelection = (mapName: string) => {
+        setSelectedMapNames((prev) => {
+            const next = new Set(prev);
+            if (next.has(mapName)) {
+                next.delete(mapName);
+            } else {
+                next.add(mapName);
+            }
+            return next;
+        });
+    };
 
-        try {
-            const API_BASE_URL = getApiUrl();
-            const response = await fetch(`${API_BASE_URL}/maps/upload`, {
-                method: 'POST',
-                body: formData,
-            });
+    const handleAddToScene = () => {
+        const names = Array.from(selectedMapNames);
+        if (names.length === 0) return;
+        onMapsAdd(names);
+        setSelectedMapNames(new Set());
+        onClose();
+    };
 
-            if (!response.ok) throw new Error('Upload failed');
-
+    const handleUploadComplete = (results: { filename: string }[]) => {
+        if (results.length > 0) {
             toast({
-                title: "Success",
-                description: "Map uploaded successfully",
+                title: 'Success',
+                description:
+                    results.length === 1
+                        ? `Uploaded ${results[0].filename}`
+                        : `Uploaded ${results.length} maps`,
             });
             refreshData();
-            setIsUploadOpen(false);
-        } catch (error) {
-            console.error('Error uploading map:', error);
-            toast({
-                title: "Error",
-                description: "Failed to upload map. Please try again.",
-                variant: "destructive",
-            });
         }
     };
 
@@ -812,21 +817,9 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                             items={(mapsByFolder[folder.path] || []).map(map => map.name)}
                             strategy={verticalListSortingStrategy}
                         >
-                            {(mapsByFolder[folder.path] || []).map(map => (
-                                <SortableMapItem
-                                    key={map.name}
-                                    map={map}
-                                    folder={folder.path}
-                                    level={level + 1}
-                                    onSelect={(mapName) => {
-                                        console.log("Selected map:", mapName);
-                                        onMapSelect(mapName);
-                                        onClose();
-                                    }}
-                                    onRename={handleRenameMap}
-                                    onDelete={confirmDeleteMap}
-                                />
-                            ))}
+                            {(mapsByFolder[folder.path] || []).map((map) =>
+                                renderMapItem(map, folder.path, level + 1)
+                            )}
                         </SortableContext>
                     </>
                 )}
@@ -870,6 +863,19 @@ export const MapManagement: React.FC<MapManagementProps> = ({
         }
     };
 
+    const renderMapItem = (map: MapData, folder: string | null, level: number) => (
+        <SortableMapItem
+            key={map.name}
+            map={map}
+            folder={folder}
+            level={level}
+            isSelected={selectedMapNames.has(map.name)}
+            onToggleSelect={toggleMapSelection}
+            onRename={handleRenameMap}
+            onDelete={confirmDeleteMap}
+        />
+    );
+
     // Custom dropAnimation with proper positioning
     const dropAnimation = {
         sideEffects: defaultDropAnimationSideEffects({
@@ -892,31 +898,41 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                 </DialogHeader>
 
                 <div className="flex flex-col gap-4">
-                    <div className="flex justify-between items-center">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                                setParentFolder(null);
-                                setIsCreateFolderOpen(true);
-                            }}
-                            className="gap-2"
-                        >
-                            <FolderPlus className="h-4 w-4" />
-                            New Folder
-                        </Button>
+                    <div className="flex flex-wrap justify-between items-center gap-2">
+                        <div className="flex flex-wrap gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setParentFolder(null);
+                                    setIsCreateFolderOpen(true);
+                                }}
+                                className="gap-2"
+                            >
+                                <FolderPlus className="h-4 w-4" />
+                                New Folder
+                            </Button>
+
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setUploadFolder(null);
+                                    setIsUploadOpen(true);
+                                }}
+                                className="gap-2"
+                            >
+                                <Upload className="h-4 w-4" />
+                                Upload Maps
+                            </Button>
+                        </div>
 
                         <Button
-                            variant="outline"
                             size="sm"
-                            onClick={() => {
-                                setUploadFolder(null);
-                                setIsUploadOpen(true);
-                            }}
-                            className="gap-2"
+                            disabled={selectedMapNames.size === 0}
+                            onClick={handleAddToScene}
                         >
-                            <Upload className="h-4 w-4" />
-                            Upload Map
+                            Add to scene ({selectedMapNames.size})
                         </Button>
                     </div>
 
@@ -986,21 +1002,9 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                                                     items={(mapsByFolder[folder.path] || []).map(map => map.name)}
                                                     strategy={verticalListSortingStrategy}
                                                 >
-                                                    {(mapsByFolder[folder.path] || []).map(map => (
-                                                        <SortableMapItem
-                                                            key={map.name}
-                                                            map={map}
-                                                            folder={folder.path}
-                                                            level={1}
-                                                            onSelect={(mapName) => {
-                                                                console.log("Selected map:", mapName);
-                                                                onMapSelect(mapName);
-                                                                onClose();
-                                                            }}
-                                                            onRename={handleRenameMap}
-                                                            onDelete={confirmDeleteMap}
-                                                        />
-                                                    ))}
+                                                    {(mapsByFolder[folder.path] || []).map((map) =>
+                                                        renderMapItem(map, folder.path, 1)
+                                                    )}
                                                 </SortableContext>
                                             </>
                                         )}
@@ -1012,21 +1016,9 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                                 items={(mapsByFolder['root'] || []).map(map => map.name)}
                                 strategy={verticalListSortingStrategy}
                             >
-                                {(mapsByFolder['root'] || []).map(map => (
-                                    <SortableMapItem
-                                        key={map.name}
-                                        map={map}
-                                        folder={null}
-                                        level={0}
-                                        onSelect={(mapName) => {
-                                            console.log("Selected map:", mapName);
-                                            onMapSelect(mapName);
-                                            onClose();
-                                        }}
-                                        onRename={handleRenameMap}
-                                        onDelete={confirmDeleteMap}
-                                    />
-                                ))}
+                                {(mapsByFolder['root'] || []).map((map) =>
+                                    renderMapItem(map, null, 0)
+                                )}
                             </SortableContext>
                         </div>
 
@@ -1043,7 +1035,8 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                                         map={activeMap}
                                         folder={activeMap.folder ?? null}
                                         level={0}
-                                        onSelect={onMapSelect}
+                                        isSelected={false}
+                                        onToggleSelect={() => {}}
                                         onRename={handleRenameMap}
                                         onDelete={confirmDeleteMap}
                                         dragOverlay
@@ -1086,33 +1079,12 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                 </DialogContent>
             </Dialog>
 
-            {/* Upload Map Dialog */}
-            <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Upload Map</DialogTitle>
-                        <DialogDescription>
-                            Select a map image to upload{uploadFolder ? ` to folder: ${uploadFolder}` : ''}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="flex flex-col gap-4">
-                        <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                                if (e.target.files && e.target.files.length > 0) {
-                                    handleUploadMap(e.target.files[0], uploadFolder);
-                                }
-                            }}
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsUploadOpen(false)}>
-                            Cancel
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <MapUploadDialog
+                isOpen={isUploadOpen}
+                onClose={() => setIsUploadOpen(false)}
+                targetFolder={uploadFolder}
+                onComplete={handleUploadComplete}
+            />
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>

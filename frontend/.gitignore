@@ -1,6 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # Node.js
+package-lock.json
 node_modules/
 .next/
 out/

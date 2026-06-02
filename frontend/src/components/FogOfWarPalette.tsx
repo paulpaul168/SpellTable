@@ -148,7 +148,7 @@ export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="glass-panel max-w-2xl border-border/50">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Eye className="h-5 w-5" />
@@ -166,7 +166,7 @@ export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
                     </TabsList>
 
                     <TabsContent value="shapes" className="space-y-4">
-                        <div className="text-sm text-zinc-400">
+                        <div className="text-sm text-muted-foreground">
                             Click to add a fog of war area. You can edit points by dragging them after creation.
                         </div>
 
@@ -200,7 +200,7 @@ export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
                     </TabsContent>
 
                     <TabsContent value="custom" className="space-y-4">
-                        <div className="text-sm text-zinc-400">
+                        <div className="text-sm text-muted-foreground">
                             Create a custom fog of war area. You can reshape it by dragging the points after creation.
                         </div>
 
@@ -240,7 +240,7 @@ export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
                     </TabsContent>
 
                     <TabsContent value="active" className="space-y-4">
-                        <div className="text-sm text-zinc-400">
+                        <div className="text-sm text-muted-foreground">
                             Manage active fog of war areas. Use the delete button below to remove areas.
                         </div>
 
@@ -253,7 +253,7 @@ export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
                                 {activeFogOfWar.map((fog, index) => (
                                     <div
                                         key={fog.id}
-                                        className="flex items-center justify-between p-3 bg-zinc-900 rounded-lg"
+                                        className="flex items-center justify-between rounded-lg bg-accent/10 p-3"
                                     >
                                         <div className="flex items-center gap-3">
                                             <div

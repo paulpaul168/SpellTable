@@ -20,34 +20,30 @@ import {
     EyeIcon,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { Slider } from './ui/slider';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from './ui/select';
+import type { AoEEffectTheme } from '@/types/aoeEffect';
+import { AOE_EFFECT_THEMES } from '@/types/aoeEffect';
+import { DEFAULT_AOE_EFFECT_THEME } from '@/types/aoeEffect';
 
-// Define a simple slider component since we don't have access to the slider component
-const SimpleSlider: React.FC<{
-    value: number[];
-    min: number;
-    max: number;
-    step: number;
-    onValueChange: (values: number[]) => void;
-    className?: string;
-}> = ({ value, min, max, step, onValueChange, className }) => {
-    return (
-        <input
-            type="range"
-            min={min}
-            max={max}
-            step={step}
-            value={value[0]}
-            onChange={(e) => onValueChange([Number(e.target.value)])}
-            className={className}
-            style={{ width: '100%' }}
-        />
-    );
+const THEME_LABELS: Record<AoEEffectTheme, string> = {
+    pixel: 'Pixel',
+    realistic: 'Hyper-realistic',
+    none: 'No animations',
 };
 
 interface AoEPaletteProps {
     isOpen: boolean;
     onClose: () => void;
     onAddMarker: (marker: Omit<AoEMarker, 'id' | 'position'>) => void;
+    aoeEffectTheme?: AoEEffectTheme;
+    onThemeChange?: (theme: AoEEffectTheme) => void;
     activeMarkers?: AoEMarker[];
     onDeleteMarker?: (id: string) => void;
     onHighlightMarker?: (id: string) => void;
@@ -69,25 +65,50 @@ const commonAoEs = [
     { name: 'Cylinder (20\')', shape: 'cylinder', size: 20, color: '#CC5AFF' },
 ];
 
-// Common D&D spells with AoE
-const commonSpells = [
-    // 20′ radius in D&D 5e → 40′ diameter (sizeInFeet is the shape width/diameter on the map)
-    { name: 'Fireball', shape: 'circle', size: 40, color: '#FF5A5A' },
-    { name: 'Burning Hands', shape: 'cone', size: 15, color: '#FF5A5A' },
-    { name: 'Lightning Bolt', shape: 'line', size: 100, color: '#5AD5FF' },
-    { name: 'Cone of Cold', shape: 'cone', size: 60, color: '#5AD5FF' },
-    { name: 'Wall of Fire', shape: 'line', size: 60, color: '#FF5A5A' },
-    { name: 'Cloudkill', shape: 'circle', size: 20, color: '#C9E265' },
-    { name: 'Spirit Guardians', shape: 'circle', size: 15, color: '#CC5AFF' },
+type SpellPreset = {
+    name: string;
+    shape: AoEShape;
+    size: number;
+    color: string;
+    effectId?: string;
+};
+
+// Common D&D spells with AoE (20′ radius → 40′ diameter for sizeInFeet)
+const commonSpells: SpellPreset[] = [
+    { name: 'Fireball', shape: 'circle', size: 40, color: '#FF5A5A', effectId: 'fireball' },
+    { name: 'Burning Hands', shape: 'cone', size: 15, color: '#FF5A5A', effectId: 'burning-hands' },
+    { name: 'Lightning Bolt', shape: 'line', size: 100, color: '#5AD5FF', effectId: 'lightning-bolt' },
+    { name: 'Call Lightning', shape: 'circle', size: 40, color: '#5AD5FF', effectId: 'call-lightning' },
+    { name: 'Cone of Cold', shape: 'cone', size: 60, color: '#5AD5FF', effectId: 'cone-of-cold' },
+    { name: 'Wall of Fire', shape: 'line', size: 60, color: '#FF5A5A', effectId: 'wall-of-fire' },
+    { name: 'Cloudkill', shape: 'circle', size: 20, color: '#C9E265', effectId: 'cloudkill' },
+    { name: 'Spirit Guardians', shape: 'circle', size: 15, color: '#CC5AFF', effectId: 'spirit-guardians' },
+    {
+        name: 'Spirit Guardians (Nekrotisch)',
+        shape: 'circle',
+        size: 15,
+        color: '#3D5C2E',
+        effectId: 'spirit-guardians-necrotic',
+    },
+    {
+        name: 'Spirit Guardians (Radiant)',
+        shape: 'circle',
+        size: 15,
+        color: '#FFE566',
+        effectId: 'spirit-guardians-radiant',
+    },
+    { name: 'Meteor Swarm', shape: 'circle', size: 40, color: '#FF5A5A', effectId: 'meteor-swarm' },
     { name: 'Web', shape: 'cube', size: 20, color: '#FFFFFF' },
-    { name: 'Darkness', shape: 'circle', size: 15, color: '#000000' },
-    { name: 'Fog Cloud', shape: 'circle', size: 20, color: '#C9C9C9' },
+    { name: 'Darkness', shape: 'circle', size: 15, color: '#000000', effectId: 'darkness' },
+    { name: 'Fog Cloud', shape: 'circle', size: 20, color: '#C9C9C9', effectId: 'fog-cloud' },
 ];
 
 export const AoEPalette: React.FC<AoEPaletteProps> = ({
     isOpen,
     onClose,
     onAddMarker,
+    aoeEffectTheme = DEFAULT_AOE_EFFECT_THEME,
+    onThemeChange,
     activeMarkers = [],
     onDeleteMarker,
     onHighlightMarker,
@@ -100,14 +121,21 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
     const [opacity, setOpacity] = useState(0.5);
 
     // Function to handle adding from presets
-    const handleAddFromPreset = (shape: AoEShape, size: number, color: string, label?: string) => {
+    const handleAddFromPreset = (
+        shape: AoEShape,
+        size: number,
+        color: string,
+        label?: string,
+        effectId?: string,
+    ) => {
         onAddMarker({
             shape,
             sizeInFeet: size,
             color,
             rotation: 0,
             opacity,
-            label
+            label,
+            effectId,
         });
     };
 
@@ -146,10 +174,10 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-[1001] bg-zinc-900/90 backdrop-blur-sm rounded-lg border border-zinc-800 shadow-xl transition-all duration-200 w-72">
+        <div className="glass-panel fixed bottom-20 left-1/2 z-[1001] w-72 -translate-x-1/2 rounded-lg transition-all duration-200">
             {/* Header */}
-            <div className="flex items-center justify-between p-2 border-b border-zinc-800">
-                <h3 className="text-sm font-medium text-zinc-300">AoE Markers</h3>
+            <div className="glass-panel-header flex items-center justify-between py-2">
+                <h3 className="text-sm font-medium text-foreground">AoE Markers</h3>
                 <div className="flex gap-1 ml-auto">
                     <Button
                         variant="ghost"
@@ -164,8 +192,30 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
 
             {/* Content */}
             <div>
+                {onThemeChange && (
+                    <div className="border-b border-border/50 px-3 py-2">
+                        <Label className="text-xs text-muted-foreground">Animation theme</Label>
+                        <Select
+                            value={aoeEffectTheme}
+                            onValueChange={(value) =>
+                                onThemeChange(value as AoEEffectTheme)
+                            }
+                        >
+                            <SelectTrigger className="mt-1 h-8 text-xs">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {AOE_EFFECT_THEMES.map((theme) => (
+                                    <SelectItem key={theme} value={theme}>
+                                        {THEME_LABELS[theme]}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
                 {/* Tabs */}
-                <div className="flex items-center p-2 border-b border-zinc-800">
+                <div className="flex items-center border-b border-border/50 p-2">
                     <Button
                         variant={activeTab === 'shapes' ? 'default' : 'ghost'}
                         size="sm"
@@ -204,9 +254,9 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                 {activeTab !== 'markers' && (
                     <div className="px-3 pt-2">
                         <div className="flex items-center justify-between">
-                            <Label className="text-xs text-zinc-400">Opacity: {Math.round(opacity * 100)}%</Label>
+                            <Label className="text-xs text-muted-foreground">Opacity: {Math.round(opacity * 100)}%</Label>
                         </div>
-                        <SimpleSlider
+                        <Slider
                             value={[opacity * 100]}
                             min={10}
                             max={90}
@@ -251,10 +301,11 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                                     size="sm"
                                     className="text-xs justify-start"
                                     onClick={() => handleAddFromPreset(
-                                        spell.shape as AoEShape,
+                                        spell.shape,
                                         spell.size,
                                         spell.color,
-                                        spell.name
+                                        spell.name,
+                                        spell.effectId,
                                     )}
                                 >
                                     <div
@@ -426,7 +477,7 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                                 {activeMarkers.map((marker) => (
                                     <div
                                         key={marker.id}
-                                        className="flex items-center justify-between p-2 bg-zinc-800/50 rounded-md"
+                                        className="flex items-center justify-between rounded-md bg-accent/10 p-2"
                                     >
                                         <div className="flex items-center gap-2">
                                             {renderShapePreview(marker.shape, marker.color)}

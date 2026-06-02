@@ -1,15 +1,15 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Scene as SceneType, MapData, AoEMarker as AoEMarkerType, FogOfWar as FogOfWarType } from '../types/map';
 import { Map } from './Map';
 import { websocketService } from '@/services/websocket';
 import { UploadDialog } from './UploadDialog';
+import { MapUploadCompleteResult } from './MapUploadDialog';
 import { Button } from '@/components/ui/button';
 import {
     LayoutGrid,
     Users,
-    ChevronDown,
     Upload,
     Save,
     Image as ImageIcon,
@@ -26,8 +26,20 @@ import {
     RotateCw,
     UserPlus,
     Shield,
-    BookOpen, Skull
+    BookOpen,
+    Skull,
+    Menu,
+    Map as MapIcon,
+    Cloud,
 } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { GameboardDock } from '@/components/gameboard/GameboardDock';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -48,53 +60,11 @@ import { InitiativeIndicator } from './InitiativeIndicator';
 import { AoEMarker } from './AoEMarker';
 import { AoEPalette } from './AoEPalette';
 import { FogOfWar } from './FogOfWar';
-
-/** Convert AoE markers when toggling snap: grid cell indices ↔ pixel centers. */
-function adaptAoEMarkersSnap(
-    markers: AoEMarkerType[] | undefined,
-    enableSnap: boolean,
-    gridCellsX: number,
-    gridCellsY: number
-): AoEMarkerType[] {
-    if (!markers?.length) return markers || [];
-    const cw = window.innerWidth / gridCellsX;
-    const ch = window.innerHeight / gridCellsY;
-    if (enableSnap) {
-        return markers.map((m) => {
-            if (!m.useGridCoordinates) {
-                return {
-                    ...m,
-                    position: {
-                        x: Math.floor(m.position.x / cw),
-                        y: Math.floor(m.position.y / ch),
-                    },
-                    useGridCoordinates: true,
-                };
-            }
-            return {
-                ...m,
-                position: {
-                    x: Math.floor(m.position.x),
-                    y: Math.floor(m.position.y),
-                },
-                useGridCoordinates: true,
-            };
-        });
-    }
-    return markers.map((m) => {
-        if (m.useGridCoordinates) {
-            return {
-                ...m,
-                position: {
-                    x: (m.position.x + 0.5) * cw,
-                    y: (m.position.y + 0.5) * ch,
-                },
-                useGridCoordinates: false,
-            };
-        }
-        return m;
-    });
-}
+import {
+    adaptAoEMarkersSnap,
+    getPlayAreaRect,
+    migrateAoEMarkers,
+} from '@/utils/aoeCoordinates';
 import { FogOfWarPalette } from './FogOfWarPalette';
 import { DisplayCalculator } from './DisplayCalculator';
 import { BackupDialog } from './BackupDialog';
@@ -104,6 +74,17 @@ import { UserManagementDialog } from './UserManagementDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import {getApiUrl} from "@/utils/api";
 import {MonsterManagementDialog} from "@/components/MonsterManagementDialog";
+
+function withMigratedAoEMarkers(
+    scene: SceneType,
+    container: HTMLElement | null
+): SceneType {
+    const rect = getPlayAreaRect(container);
+    return {
+        ...scene,
+        aoeMarkers: migrateAoEMarkers(scene.aoeMarkers, rect),
+    };
+}
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -124,27 +105,18 @@ const SceneOperationStatusDialog: React.FC<SceneOperationStatusDialogProps> = ({
     type,
     message,
 }) => {
-    if (!isOpen) return null;
+    const title =
+        type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info';
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">
-                        {type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info'}
-                    </h3>
-                    <button
-                        onClick={onClose}
-                        className="text-gray-500 hover:text-gray-700"
-                    >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-                <p className="text-gray-700">{message}</p>
-            </div>
-        </div>
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{message}</DialogDescription>
+                </DialogHeader>
+            </DialogContent>
+        </Dialog>
     );
 };
 
@@ -199,6 +171,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
     // Remove display scale functionality, using fixed 1.0 scale
     const displayScale = 1.0;
+    const playAreaRef = useRef<HTMLDivElement>(null);
+
+    const applySceneWithAoEMigration = useCallback(
+        (nextScene: SceneType): SceneType =>
+            withMigratedAoEMarkers(nextScene, playAreaRef.current),
+        []
+    );
 
     useEffect(() => {
         websocketService.connect();
@@ -237,15 +216,17 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     }
                 }
 
-                setScene({
-                    ...data.scene,
-                    gridSettings: data.scene.gridSettings || {
-                        showGrid: true,
-                        gridSize: 50
-                    },
-                    aoeMarkers: data.scene.aoeMarkers || [],
-                    fogOfWar: data.scene.fogOfWar || []
-                });
+                setScene(
+                    applySceneWithAoEMigration({
+                        ...data.scene,
+                        gridSettings: data.scene.gridSettings || {
+                            showGrid: true,
+                            gridSize: 50
+                        },
+                        aoeMarkers: data.scene.aoeMarkers || [],
+                        fogOfWar: data.scene.fogOfWar || []
+                    })
+                );
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
             } else if (data.type === 'ripple_viewer_ready') {
@@ -280,169 +261,127 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         });
     };
 
-    const handleMapSelect = async (mapName: string | null) => {
-        console.log("Map selected:", mapName);
+    const createMapDataForScene = (
+        mapName: string,
+        mapInfo?: { folder?: string | null }
+    ): MapData => {
+        const gridCellsX = scene.gridSettings.gridCellsX || 32;
+        const gridCellsY = scene.gridSettings.gridCellsY || 18;
+        const centerGridX = Math.floor(gridCellsX / 2);
+        const centerGridY = Math.floor(gridCellsY / 2);
 
-        if (!mapName) {
-            // Just clear the selection
-            const updatedScene = {
-                ...scene,
-                activeMapId: null
-            };
-            setScene(updatedScene);
-            websocketService.send({
-                type: 'scene_update',
-                scene: updatedScene
-            });
-            return;
-        }
+        return {
+            name: mapName,
+            folder: mapInfo?.folder ?? undefined,
+            data: {
+                position: { x: centerGridX, y: centerGridY },
+                useGridCoordinates: true,
+                useGridScaling: true,
+                scale: 1,
+                rotation: 0,
+                isHidden: false,
+            },
+        };
+    };
 
-        // Check if the map already exists in the scene
-        const mapExists = scene.maps.some(m => m.name === mapName);
-        console.log("Map exists in scene:", mapExists);
+    const addMapsToScene = async (mapNames: string[]) => {
+        const uniqueNames = [...new Set(mapNames.filter(Boolean))];
+        if (uniqueNames.length === 0) return;
 
-        if (mapExists) {
-            // If it exists, just select it
-            const updatedScene = {
-                ...scene,
-                activeMapId: mapName
-            };
-            setScene(updatedScene);
-            websocketService.send({
-                type: 'scene_update',
-                scene: updatedScene
-            });
-            console.log("Selected existing map:", mapName);
-        } else {
-            // If not, fetch the map data and add it to the scene
-            try {
-                console.log("Fetching data for new map:", mapName);
+        const namesToAdd = uniqueNames.filter(
+            (name) => !scene.maps.some((m) => m.name === name)
+        );
 
-                // First fetch all map details including folder structure
+        try {
+            let mapsToAppend: MapData[] = [];
+
+            if (namesToAdd.length > 0) {
                 const API_BASE_URL = getApiUrl();
                 const listResponse = await fetch(`${API_BASE_URL}/maps/list`);
                 if (!listResponse.ok) throw new Error('Failed to fetch map list');
 
                 const listData = await listResponse.json();
-                console.log("All available maps:", listData.maps);
+                const libraryMaps: { name: string; folder?: string | null }[] =
+                    listData.maps || [];
 
-                const mapInfo = listData.maps.find((m: { name: string, folder?: string }) => m.name === mapName);
-                console.log("Found map info:", mapInfo);
-
-                if (!mapInfo) throw new Error(`Map ${mapName} not found`);
-
-                // Determine grid dimensions and calculate center cell
-                const gridCellsX = scene.gridSettings.gridCellsX || 32;
-                const gridCellsY = scene.gridSettings.gridCellsY || 18;
-
-                // Calculate center position in grid cells
-                // The gridCoordsToPixel function will add the 0.5 offset to center in cells
-                const centerGridX = Math.floor(gridCellsX / 2);
-                const centerGridY = Math.floor(gridCellsY / 2);
-
-                const newMap: MapData = {
-                    name: mapName,
-                    folder: mapInfo.folder,
-                    data: {
-                        position: { x: centerGridX, y: centerGridY },
-                        useGridCoordinates: true,
-                        useGridScaling: true, // Enable grid scaling for new maps
-                        scale: 1,
-                        rotation: 0,
-                        isHidden: false
+                const notFound: string[] = [];
+                for (const mapName of namesToAdd) {
+                    const mapInfo = libraryMaps.find((m) => m.name === mapName);
+                    if (!mapInfo) {
+                        notFound.push(mapName);
+                        continue;
                     }
-                };
-
-                console.log("Adding new map to scene with grid coordinates:", newMap);
-
-                // Add it to the scene
-                const updatedScene = {
-                    ...scene,
-                    maps: [...scene.maps, newMap],
-                    activeMapId: mapName
-                };
-
-                setScene(updatedScene);
-                websocketService.send({
-                    type: 'scene_update',
-                    scene: updatedScene
-                });
-
-                toast({
-                    title: "Map Added",
-                    description: `Map "${mapName}" added to scene`,
-                    duration: 3000,
-                });
-            } catch (error) {
-                console.error('Error adding map to scene:', error);
-                toast({
-                    title: "Error",
-                    description: "Failed to add map to scene. Please try again.",
-                    variant: "destructive",
-                    duration: 3000,
-                });
-            }
-        }
-    };
-
-    const handleUpload = async (file: File) => {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        try {
-            const API_BASE_URL = getApiUrl();
-            const response = await fetch(`${API_BASE_URL}/maps/upload`, {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!response.ok) {
-                throw new Error('Upload failed');
-            }
-
-            const data = await response.json();
-
-            // Determine grid dimensions and calculate center cell
-            const gridCellsX = scene.gridSettings.gridCellsX || 18;
-            const gridCellsY = scene.gridSettings.gridCellsY || 32;
-
-            // Calculate center position in grid cells
-            // The gridCoordsToPixel function will add the 0.5 offset to center in cells
-            const centerGridX = Math.floor(gridCellsX / 2);
-            const centerGridY = Math.floor(gridCellsY / 2);
-
-            const newMap: MapData = {
-                name: data.filename,
-                data: {
-                    position: { x: centerGridX, y: centerGridY },
-                    useGridCoordinates: true,
-                    useGridScaling: true, // Enable grid scaling for new maps
-                    scale: 1,
-                    rotation: 0,
-                    isHidden: false
+                    mapsToAppend.push(createMapDataForScene(mapName, mapInfo));
                 }
-            };
 
+                if (notFound.length > 0) {
+                    toast({
+                        title: 'Warning',
+                        description: `Map(s) not found in library: ${notFound.join(', ')}`,
+                        variant: 'destructive',
+                        duration: 3000,
+                    });
+                }
+            }
+
+            const activeMapId = uniqueNames[uniqueNames.length - 1];
             const updatedScene = {
                 ...scene,
-                maps: [...scene.maps, newMap],
-                activeMapId: newMap.name
+                maps: [...scene.maps, ...mapsToAppend],
+                activeMapId,
             };
 
             setScene(updatedScene);
             websocketService.send({
                 type: 'scene_update',
-                scene: updatedScene
+                scene: updatedScene,
             });
+
+            if (mapsToAppend.length > 0) {
+                toast({
+                    title: 'Maps Added',
+                    description:
+                        mapsToAppend.length === 1
+                            ? `Map "${mapsToAppend[0].name}" added to scene`
+                            : `${mapsToAppend.length} maps added to scene`,
+                    duration: 3000,
+                });
+            }
         } catch (error) {
-            console.error('Error uploading map:', error);
+            console.error('Error adding maps to scene:', error);
             toast({
-                title: "Error",
-                description: "Failed to upload map. Please try again.",
-                variant: "destructive",
+                title: 'Error',
+                description: 'Failed to add maps to scene. Please try again.',
+                variant: 'destructive',
                 duration: 3000,
             });
         }
+    };
+
+    const handleMapsAdd = (mapNames: string[]) => {
+        void addMapsToScene(mapNames);
+    };
+
+    const handleMapSelect = async (mapName: string | null) => {
+        if (!mapName) {
+            const updatedScene = {
+                ...scene,
+                activeMapId: null,
+            };
+            setScene(updatedScene);
+            websocketService.send({
+                type: 'scene_update',
+                scene: updatedScene,
+            });
+            return;
+        }
+
+        await addMapsToScene([mapName]);
+    };
+
+    const handleUpload = async (results: MapUploadCompleteResult[]) => {
+        if (results.length === 0) return;
+        await addMapsToScene(results.map((r) => r.filename));
     };
 
     const handleSaveScene = async (name: string, isSaveAs: boolean = false) => {
@@ -660,11 +599,15 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             }) : [];
 
             if (!willSnap) {
+                const gridCellsX =
+                    newGridSettings.gridCellsX || scene.gridSettings.gridCellsX || 25;
+                const gridCellsY =
+                    newGridSettings.gridCellsY || scene.gridSettings.gridCellsY || 13;
                 updatedMarkers = updatedMarkers.map((m) => ({
                     ...m,
                     position: {
-                        x: (m.position.x + 0.5) * cellWidth,
-                        y: (m.position.y + 0.5) * cellHeight,
+                        x: (m.position.x + 0.5) / gridCellsX,
+                        y: (m.position.y + 0.5) / gridCellsY,
                     },
                     useGridCoordinates: false,
                 }));
@@ -993,18 +936,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         const centerGridY = Math.floor(gridCellsY / 2);
 
         const aoeSnapToGrid = scene.gridSettings.aoeSnapToGrid !== false;
-        const cellWidth = window.innerWidth / gridCellsX;
-        const cellHeight = window.innerHeight / gridCellsY;
 
         const newMarker: AoEMarkerType = {
             ...markerData,
             id: Date.now().toString(),
             position: aoeSnapToGrid
                 ? { x: centerGridX, y: centerGridY }
-                : {
-                    x: (centerGridX + 0.5) * cellWidth,
-                    y: (centerGridY + 0.5) * cellHeight,
-                },
+                : { x: 0.5, y: 0.5 },
             useGridCoordinates: aoeSnapToGrid
         };
 
@@ -1226,26 +1164,36 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     };
 
     return (
-        <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
+        <div className="dark flex h-dvh w-dvw overflow-hidden bg-gameboard">
             {/* Main Content */}
-            <div className="flex-1 relative w-full h-full overflow-hidden" style={{ height: '100%', width: '100%', margin: 0, padding: 0 }}>
+            <div
+                ref={playAreaRef}
+                className="flex-1 relative w-full h-full overflow-hidden"
+                style={{ height: '100%', width: '100%', margin: 0, padding: 0 }}
+            >
                 {(!scene.maps || scene.maps.length === 0) && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-4">
-                        <div className="p-4 rounded-xl bg-zinc-900/30">
-                            <ImageIcon className="h-8 w-8 text-zinc-700" />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+                        <div className="glass-panel flex max-w-sm flex-col items-center gap-4 rounded-xl p-6">
+                            <div className="rounded-lg bg-muted/50 p-3">
+                                <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-medium text-foreground">
+                                    Welcome to SpellTable
+                                </h3>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    Upload your first map to get started
+                                </p>
+                            </div>
+                            <Button
+                                variant="default"
+                                className="gap-2"
+                                onClick={() => setIsUploadOpen(true)}
+                            >
+                                <Upload className="h-4 w-4" />
+                                Upload Maps
+                            </Button>
                         </div>
-                        <div>
-                            <h3 className="text-sm font-medium text-zinc-300">Welcome to SpellTable</h3>
-                            <p className="text-xs text-zinc-600">Upload your first map to get started</p>
-                        </div>
-                        <Button
-                            variant="outline"
-                            className="gap-2"
-                            onClick={() => setIsUploadOpen(true)}
-                        >
-                            <Upload className="h-4 w-4" />
-                            <span className="text-xs">Upload Map</span>
-                        </Button>
                     </div>
                 )}
                 {/* Maps Container - Allow individual map z-indices based on their order */}
@@ -1288,6 +1236,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             scale={displayScale}
                             gridSettings={scene.gridSettings}
                             isHighlighted={marker.id === highlightedMarkerId}
+                            containerRef={playAreaRef}
                         />
                     ))}
                 </div>
@@ -1311,7 +1260,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     ))}
                 </div>
 
-                {/* Grid Overlay - Always on top of maps and markers but below UI */}
+                {/* Grid Overlay - above maps/markers, below initiative UI */}
                 {scene.gridSettings?.showGrid && (
                     <div
                         className="absolute inset-0 pointer-events-none"
@@ -1328,6 +1277,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                         }}
                     />
                 )}
+
+                {!isAdmin && scene.showCurrentPlayer && (
+                    <InitiativeIndicator
+                        initiativeOrder={scene.initiativeOrder}
+                        showCurrentPlayer={scene.showCurrentPlayer}
+                    />
+                )}
             </div>
 
             {/* Map List Sidebar */}
@@ -1336,6 +1292,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     <MapListSidebar
                         scene={scene}
                         onMapSelect={handleMapSelect}
+                        onMapsAdd={handleMapsAdd}
                         onMapVisibilityToggle={handleMapVisibilityToggle}
                         onMapAdd={() => setIsUploadOpen(true)}
                         onMapsReorder={handleMapsReorder}
@@ -1349,21 +1306,6 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 </div>
             )}
 
-            {/* Show Map List Button - Only show when hidden and not in clean layout */}
-            {!isViewerMode && !showMapList && !isCleanLayout && (
-                <div className="absolute top-4 right-4 z-[1000]">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
-                        onClick={() => setShowMapList(true)}
-                    >
-                        <LayoutGrid className="h-4 w-4" />
-                        Show Maps
-                    </Button>
-                </div>
-            )}
-
             {/* GameboardMenu - Only show in normal layout */}
             {!isCleanLayout && (
                 <GameboardMenu connectionStatus={connectionStatus} />
@@ -1371,31 +1313,29 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             {/* Viewer Status Indicator - Only show when viewer is blanked */}
             {isViewerBlanked && (
-                <div className="absolute top-16 right-4 px-3 py-2 bg-red-900/80 backdrop-blur-sm rounded-md border border-red-700/50 z-[1000]">
+                <div className="glass-panel absolute top-4 right-4 z-[1000] rounded-md border-destructive/50 bg-destructive/10 px-3 py-2">
                     <div className="flex items-center gap-2">
-                        <EyeOff className="h-4 w-4 text-red-400" />
-                        <span className="text-xs text-red-400 font-medium">Viewer Blanked</span>
+                        <EyeOff className="h-4 w-4 text-destructive" />
+                        <span className="text-xs font-medium text-destructive">
+                            Viewer Blanked
+                        </span>
                     </div>
                 </div>
             )}
 
-            {/* Viewer Rotation Status Indicator - Only show when viewer is rotated */}
             {isViewerRotated && (
-                <div className="absolute top-16 right-4 px-3 py-2 bg-blue-900/80 backdrop-blur-sm rounded-md border border-blue-700/50 z-[1000]" style={{ top: isViewerBlanked ? '6rem' : '4rem' }}>
+                <div
+                    className={cn(
+                        'glass-panel absolute right-4 z-[1000] rounded-md border-primary/50 bg-primary/10 px-3 py-2',
+                        isViewerBlanked ? 'top-16' : 'top-4'
+                    )}
+                >
                     <div className="flex items-center gap-2">
-                        <RotateCw className="h-4 w-4 text-blue-400" />
-                        <span className="text-xs text-blue-400 font-medium">Viewport Rotated 180°</span>
+                        <RotateCw className="h-4 w-4 text-primary" />
+                        <span className="text-xs font-medium text-primary">
+                            Viewport Rotated 180°
+                        </span>
                     </div>
-                </div>
-            )}
-
-            {/* Current Player Indicator - Only show when not in clean layout */}
-            {!isAdmin && (
-                <div className="!z-[9999]">
-                    <InitiativeIndicator
-                        initiativeOrder={scene.initiativeOrder}
-                        showCurrentPlayer={scene.showCurrentPlayer}
-                    />
                 </div>
             )}
 
@@ -1413,92 +1353,27 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 </div>
             )}
 
-            {/* Show Initiative Button - Only show when hidden and not in clean layout */}
-            {!showInitiative && !isCleanLayout && (
-                <div className="absolute left-4 bottom-4 z-[1000]">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
-                        onClick={() => setShowInitiative(true)}
-                    >
-                        <Users className="h-4 w-4" />
-                        Show Initiative
-                    </Button>
-                </div>
-            )}
-
             {/* Floating Menu Button - Only show in non-viewer mode */}
             {!isViewerMode && (
                 <div className="absolute top-4 left-4 z-[1000]">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className={cn(
-                                "gap-2 bg-zinc-900/80 backdrop-blur-sm",
-                                isCleanLayout && "h-6 w-6 p-0"
-                            )}>
-                                <LayoutGrid className="h-4 w-4" />
+                            <Button
+                                variant="outline"
+                                size={isCleanLayout ? 'icon' : 'sm'}
+                                className={cn('glass-panel', !isCleanLayout && 'gap-2')}
+                            >
+                                <Menu className="h-4 w-4" />
                                 {!isCleanLayout && <span>Menu</span>}
-                                {!isCleanLayout && <ChevronDown className="h-4 w-4" />}
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-64 bg-zinc-900/95 backdrop-blur-sm border-zinc-800 z-[1001]">
-
-
-                            {/* Layout Toggle */}
-                            <DropdownMenuItem
-                                onClick={() => setIsCleanLayout(!isCleanLayout)}
-                                className="flex items-center gap-2"
-                            >
-                                <LayoutGrid className="h-4 w-4" />
-                                {isCleanLayout ? 'Show Full Menu' : 'Clean Layout'}
-                            </DropdownMenuItem>
-
-                            <DropdownMenuSeparator className="bg-zinc-800" />
-
-                            {/* Map List Toggle */}
-                            <DropdownMenuItem
-                                onClick={() => setShowMapList(!showMapList)}
-                                className="flex items-center gap-2"
-                            >
-                                <LayoutGrid className="h-4 w-4" />
-                                {showMapList ? 'Hide Map List' : 'Show Map List'}
-                            </DropdownMenuItem>
-
-                            {/* Initiative Toggle */}
-                            <DropdownMenuItem
-                                onClick={() => setShowInitiative(!showInitiative)}
-                                className="flex items-center gap-2"
-                            >
-                                <Users className="h-4 w-4" />
-                                {showInitiative ? 'Hide Initiative' : 'Show Initiative'}
-                            </DropdownMenuItem>
-
-                            {/* Soundboard Toggle */}
-                            <DropdownMenuItem
-                                onClick={() => setIsSoundboardOpen(!isSoundboardOpen)}
-                                className="flex items-center gap-2"
-                            >
-                                <Music className="h-4 w-4" />
-                                {isSoundboardOpen ? 'Hide Soundboard' : 'Show Soundboard'}
-                            </DropdownMenuItem>
-
-
-                            <DropdownMenuItem
-                                className="text-xs cursor-pointer"
-                                onClick={() => setIsAoEPaletteOpen(!isAoEPaletteOpen)}
-                            >
-                                <Zap className="h-4 w-4 mr-2" />
-                                {isAoEPaletteOpen ? 'Hide AoE Palette' : 'Show AoE Palette'}
-                            </DropdownMenuItem>
-
-                            <DropdownMenuSeparator className="bg-zinc-800" />
+                        <DropdownMenuContent className="glass-panel z-[1001] w-64 border-border/50">
 
                             {/* Scene Management */}
                             <div className="px-2 py-1">
                                 <div className="flex items-center gap-2 px-2 py-1">
-                                    <Settings className="h-4 w-4 text-zinc-400" />
-                                    <span className="text-xs font-medium text-zinc-300">Scene</span>
+                                    <Settings className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-xs font-medium text-foreground">Scene</span>
                                 </div>
                                 <div className="space-y-1 mt-1">
                                     <DropdownMenuItem
@@ -1525,13 +1400,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 </div>
                             </div>
 
-                            <DropdownMenuSeparator className="bg-zinc-800" />
+                            <DropdownMenuSeparator />
 
                             {/* Players Section */}
                             <div className="px-2 py-1">
                                 <div className="flex items-center gap-2 px-2 py-1">
-                                    <Users className="h-4 w-4 text-zinc-400" />
-                                    <span className="text-xs font-medium text-zinc-300">Players</span>
+                                    <Users className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-xs font-medium text-foreground">Players</span>
                                 </div>
                                 <DropdownMenuItem className="text-xs cursor-pointer">
                                     <Users className="h-4 w-4 mr-2" />
@@ -1567,13 +1442,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 </DropdownMenuItem>
                             </div>
 
-                            <DropdownMenuSeparator className="bg-zinc-800" />
+                            <DropdownMenuSeparator />
 
                             {/* Grid Settings */}
                             <div className="px-2 py-1">
                                 <div className="flex items-center gap-2 px-2 py-1">
-                                    <Grid className="h-4 w-4 text-zinc-400" />
-                                    <span className="text-xs font-medium text-zinc-300">Grid</span>
+                                    <Grid className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-xs font-medium text-foreground">Grid</span>
                                 </div>
                                 <div className="space-y-1 mt-1">
                                     <DropdownMenuItem
@@ -1597,14 +1472,14 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 </div>
                             </div>
 
-                            <DropdownMenuSeparator className="bg-zinc-800" />
+                            <DropdownMenuSeparator />
 
                             {/* User Management - Only show for admin users */}
                             {isUserAdmin && (
                                 <div className="px-2 py-1">
                                     <div className="flex items-center gap-2 px-2 py-1">
-                                        <Shield className="h-4 w-4 text-zinc-400" />
-                                        <span className="text-xs font-medium text-zinc-300">Admin</span>
+                                        <Shield className="h-4 w-4 text-muted-foreground" />
+                                        <span className="text-xs font-medium text-foreground">Admin</span>
                                     </div>
                                     <div className="space-y-1 mt-1">
                                         <DropdownMenuItem
@@ -1639,14 +1514,14 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 </div>
                             )}
 
-                            <DropdownMenuSeparator className="bg-zinc-800" />
+                            <DropdownMenuSeparator />
 
                             <DropdownMenuItem onClick={() => setIsBackupDialogOpen(true)}>
                                 <Database className="mr-2 h-4 w-4" />
                                 <span>Backup & Restore</span>
                             </DropdownMenuItem>
 
-                            <DropdownMenuSeparator className="bg-zinc-800" />
+                            <DropdownMenuSeparator />
 
                             {/* Move Everything */}
                             <DropdownMenuItem onClick={() => setIsMoveEverythingOpen(true)}>
@@ -1694,18 +1569,56 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 currentScene={scene}
             />
 
-            {/* Soundboard Toggle Button - Only show when not in clean layout */}
-            {!isViewerMode && !isCleanLayout && (
-                <div className="absolute bottom-4 right-4 z-[1000]">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
-                        onClick={() => setIsSoundboardOpen(!isSoundboardOpen)}
-                    >
-                        <Music className="h-4 w-4" />
-                        {isSoundboardOpen ? 'Hide Soundboard' : 'Show Soundboard'}
-                    </Button>
+            {/* Tool dock */}
+            {!isViewerMode && (
+                <div className="absolute bottom-5 left-1/2 z-[1000] -translate-x-1/2">
+                    <GameboardDock
+                        items={[
+                            {
+                                id: 'initiative',
+                                label: showInitiative ? 'Hide initiative' : 'Show initiative',
+                                icon: <Users className="h-4 w-4" />,
+                                active: showInitiative,
+                                onClick: () => setShowInitiative(!showInitiative),
+                            },
+                            {
+                                id: 'maps',
+                                label: showMapList ? 'Hide maps' : 'Show maps',
+                                icon: <MapIcon className="h-4 w-4" />,
+                                active: showMapList,
+                                onClick: () => setShowMapList(!showMapList),
+                            },
+                            {
+                                id: 'soundboard',
+                                label: isSoundboardOpen ? 'Hide soundboard' : 'Show soundboard',
+                                icon: <Music className="h-4 w-4" />,
+                                active: isSoundboardOpen,
+                                onClick: () => setIsSoundboardOpen(!isSoundboardOpen),
+                            },
+                            {
+                                id: 'aoe',
+                                label: isAoEPaletteOpen ? 'Hide AoE palette' : 'Show AoE palette',
+                                icon: <Zap className="h-4 w-4" />,
+                                active: isAoEPaletteOpen,
+                                onClick: () => setIsAoEPaletteOpen(!isAoEPaletteOpen),
+                            },
+                            {
+                                id: 'fog',
+                                label: isFogOfWarPaletteOpen ? 'Hide fog' : 'Show fog',
+                                icon: <Cloud className="h-4 w-4" />,
+                                active: isFogOfWarPaletteOpen,
+                                onClick: () =>
+                                    setIsFogOfWarPaletteOpen(!isFogOfWarPaletteOpen),
+                            },
+                            {
+                                id: 'layout',
+                                label: isCleanLayout ? 'Full layout' : 'Clean layout',
+                                icon: <LayoutGrid className="h-4 w-4" />,
+                                active: isCleanLayout,
+                                onClick: () => setIsCleanLayout(!isCleanLayout),
+                            },
+                        ]}
+                    />
                 </div>
             )}
 
@@ -1720,6 +1633,10 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 isOpen={isAoEPaletteOpen}
                 onClose={() => setIsAoEPaletteOpen(false)}
                 onAddMarker={handleAddAoEMarker}
+                aoeEffectTheme={scene.gridSettings.aoeEffectTheme ?? 'pixel'}
+                onThemeChange={(theme) =>
+                    handleUpdateGridSettings({ ...scene.gridSettings, aoeEffectTheme: theme })
+                }
                 activeMarkers={scene.aoeMarkers || []}
                 onDeleteMarker={handleDeleteAoEMarker}
                 onHighlightMarker={(markerId) => {
@@ -1815,29 +1732,6 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 onClose={() => setIsMonsterManagementOpen(false)}
             />
 
-            {/* AoE and Fog of War Palette Toggle Buttons - Only show when not in clean layout */}
-            {!isViewerMode && !isCleanLayout && (
-                <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 z-[1000] flex gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
-                        onClick={() => setIsAoEPaletteOpen(!isAoEPaletteOpen)}
-                    >
-                        <Zap className="h-4 w-4" />
-                        {isAoEPaletteOpen ? 'Hide AoE' : 'Show AoE'}
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
-                        onClick={() => setIsFogOfWarPaletteOpen(!isFogOfWarPaletteOpen)}
-                    >
-                        <Eye className="h-4 w-4" />
-                        {isFogOfWarPaletteOpen ? 'Hide Fog' : 'Show Fog'}
-                    </Button>
-                </div>
-            )}
         </div>
     );
 }; 

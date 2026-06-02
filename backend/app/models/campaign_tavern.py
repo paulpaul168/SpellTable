@@ -34,7 +34,9 @@ class CampaignTavernState(Base):
     __tablename__ = "campaign_tavern_states"
 
     id = Column(Integer, primary_key=True, index=True)
-    campaign_id = Column(Integer, ForeignKey("campaigns.id"), unique=True, nullable=False)
+    campaign_id = Column(
+        Integer, ForeignKey("campaigns.id"), unique=True, nullable=False
+    )
     current_day = Column(Integer, default=0, nullable=False)
     valuation = Column(Integer, default=0, nullable=False)
     condition = Column(String(32), default="modest", nullable=False)
@@ -68,7 +70,9 @@ class TavernOptionDefinition(Base):
 
     campaign = relationship("Campaign", back_populates="tavern_option_definitions")
     instances = relationship(
-        "TavernOptionInstance", back_populates="definition", cascade="all, delete-orphan"
+        "TavernOptionInstance",
+        back_populates="definition",
+        cascade="all, delete-orphan",
     )
 
 
@@ -80,7 +84,9 @@ class TavernOptionInstance(Base):
     definition_id = Column(
         Integer, ForeignKey("tavern_option_definitions.id"), nullable=False
     )
-    status = Column(String(32), default=TavernInstanceStatus.PENDING_SETUP, nullable=False)
+    status = Column(
+        String(32), default=TavernInstanceStatus.PENDING_SETUP, nullable=False
+    )
     purchased_on_day = Column(Integer, nullable=False)
     activates_on_day = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

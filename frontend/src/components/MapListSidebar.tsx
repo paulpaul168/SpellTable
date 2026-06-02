@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { MapData } from '../types/map';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
-import { Eye, EyeOff, Trash2, Plus, GripVertical, X, FolderPlus } from 'lucide-react';
+import { Eye, EyeOff, Trash2, GripVertical, FolderPlus } from 'lucide-react';
 import {
     DndContext,
     closestCenter,
@@ -21,6 +21,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { MapManagement } from './MapManagement';
+import { GlassPanel } from './gameboard/GlassPanel';
 
 interface MapListItemProps {
     map: MapData;
@@ -56,33 +57,38 @@ const MapListItem: React.FC<MapListItemProps> = ({
             style={style}
             onClick={onSelect}
             className={cn(
-                "group flex items-center gap-2 p-2 rounded-md cursor-pointer",
-                isActive ? "bg-zinc-800" : "hover:bg-zinc-800/50"
+                'group flex min-h-9 cursor-pointer items-center gap-2 rounded-md p-2 transition-colors',
+                isActive
+                    ? 'bg-accent/20 ring-1 ring-border'
+                    : 'hover:bg-accent/10'
             )}
         >
             <div
-                className="p-1 rounded hover:bg-zinc-800 cursor-grab"
+                className="cursor-grab rounded p-1 hover:bg-accent/20"
                 {...attributes}
                 {...listeners}
             >
-                <GripVertical className="h-3 w-3 text-zinc-500" />
+                <GripVertical className="h-3 w-3 text-muted-foreground" />
             </div>
-            <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="flex w-full items-center justify-between">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
                             onVisibilityToggle();
                         }}
-                        className="p-1 rounded hover:bg-zinc-800 shrink-0"
+                        className="shrink-0 rounded p-1 hover:bg-accent/20"
                     >
                         {map.data.isHidden ? (
-                            <EyeOff className="h-4 w-4 text-zinc-400" />
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
                         ) : (
-                            <Eye className="h-4 w-4 text-zinc-400" />
+                            <Eye className="h-4 w-4 text-muted-foreground" />
                         )}
                     </button>
-                    <span className="text-xs text-zinc-300 truncate max-w-[120px]" title={map.name}>
+                    <span
+                        className="max-w-[120px] truncate text-sm text-foreground"
+                        title={map.name}
+                    >
                         {map.name}
                     </span>
                 </div>
@@ -91,9 +97,9 @@ const MapListItem: React.FC<MapListItemProps> = ({
                         e.stopPropagation();
                         onDelete();
                     }}
-                    className="p-1 rounded hover:bg-zinc-800 shrink-0"
+                    className="shrink-0 rounded p-1 hover:bg-accent/20"
                 >
-                    <Trash2 className="h-4 w-4 text-zinc-400" />
+                    <Trash2 className="h-4 w-4 text-muted-foreground" />
                 </button>
             </div>
         </div>
@@ -106,6 +112,7 @@ interface MapListSidebarProps {
         activeMapId: string | null;
     };
     onMapSelect: (mapName: string | null) => void;
+    onMapsAdd: (mapNames: string[]) => void;
     onMapVisibilityToggle: (mapName: string) => void;
     onMapAdd: () => void;
     onMapsReorder: (newMaps: MapData[]) => void;
@@ -120,30 +127,26 @@ interface MapListSidebarProps {
 export const MapListSidebar: React.FC<MapListSidebarProps> = ({
     scene,
     onMapSelect,
+    onMapsAdd,
     onMapVisibilityToggle,
-    onMapAdd,
-    onMapsReorder,
     onMapDelete,
     onClose,
     onMapRefresh,
     onMapRename,
     hideInvisibleMaps,
-    onToggleHideInvisibleMaps
+    onToggleHideInvisibleMaps,
+    onMapsReorder,
 }) => {
     const [isMapManagementOpen, setIsMapManagementOpen] = useState(false);
 
     const handleOpenMapManagement = () => {
-        console.log("Opening map management dialog and refreshing maps");
         onMapRefresh();
         setIsMapManagementOpen(true);
     };
 
     const handleMapRename = (oldName: string, newName: string) => {
-        console.log(`MapListSidebar: Processing map rename from "${oldName}" to "${newName}"`);
         if (onMapRename) {
             onMapRename(oldName, newName);
-        } else {
-            console.warn("MapListSidebar: onMapRename handler is not defined");
         }
     };
 
@@ -165,46 +168,38 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
     };
 
     return (
-        <div className="fixed top-0 right-0 w-[320px] min-h-[200px] max-h-[80%] bg-zinc-900/50 backdrop-blur-sm border-t border-zinc-800/50 flex flex-col rounded-tl-lg z-[1000]">
-            <div className="p-4 border-b border-zinc-800/50">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-zinc-300">Maps</h3>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={onToggleHideInvisibleMaps}
-                            title={hideInvisibleMaps ? 'Show hidden maps' : 'Hide hidden maps'}
-                        >
-                            {hideInvisibleMaps ? (
-                                <Eye className="h-4 w-4" />
-                            ) : (
-                                <EyeOff className="h-4 w-4" />
-                            )}
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={onClose}
-                            title="Close sidebar"
-                        >
-                            <X className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-2"
-                    onClick={handleOpenMapManagement}
-                >
-                    <FolderPlus className="h-4 w-4" />
-                    Manage Maps
-                </Button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        <>
+            <GlassPanel
+                title="Maps"
+                edge="right"
+                onClose={onClose}
+                headerActions={
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={onToggleHideInvisibleMaps}
+                        title={hideInvisibleMaps ? 'Show hidden maps' : 'Hide hidden maps'}
+                    >
+                        {hideInvisibleMaps ? (
+                            <Eye className="h-4 w-4" />
+                        ) : (
+                            <EyeOff className="h-4 w-4" />
+                        )}
+                    </Button>
+                }
+                footer={
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-2"
+                        onClick={handleOpenMapManagement}
+                    >
+                        <FolderPlus className="h-4 w-4" />
+                        Manage Maps
+                    </Button>
+                }
+            >
                 <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -214,31 +209,35 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
                         items={scene.maps.map((map: MapData) => map.name)}
                         strategy={verticalListSortingStrategy}
                     >
-                        {scene.maps.map((map) => (
-                            <MapListItem
-                                key={map.name}
-                                map={map}
-                                isActive={map.name === scene.activeMapId}
-                                onSelect={() => onMapSelect(map.name)}
-                                onVisibilityToggle={() => onMapVisibilityToggle(map.name)}
-                                onDelete={() => onMapDelete(map.name)}
-                            />
-                        ))}
+                        <div className="space-y-1">
+                            {scene.maps.map((map) => (
+                                <MapListItem
+                                    key={map.name}
+                                    map={map}
+                                    isActive={map.name === scene.activeMapId}
+                                    onSelect={() => onMapSelect(map.name)}
+                                    onVisibilityToggle={() =>
+                                        onMapVisibilityToggle(map.name)
+                                    }
+                                    onDelete={() => onMapDelete(map.name)}
+                                />
+                            ))}
+                        </div>
                     </SortableContext>
                 </DndContext>
-            </div>
+            </GlassPanel>
 
             <MapManagement
                 isOpen={isMapManagementOpen}
                 onClose={() => setIsMapManagementOpen(false)}
-                onMapSelect={(mapName) => {
-                    onMapSelect(mapName);
+                onMapsAdd={(mapNames) => {
+                    onMapsAdd(mapNames);
                     setIsMapManagementOpen(false);
                 }}
                 onRefreshMaps={onMapRefresh}
                 onMapRename={handleMapRename}
                 maps={scene.maps}
             />
-        </div>
+        </>
     );
-}; 
+};

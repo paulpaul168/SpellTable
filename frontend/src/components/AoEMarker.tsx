@@ -1,5 +1,15 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, RefObject } from 'react';
 import { AoEMarker as AoEMarkerType } from '../types/map';
+import {
+    getPlayAreaRect,
+    pointerToAoEPosition,
+    toDisplayPixels,
+} from '@/utils/aoeCoordinates';
+import { AoEEffectSprite } from './AoEEffectSprite';
+import { AoEEffectVideo } from './AoEEffectVideo';
+import { normalizeAoEEffectTheme, prefetchAoEEffectMeta } from '@/lib/aoeEffects';
+import type { AoEEffectTheme } from '@/types/aoeEffect';
+import { DEFAULT_AOE_EFFECT_THEME } from '@/types/aoeEffect';
 
 interface AoEMarkerProps {
     marker: AoEMarkerType;
@@ -15,15 +25,10 @@ interface AoEMarkerProps {
         gridCellsY?: number;
         gridSize: number;
         aoeSnapToGrid?: boolean;
+        aoeEffectTheme?: AoEEffectTheme;
     };
     isHighlighted?: boolean;
-}
-
-// Define drag offset reference type
-interface DragOffset {
-    startX: number;
-    startY: number;
-    startPosition: { x: number; y: number };
+    containerRef?: RefObject<HTMLElement | null>;
 }
 
 export const AoEMarker: React.FC<AoEMarkerProps> = ({
@@ -36,6 +41,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     scale = 1,
     gridSettings,
     isHighlighted = false,
+    containerRef,
 }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
@@ -43,37 +49,54 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const [showSizeIndicator, setShowSizeIndicator] = useState(false);
     const [highlightAnimation, setHighlightAnimation] = useState(false);
     const [highlightRippleKey, setHighlightRippleKey] = useState(0);
+    const [effectLoaded, setEffectLoaded] = useState(false);
     const lastUpdateRef = useRef<number>(0);
     const pendingUpdateRef = useRef<AoEMarkerType | null>(null);
-    const dragOffsetRef = useRef<DragOffset>({ startX: 0, startY: 0, startPosition: { x: 0, y: 0 } });
-    const mouseDragOffsetRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
+    const mouseDragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     const markerRef = useRef<HTMLDivElement>(null);
     const positionRef = useRef(marker.position);
     const isDraggingRef = useRef(false);
+    const ctrlHeldRef = useRef(false);
+    const lastPointerClientRef = useRef({ x: 0, y: 0 });
     const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
     const highlightTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Determine if using fixed grid and get necessary values
     const useFixedGrid = gridSettings?.useFixedGrid || false;
     const gridCellsX = gridSettings?.gridCellsX || 25;
     const gridCellsY = gridSettings?.gridCellsY || 13;
 
-    // Calculate cell size based on viewport and grid dimensions
-    const cellWidth = window.innerWidth / gridCellsX;
-    const cellHeight = window.innerHeight / gridCellsY;
+    const getContainerRect = useCallback(() => {
+        return getPlayAreaRect(containerRef?.current ?? null);
+    }, [containerRef]);
 
-    // Calculate effective grid size
+    const getCellSizes = useCallback((containerRect: DOMRect) => {
+        return {
+            cellWidth: containerRect.width / gridCellsX,
+            cellHeight: containerRect.height / gridCellsY,
+        };
+    }, [gridCellsX, gridCellsY]);
+
+    const { cellWidth, cellHeight } = getCellSizes(getContainerRect());
+
     const effectiveGridSize = useFixedGrid
-        ? Math.min(cellWidth, cellHeight) // Fixed grid: use the smaller dimension to maintain square cells
+        ? Math.min(cellWidth, cellHeight)
         : gridSize;
 
     const aoeSnapToGrid = gridSettings?.aoeSnapToGrid !== false;
+    const aoeEffectTheme = normalizeAoEEffectTheme(
+        gridSettings?.aoeEffectTheme ?? DEFAULT_AOE_EFFECT_THEME,
+    );
 
-    // Scale for sizing (5ft = 1 grid cell)
     const sizeInPixels = marker.sizeInFeet * effectiveGridSize / 5;
     const adjustedSizeInPixels = sizeInPixels;
 
-    // Watch for highlight prop changes
+    useEffect(() => {
+        if (marker.effectId && aoeEffectTheme !== 'none') {
+            prefetchAoEEffectMeta(marker.effectId, aoeEffectTheme);
+            setEffectLoaded(false);
+        }
+    }, [marker.effectId, aoeEffectTheme]);
+
     useEffect(() => {
         if (isHighlighted) {
             queueMicrotask(() => {
@@ -81,12 +104,10 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 setHighlightAnimation(true);
             });
 
-            // Clear any existing timer
             if (highlightTimerRef.current) {
                 clearTimeout(highlightTimerRef.current);
             }
 
-            // Set a timer to end the animation after two full cycles (3.5 seconds)
             highlightTimerRef.current = setTimeout(() => {
                 setHighlightAnimation(false);
                 highlightTimerRef.current = null;
@@ -94,7 +115,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         }
     }, [isHighlighted]);
 
-    // Clean up timers on unmount
     useEffect(() => {
         return () => {
             if (resizeTimerRef.current) {
@@ -106,39 +126,22 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         };
     }, []);
 
-    // Converting positions between grid coordinates and screen pixels
-    // Grid coordinates: where (0,0) is top-left cell, (1,1) is the cell to the right and down, etc.
-
-    // Convert grid coordinates to pixel position (centered in grid cell)
-    const gridCoordsToPixel = useCallback((gridPos: { x: number, y: number }) => {
-        // Add 0.5 to place markers at the center of grid cells
-        // rather than at grid line intersections
-        const cellCenterX = (gridPos.x + 0.5) * cellWidth;
-        const cellCenterY = (gridPos.y + 0.5) * cellHeight;
-        return { x: cellCenterX, y: cellCenterY };
-    }, [cellWidth, cellHeight]);
-
-    // Position calculation - converts stored position to correct pixel position
     const calculatePosition = useCallback(() => {
-        if (marker.useGridCoordinates) {
-            // Position is already in grid coordinates, convert to pixels
-            // using cell-centered approach
-            return gridCoordsToPixel(marker.position);
-        }
-        // Pixel coordinates: use as-is (fixed grid included — no re-snap to cells)
-        return marker.position;
-    }, [marker.position, marker.useGridCoordinates, gridCoordsToPixel]);
+        const containerRect = getContainerRect();
+        return toDisplayPixels(marker, gridSettings, containerRect, gridCellsX, gridCellsY);
+    }, [marker, gridSettings, getContainerRect, gridCellsX, gridCellsY]);
 
-    // Store and track the computed position
     const [currentPos, setCurrentPos] = useState(calculatePosition());
 
-    // Keep position refs updated
     useEffect(() => {
         positionRef.current = currentPos;
     }, [currentPos]);
 
-    // Update position when marker changes or window resizes
     useEffect(() => {
+        if (isDraggingRef.current) {
+            return;
+        }
+
         const updatePosition = () => {
             const newPosition = calculatePosition();
             setCurrentPos(newPosition);
@@ -151,12 +154,11 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         return () => {
             window.removeEventListener('resize', updatePosition);
         };
-    }, [marker.position, calculatePosition]);
+    }, [marker.position, marker.useGridCoordinates, calculatePosition]);
 
-    // Throttle updates
     const throttledUpdate = useCallback((newMarker: AoEMarkerType) => {
         const now = performance.now();
-        if (now - lastUpdateRef.current >= 32) { // ~30fps
+        if (now - lastUpdateRef.current >= 32) {
             onUpdate(newMarker);
             lastUpdateRef.current = now;
             pendingUpdateRef.current = null;
@@ -175,92 +177,142 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         }
     }, [onUpdate]);
 
-    // Handle mouse movement - completely rewritten to position under mouse pointer
-    const handleMouseMove = useCallback((e: MouseEvent) => {
-        if (!isDraggingRef.current) return;
+    const applyDragAtClient = useCallback(
+        (clientX: number, clientY: number, ctrlKey: boolean) => {
+            const containerRect = getContainerRect();
+            const containerRelativeX =
+                clientX - containerRect.left - mouseDragOffsetRef.current.x;
+            const containerRelativeY =
+                clientY - containerRect.top - mouseDragOffsetRef.current.y;
 
-        e.preventDefault();
-        e.stopPropagation();
+            const snapDisplay = aoeSnapToGrid || ctrlKey;
+            const { position, useGridCoordinates, displayPixels } = pointerToAoEPosition(
+                containerRelativeX,
+                containerRelativeY,
+                snapDisplay,
+                aoeSnapToGrid,
+                containerRect,
+                gridCellsX,
+                gridCellsY
+            );
 
-        // Get current mouse position
-        const mouseX = e.clientX;
-        const mouseY = e.clientY;
+            setCurrentPos(displayPixels);
+            positionRef.current = displayPixels;
 
-        // Apply the offset to keep the marker at the same relative position under the cursor
-        const offsetMouseX = mouseX - mouseDragOffsetRef.current.x;
-        const offsetMouseY = mouseY - mouseDragOffsetRef.current.y;
+            throttledUpdate({
+                ...marker,
+                position,
+                useGridCoordinates,
+            });
+        },
+        [marker, getContainerRect, gridCellsX, gridCellsY, throttledUpdate, aoeSnapToGrid]
+    );
 
-        // Calculate new position with the offset
-        let newPosition: { x: number; y: number };
-        let useGridCoordinates: boolean;
+    const handleMouseMove = useCallback(
+        (e: MouseEvent) => {
+            if (!isDraggingRef.current) return;
 
-        const snapNow = aoeSnapToGrid || e.ctrlKey;
+            e.preventDefault();
+            e.stopPropagation();
 
-        if (snapNow) {
-            const rawGridPos = {
-                x: offsetMouseX / cellWidth,
-                y: offsetMouseY / cellHeight
-            };
-            newPosition = {
-                x: Math.floor(rawGridPos.x),
-                y: Math.floor(rawGridPos.y)
-            };
-            useGridCoordinates = true;
-        } else {
-            newPosition = { x: offsetMouseX, y: offsetMouseY };
-            useGridCoordinates = false;
-        }
+            lastPointerClientRef.current = { x: e.clientX, y: e.clientY };
+            ctrlHeldRef.current = e.ctrlKey;
+            applyDragAtClient(e.clientX, e.clientY, e.ctrlKey);
+        },
+        [applyDragAtClient]
+    );
 
-        const pixelPos = useGridCoordinates ? gridCoordsToPixel(newPosition) : newPosition;
+    const handleMouseUp = useCallback(
+        (e: MouseEvent) => {
+            if (!isDraggingRef.current) return;
 
-        setCurrentPos(pixelPos);
-        positionRef.current = pixelPos;
-
-        onUpdate({
-            ...marker,
-            position: newPosition,
-            useGridCoordinates
-        });
-    }, [marker, cellWidth, cellHeight, onUpdate, gridCoordsToPixel, aoeSnapToGrid]);
-
-    // Handle mouse up - end dragging
-    const handleMouseUp = useCallback((e: MouseEvent) => {
-        if (isDraggingRef.current) {
             e.preventDefault();
 
-            // The marker position was already updated during dragging,
-            // so we only need to ensure consistency
+            const containerRect = getContainerRect();
+            const containerRelativeX =
+                e.clientX - containerRect.left - mouseDragOffsetRef.current.x;
+            const containerRelativeY =
+                e.clientY - containerRect.top - mouseDragOffsetRef.current.y;
+            const snapDisplay = aoeSnapToGrid || e.ctrlKey;
+            const { position, useGridCoordinates, displayPixels } = pointerToAoEPosition(
+                containerRelativeX,
+                containerRelativeY,
+                snapDisplay,
+                aoeSnapToGrid,
+                containerRect,
+                gridCellsX,
+                gridCellsY
+            );
+            const finalMarker: AoEMarkerType = {
+                ...marker,
+                position,
+                useGridCoordinates,
+            };
+
+            onUpdate(finalMarker);
+            pendingUpdateRef.current = null;
+            lastUpdateRef.current = performance.now();
+            setCurrentPos(displayPixels);
+            positionRef.current = displayPixels;
+
             setIsDragging(false);
             isDraggingRef.current = false;
+            ctrlHeldRef.current = false;
             document.body.classList.remove('dragging-aoe');
-        }
-    }, [marker, onUpdate]);
+        },
+        [marker, onUpdate, getContainerRect, gridSettings, gridCellsX, gridCellsY, aoeSnapToGrid]
+    );
 
-    // Set up global drag event handling
     useEffect(() => {
         const handleGlobalMouseMove = (e: MouseEvent) => handleMouseMove(e);
         const handleGlobalMouseUp = (e: MouseEvent) => handleMouseUp(e);
-        const handleGlobalEscapeKey = (e: KeyboardEvent) => {
+        const handleGlobalKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && isDraggingRef.current) {
                 setIsDragging(false);
                 isDraggingRef.current = false;
+                ctrlHeldRef.current = false;
                 document.body.classList.remove('dragging-aoe');
+                return;
+            }
+            if (
+                isDraggingRef.current &&
+                !aoeSnapToGrid &&
+                e.key === 'Control' &&
+                !ctrlHeldRef.current
+            ) {
+                ctrlHeldRef.current = true;
+                const { x, y } = lastPointerClientRef.current;
+                applyDragAtClient(x, y, true);
+            }
+        };
+
+        const handleGlobalKeyUp = (e: KeyboardEvent) => {
+            if (
+                isDraggingRef.current &&
+                !aoeSnapToGrid &&
+                e.key === 'Control' &&
+                ctrlHeldRef.current
+            ) {
+                ctrlHeldRef.current = false;
+                const { x, y } = lastPointerClientRef.current;
+                applyDragAtClient(x, y, false);
             }
         };
 
         window.addEventListener('mousemove', handleGlobalMouseMove, { capture: true });
         window.addEventListener('mouseup', handleGlobalMouseUp, { capture: true });
-        window.addEventListener('keydown', handleGlobalEscapeKey);
+        window.addEventListener('keydown', handleGlobalKeyDown);
+        window.addEventListener('keyup', handleGlobalKeyUp);
 
         return () => {
             window.removeEventListener('mousemove', handleGlobalMouseMove, { capture: true });
             window.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
-            window.removeEventListener('keydown', handleGlobalEscapeKey);
+            window.removeEventListener('keydown', handleGlobalKeyDown);
+            window.removeEventListener('keyup', handleGlobalKeyUp);
             document.body.classList.remove('dragging-aoe');
         };
-    }, [handleMouseMove, handleMouseUp]);
+    }, [handleMouseMove, handleMouseUp, applyDragAtClient, aoeSnapToGrid]);
 
-    // Update isDraggingRef when isDragging changes
     useEffect(() => {
         isDraggingRef.current = isDragging;
         if (isDragging) {
@@ -270,20 +322,25 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         }
     }, [isDragging]);
 
-    // Handle mouse down - start dragging
     const handleMouseDown = (e: React.MouseEvent) => {
         if (!isActive || !isAdmin) return;
 
         e.stopPropagation();
         e.preventDefault();
 
-        // Calculate the offset between mouse and marker center
+        const containerRect = getContainerRect();
+        const display = toDisplayPixels(marker, gridSettings, containerRect, gridCellsX, gridCellsY);
+        const mouseRelX = e.clientX - containerRect.left;
+        const mouseRelY = e.clientY - containerRect.top;
+
         mouseDragOffsetRef.current = {
-            x: e.clientX - currentPos.x,
-            y: e.clientY - currentPos.y
+            x: mouseRelX - display.x,
+            y: mouseRelY - display.y,
         };
 
-        // Start dragging
+        lastPointerClientRef.current = { x: e.clientX, y: e.clientY };
+        ctrlHeldRef.current = e.ctrlKey;
+
         setIsDragging(true);
         isDraggingRef.current = true;
         document.body.classList.add('dragging-aoe');
@@ -294,17 +351,14 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         e.stopPropagation();
         e.preventDefault();
 
-        // Show size indicator when resizing
         if (!e.shiftKey) {
             setIsResizing(true);
             setShowSizeIndicator(true);
 
-            // Clear any existing timer
             if (resizeTimerRef.current) {
                 clearTimeout(resizeTimerRef.current);
             }
 
-            // Set a timer to hide the size indicator after 1.5 seconds of inactivity
             resizeTimerRef.current = setTimeout(() => {
                 setIsResizing(false);
                 setShowSizeIndicator(false);
@@ -312,9 +366,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             }, 1500);
         }
 
-        // Use Shift key to rotate, otherwise resize
         if (e.shiftKey) {
-            // Rotate marker
             const delta = e.deltaY > 0 ? -5 : 5;
             const newRotation = (marker.rotation + delta) % 360;
 
@@ -323,7 +375,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 rotation: newRotation
             });
         } else {
-            // Resize marker
             const delta = e.deltaY > 0 ? -5 : 5;
             const newSize = Math.max(5, marker.sizeInFeet + delta);
 
@@ -334,8 +385,63 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         }
     };
 
-    // Different rendering based on shape type
-    const renderShape = () => {
+    const effectHeight =
+        marker.shape === 'line'
+            ? effectiveGridSize / 2
+            : adjustedSizeInPixels;
+
+    const effectWidth = adjustedSizeInPixels;
+
+    const shapeBoundsStyle: React.CSSProperties =
+        marker.shape === 'cone'
+            ? {
+                  position: 'relative',
+                  width: `${effectWidth}px`,
+                  height: `${effectHeight}px`,
+                  transform: 'translateX(-50%)',
+              }
+            : {
+                  position: 'relative',
+                  width: `${effectWidth}px`,
+                  height: `${effectHeight}px`,
+              };
+
+    const renderEffectSprite = () => {
+        if (!marker.effectId || aoeEffectTheme === 'none') {
+            return null;
+        }
+        return (
+            <div
+                className="pointer-events-none absolute left-0 top-0"
+                style={{ width: effectWidth, height: effectHeight }}
+            >
+                {aoeEffectTheme === 'realistic' ? (
+                    <AoEEffectVideo
+                        effectId={marker.effectId}
+                        theme={aoeEffectTheme}
+                        shape={marker.shape}
+                        width={effectWidth}
+                        height={effectHeight}
+                        opacity={marker.opacity}
+                        onMetaLoaded={setEffectLoaded}
+                    />
+                ) : (
+                    <AoEEffectSprite
+                        effectId={marker.effectId}
+                        theme={aoeEffectTheme}
+                        shape={marker.shape}
+                        width={effectWidth}
+                        height={effectHeight}
+                        opacity={marker.opacity}
+                        tintColor={marker.color}
+                        onMetaLoaded={setEffectLoaded}
+                    />
+                )}
+            </div>
+        );
+    };
+
+    const renderSolidShape = () => {
         switch (marker.shape) {
             case 'circle':
                 return (
@@ -353,36 +459,14 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 return (
                     <svg
                         width={adjustedSizeInPixels}
-                        height={adjustedSizeInPixels + 30}
-                        style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            transform: 'translateX(-50%)',
-                            opacity: marker.opacity
-                        }}
-                        viewBox={`0 0 ${adjustedSizeInPixels} ${adjustedSizeInPixels + 30}`}
+                        height={adjustedSizeInPixels}
+                        style={{ opacity: marker.opacity }}
+                        viewBox={`0 0 ${adjustedSizeInPixels} ${adjustedSizeInPixels}`}
                     >
                         <polygon
                             points={`${adjustedSizeInPixels / 2},0 0,${adjustedSizeInPixels} ${adjustedSizeInPixels},${adjustedSizeInPixels}`}
                             fill={marker.color}
                         />
-                        {marker.label && (
-                            <text
-                                x={adjustedSizeInPixels / 2}
-                                y={adjustedSizeInPixels + 20}
-                                textAnchor="middle"
-                                fill="white"
-                                className="text-xs"
-                                style={{
-                                    fontSize: '12px',
-                                    fontFamily: 'sans-serif',
-                                    textShadow: '0 0 3px rgba(0,0,0,0.8)'
-                                }}
-                            >
-                                {marker.label}
-                            </text>
-                        )}
                     </svg>
                 );
             case 'line':
@@ -436,7 +520,17 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         }
     };
 
-    // Double click to delete
+    const renderShape = () => {
+        const showSolid =
+            aoeEffectTheme === 'none' || !marker.effectId || !effectLoaded;
+        return (
+            <div style={shapeBoundsStyle}>
+                {showSolid && renderSolidShape()}
+                {renderEffectSprite()}
+            </div>
+        );
+    };
+
     const handleDoubleClick = (e: React.MouseEvent) => {
         if (!isAdmin) return;
         e.stopPropagation();
@@ -451,6 +545,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 position: 'absolute',
                 left: `${currentPos.x}px`,
                 top: `${currentPos.y}px`,
+                width: marker.shape !== 'cone' ? effectWidth : undefined,
+                height: marker.shape !== 'cone' ? effectHeight : undefined,
                 transform: marker.shape === 'cone'
                     ? `rotate(${marker.rotation}deg)`
                     : `translate(-50%, -50%) rotate(${marker.rotation}deg)`,
@@ -466,10 +562,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             onMouseEnter={() => !isDragging && setIsHovered(true)}
             onMouseLeave={() => !isDragging && setIsHovered(false)}
         >
-            {/* Highlight ripple animation with correct shape outline */}
             {highlightAnimation && (
                 <div key={highlightRippleKey}>
-                    {/* First ripple */}
                     {marker.shape === 'cone' ? (
                         <svg
                             className="animate-ripple-cone-1"
@@ -505,7 +599,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                         />
                     )}
 
-                    {/* Second ripple */}
                     {marker.shape === 'cone' ? (
                         <svg
                             className="animate-ripple-cone-2"
@@ -541,7 +634,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                         />
                     )}
 
-                    {/* Third ripple */}
                     {marker.shape === 'cone' ? (
                         <svg
                             className="animate-ripple-cone-3"
@@ -579,32 +671,28 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 </div>
             )}
 
-            {/* Size indicator - shows when resizing */}
             {isAdmin && showSizeIndicator && (
                 <div className={`absolute ${marker.shape === 'cone' ? 'bottom-0 left-0 translate-y-full ml-2' : 'bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full'} mt-1 px-2 py-1 bg-black/80 text-white text-xs rounded pointer-events-none`}>
                     {marker.sizeInFeet}′
                 </div>
             )}
 
-            {/* The shape itself */}
             {renderShape()}
 
-            {/* Label positioned below the shape without affecting centering */}
-            {marker.label && marker.shape !== 'cone' && (
+            {marker.label && (
                 <div
                     className="absolute px-2 py-1 bg-black/70 text-white text-xs rounded pointer-events-none"
                     style={{
                         whiteSpace: 'nowrap',
-                        top: `${adjustedSizeInPixels}px`, // Position 50% of the size below the bottom edge
-                        left: '50%',
-                        transform: 'translateX(-50%)', // Center the label horizontally
+                        top: `${effectHeight + 4}px`,
+                        left: marker.shape === 'cone' ? '0' : '50%',
+                        transform: marker.shape === 'cone' ? 'translateX(-50%)' : 'translateX(-50%)',
                     }}
                 >
                     {marker.label}
                 </div>
             )}
 
-            {/* Add a style tag for ripple animations */}
             <style jsx>{`
                 @keyframes ripple-1 {
                     0% {
@@ -690,4 +778,4 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             `}</style>
         </div>
     );
-}; 
+};

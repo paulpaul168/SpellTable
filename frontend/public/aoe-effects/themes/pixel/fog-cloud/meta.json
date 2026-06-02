@@ -1,0 +1,10 @@
+{
+  "frameWidth": 128,
+  "frameHeight": 128,
+  "frameCount": 25,
+  "fps": 8,
+  "loop": true,
+  "blendMode": "normal",
+  "fit": "stretch",
+  "filter": "grayscale(1) contrast(0.95)"
+}

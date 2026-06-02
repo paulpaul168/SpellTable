@@ -40,20 +40,20 @@ if (typeof document !== 'undefined') {
     document.head.appendChild(styleElement);
 }
 
-export const RippleViewer: React.FC = () => {
+interface RippleViewerProps {
+    hidden?: boolean;
+}
+
+export const RippleViewer: React.FC<RippleViewerProps> = ({ hidden = false }) => {
     const [showRipple, setShowRipple] = useState(false);
     const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
     const [isShaking, setIsShaking] = useState(false);
+    const [showMeasuringGrid, setShowMeasuringGrid] = useState(false);
+    const [isDarkMode, setIsDarkMode] = useState(false);
+    const [brightness, setBrightness] = useState(100);
 
     const createRippleEffect = useCallback((x: number, y: number) => {
-        if (typeof window !== 'undefined') {
-            const normalizedX = (x / window.innerWidth) * window.innerWidth;
-            const normalizedY = (y / window.innerHeight) * window.innerHeight;
-            setRipplePosition({ x: normalizedX, y: normalizedY });
-        } else {
-            setRipplePosition({ x, y });
-        }
-
+        setRipplePosition({ x, y });
         setShowRipple(true);
 
         setTimeout(() => {
@@ -86,13 +86,29 @@ export const RippleViewer: React.FC = () => {
         setIsShaking(true);
     }, []);
 
-    // Listen for ripple effects from admin
+    const applyMeasuringGrid = useCallback((enabled: boolean) => {
+        setShowMeasuringGrid(enabled);
+    }, []);
+
+    const applyNightMode = useCallback((enabled: boolean, nextBrightness: number) => {
+        setIsDarkMode(enabled);
+        setBrightness(nextBrightness);
+    }, []);
+
+    // Listen for gameboard effects from admin
     useEffect(() => {
-        const handleRemoteEvents = (data: any) => {
-            // Handle both the old and new formats to ensure compatibility 
+        const handleRemoteEvents = (data: {
+            type?: string;
+            eventType?: string;
+            x?: number;
+            y?: number;
+            enabled?: boolean;
+            brightness?: number;
+            event?: { type?: string; x?: number; y?: number };
+        }) => {
             if (data.type === 'scene_update' && data.event) {
                 if (data.event.type === 'ripple_effect') {
-                    createRippleEffect(data.event.x, data.event.y);
+                    createRippleEffect(data.event.x ?? 0, data.event.y ?? 0);
                 } else if (data.event.type === 'lightning_effect') {
                     createLightningEffect();
                 } else if (data.event.type === 'shake_effect') {
@@ -100,11 +116,18 @@ export const RippleViewer: React.FC = () => {
                 }
             } else if (data.type === 'scene_event') {
                 if (data.eventType === 'ripple_effect') {
-                    createRippleEffect(data.x, data.y);
+                    createRippleEffect(data.x ?? 0, data.y ?? 0);
                 } else if (data.eventType === 'lightning_effect') {
                     createLightningEffect();
                 } else if (data.eventType === 'shake_effect') {
                     createShakeEffect();
+                } else if (data.eventType === 'measuring_grid') {
+                    applyMeasuringGrid(Boolean(data.enabled));
+                } else if (data.eventType === 'night_mode') {
+                    const enabled = Boolean(data.enabled);
+                    const nextBrightness =
+                        typeof data.brightness === 'number' ? data.brightness : 100;
+                    applyNightMode(enabled, nextBrightness);
                 }
             }
         };
@@ -114,14 +137,19 @@ export const RippleViewer: React.FC = () => {
         return () => {
             unsubscribe();
         };
-    }, [createRippleEffect, createLightningEffect, createShakeEffect]);
+    }, [
+        createRippleEffect,
+        createLightningEffect,
+        createShakeEffect,
+        applyMeasuringGrid,
+        applyNightMode,
+    ]);
 
     // Apply shake effect to body
     useEffect(() => {
         if (isShaking && typeof document !== 'undefined') {
             document.body.classList.add('shake-effect');
 
-            // Remove class after animation completes
             const timer = setTimeout(() => {
                 document.body.classList.remove('shake-effect');
                 setIsShaking(false);
@@ -134,11 +162,41 @@ export const RippleViewer: React.FC = () => {
         }
     }, [isShaking]);
 
+    if (hidden) {
+        return null;
+    }
+
     return (
         <>
-            {/* Ripple Effect */}
+            {showMeasuringGrid && (
+                <div
+                    className="fixed inset-0 pointer-events-none z-[900]"
+                    style={{
+                        backgroundImage: `
+                            linear-gradient(to right, rgba(255, 255, 255, 0.15) 1px, transparent 1px),
+                            linear-gradient(to bottom, rgba(255, 255, 255, 0.15) 1px, transparent 1px)
+                        `,
+                        backgroundSize: '50px 50px',
+                    }}
+                >
+                    <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                        5ft per square
+                    </div>
+                </div>
+            )}
+
+            {isDarkMode && (
+                <div
+                    className="fixed inset-0 bg-black pointer-events-none z-[900] transition-opacity duration-500"
+                    style={{ opacity: 1 - brightness / 100 }}
+                />
+            )}
+
             {showRipple && (
-                <div className="fixed pointer-events-none z-[900]" style={{ left: ripplePosition.x, top: ripplePosition.y }}>
+                <div
+                    className="fixed pointer-events-none z-[900]"
+                    style={{ left: ripplePosition.x, top: ripplePosition.y }}
+                >
                     <div
                         className="absolute rounded-full animate-ripple-1"
                         style={{
@@ -175,4 +233,4 @@ export const RippleViewer: React.FC = () => {
             )}
         </>
     );
-}; 
+};

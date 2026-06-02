@@ -8,8 +8,8 @@ BACKEND_PID=$!
 
 # Start the frontend server
 cd ../frontend
-npm install
-npm run dev &
+pnpm install
+pnpm run dev &
 FRONTEND_PID=$!
 
 # Open the frontend in the browser

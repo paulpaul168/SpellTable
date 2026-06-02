@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Scene as SceneType } from '../../types/map';
 import { Map } from '../../components/Map';
 import { websocketService } from '../../services/websocket';
@@ -11,6 +11,18 @@ import { RippleViewer } from '../../components/RippleViewer';
 import { ProtectedRoute } from '../../components/ProtectedRoute';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/button';
+import { getPlayAreaRect, migrateAoEMarkers } from '@/utils/aoeCoordinates';
+
+function withMigratedAoEMarkers(
+    scene: SceneType,
+    container: HTMLElement | null
+): SceneType {
+    const rect = getPlayAreaRect(container);
+    return {
+        ...scene,
+        aoeMarkers: migrateAoEMarkers(scene.aoeMarkers, rect),
+    };
+}
 
 const initialScene: SceneType = {
     id: 'default',
@@ -40,6 +52,13 @@ export default function ViewerPage() {
 
     // Use fixed 1.0 scale to match admin view exactly
     const displayScale = 1.0;
+    const playAreaRef = useRef<HTMLDivElement>(null);
+
+    const applySceneWithAoEMigration = useCallback(
+        (nextScene: SceneType): SceneType =>
+            withMigratedAoEMarkers(nextScene, playAreaRef.current),
+        []
+    );
 
     useEffect(() => {
         websocketService.connect();
@@ -71,7 +90,7 @@ export default function ViewerPage() {
                     }));
                 }
 
-                setScene(updatedScene);
+                setScene(applySceneWithAoEMigration(updatedScene));
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
             } else if (data.type === 'display_scale_update') {
@@ -85,10 +104,6 @@ export default function ViewerPage() {
                 setTimeout(() => {
                     setHighlightedMarkerId(null);
                 }, 2100); // Match the same duration used in admin view
-            } else if (data.type === 'scene_event') {
-                // Handle special visual effects
-                // The RippleViewer component will handle these events directly
-                // This ensures the viewer page also processes these events
             } else if (data.type === 'blank_viewer') {
                 console.log('Viewer received blank_viewer command');
                 setIsViewerBlanked(true);
@@ -149,19 +164,17 @@ export default function ViewerPage() {
 
     return (
         <ProtectedRoute>
+            <>
             <div
-                className="flex h-screen bg-zinc-950 overflow-hidden"
+                className="dark flex h-dvh w-dvw overflow-hidden bg-gameboard"
                 style={{
-                    height: '100vh',
-                    width: '100vw',
-                    margin: 0,
-                    padding: 0,
                     transform: isViewerRotated ? 'rotate(180deg)' : 'none',
-                    transformOrigin: 'center center'
+                    transformOrigin: 'center center',
                 }}
             >
                 {/* Main Content */}
                 <div
+                    ref={playAreaRef}
                     className="flex-1 relative w-full h-full overflow-hidden"
                     style={{
                         height: '100%',
@@ -171,13 +184,19 @@ export default function ViewerPage() {
                     }}
                 >
                     {(!scene.maps || scene.maps.length === 0) && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-4">
-                            <div className="p-4 rounded-xl bg-zinc-900/30">
-                                <div className="h-8 w-8 text-zinc-700" />
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-medium text-zinc-300">Waiting for map...</h3>
-                                <p className="text-xs text-zinc-600">The DM will share a map with you shortly</p>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+                            <div className="glass-panel flex max-w-sm flex-col items-center gap-3 rounded-xl p-6">
+                                <div className="rounded-lg bg-muted/50 p-3">
+                                    <div className="h-8 w-8 rounded bg-muted" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-medium text-foreground">
+                                        Waiting for map...
+                                    </h3>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        The DM will share a map with you shortly
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -213,6 +232,7 @@ export default function ViewerPage() {
                                 scale={displayScale}
                                 gridSettings={scene.gridSettings}
                                 isHighlighted={marker.id === highlightedMarkerId}
+                                containerRef={playAreaRef}
                             />
                         ))}
                     </div>
@@ -235,13 +255,7 @@ export default function ViewerPage() {
                         ))}
                     </div>
 
-                    {/* Current Player Indicator */}
-                    <InitiativeIndicator
-                        initiativeOrder={scene.initiativeOrder}
-                        showCurrentPlayer={scene.showCurrentPlayer}
-                    />
-
-                    {/* Grid Overlay - Always on top of maps and markers but below UI */}
+                    {/* Grid Overlay - above maps/markers, below initiative UI */}
                     {scene.gridSettings?.showGrid && (
                         <div
                             className="absolute inset-0 pointer-events-none"
@@ -259,12 +273,16 @@ export default function ViewerPage() {
                         />
                     )}
 
-                    <RippleViewer />
+                    {/* Current / next player — after grid so z-[1000] stacks on top */}
+                    <InitiativeIndicator
+                        initiativeOrder={scene.initiativeOrder}
+                        showCurrentPlayer={scene.showCurrentPlayer}
+                    />
                 </div>
 
                 {/* Display Scale Indicator */}
                 {displayScale !== 1.0 && (
-                    <div className="absolute bottom-4 right-16 px-2 py-1 bg-zinc-900/80 backdrop-blur-sm rounded text-xs text-zinc-400 z-50">
+                    <div className="glass-panel absolute bottom-4 right-16 z-50 rounded px-2 py-1 text-xs text-muted-foreground">
                         <div className="flex items-center gap-2">
                             <span>Scaling: {(displayScale * 100).toFixed(1)}%</span>
                         </div>
@@ -277,7 +295,7 @@ export default function ViewerPage() {
                         onClick={() => window.location.href = '/viewer/campaigns'}
                         variant="outline"
                         size="sm"
-                        className="bg-zinc-900/80 backdrop-blur-sm border-zinc-700 text-zinc-300 hover:bg-zinc-800/80"
+                        className="glass-panel"
                     >
                         Campaign Diary
                     </Button>
@@ -290,12 +308,14 @@ export default function ViewerPage() {
                         style={{ height: '100vh', width: '100vw' }}
                     >
                         <div className="text-center">
-                            <div className="w-8 h-8 border-2 border-gray-600 border-t-gray-400 rounded-full animate-spin mx-auto mb-4"></div>
-                            <p className="text-gray-400 text-sm">Waiting for presentation to resume...</p>
+                            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary"></div>
+                            <p className="text-sm text-muted-foreground">Waiting for presentation to resume...</p>
                         </div>
                     </div>
                 )}
             </div>
+            <RippleViewer hidden={isViewerBlanked} />
+            </>
         </ProtectedRoute>
     );
 } 

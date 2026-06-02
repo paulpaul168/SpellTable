@@ -1,0 +1,9 @@
+{
+  "frameWidth": 128,
+  "frameHeight": 128,
+  "frameCount": 16,
+  "fps": 8,
+  "loop": true,
+  "blendMode": "screen",
+  "fit": "stretch"
+}

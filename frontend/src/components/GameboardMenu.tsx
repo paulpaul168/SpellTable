@@ -28,46 +28,6 @@ interface GameboardMenuProps {
     connectionStatus: string;
 }
 
-// Add keyframe animations to the global stylesheet
-// This avoids using styled-jsx which might be causing import issues
-if (typeof document !== 'undefined') {
-    const styleElement = document.createElement('style');
-    styleElement.innerHTML = `
-        @keyframes ripple {
-            0% {
-                transform: translate(-50%, -50%) scale(1);
-                opacity: 0.9;
-            }
-            50% {
-                opacity: 0.5;
-            }
-            100% {
-                transform: translate(-50%, -50%) scale(2);
-                opacity: 0;
-            }
-        }
-        .animate-ripple-1 {
-            animation: ripple 3s ease-out infinite;
-        }
-        .animate-ripple-2 {
-            animation: ripple 3s ease-out 0.5s infinite;
-        }
-        .animate-ripple-3 {
-            animation: ripple 3s ease-out 1s infinite;
-        }
-        
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-            20%, 40%, 60%, 80% { transform: translateX(5px); }
-        }
-        .shake-effect {
-            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
-        }
-    `;
-    document.head.appendChild(styleElement);
-}
-
 export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }) => {
     // State for active tool and options
     const [activeTool, setActiveTool] = useState<string>('pointer');
@@ -83,6 +43,41 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
     const gameboardRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
+    const broadcastSceneEvent = useCallback(
+        (eventType: string, extra: Record<string, unknown> = {}) => {
+            websocketService.send({
+                type: 'scene_event',
+                eventType,
+                ...extra,
+            });
+        },
+        []
+    );
+
+    const applyMeasuringGrid = useCallback(
+        (enabled: boolean, broadcast = true) => {
+            setShowMeasuringGrid(enabled);
+            if (broadcast) {
+                broadcastSceneEvent('measuring_grid', { enabled });
+            }
+        },
+        [broadcastSceneEvent]
+    );
+
+    const applyNightMode = useCallback(
+        (enabled: boolean, nextBrightness: number, broadcast = true) => {
+            setIsDarkMode(enabled);
+            setBrightness(nextBrightness);
+            if (broadcast) {
+                broadcastSceneEvent('night_mode', {
+                    enabled,
+                    brightness: nextBrightness,
+                });
+            }
+        },
+        [broadcastSceneEvent]
+    );
+
     const createRippleEffect = useCallback((x: number, y: number, broadcast = true) => {
         setRipplePosition({ x, y });
         setShowRipple(true);
@@ -92,14 +87,9 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
         }, 3000);
 
         if (broadcast) {
-            websocketService.send({
-                type: 'scene_event',
-                eventType: 'ripple_effect',
-                x,
-                y
-            });
+            broadcastSceneEvent('ripple_effect', { x, y });
         }
-    }, []);
+    }, [broadcastSceneEvent]);
 
     const toggleLightningEffect = useCallback((broadcast = true) => {
         if (typeof document !== 'undefined') {
@@ -121,24 +111,18 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
             }, 40);
 
             if (broadcast) {
-                websocketService.send({
-                    type: 'scene_event',
-                    eventType: 'lightning_effect'
-                });
+                broadcastSceneEvent('lightning_effect');
             }
         }
-    }, []);
+    }, [broadcastSceneEvent]);
 
     const toggleShakeEffect = useCallback((broadcast = true) => {
         setIsShaking(true);
 
         if (broadcast) {
-            websocketService.send({
-                type: 'scene_event',
-                eventType: 'shake_effect'
-            });
+            broadcastSceneEvent('shake_effect');
         }
-    }, []);
+    }, [broadcastSceneEvent]);
 
     // Listen for remote ripple effects from admin
     useEffect(() => {
@@ -153,6 +137,13 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
                     toggleLightningEffect(false);
                 } else if (data.eventType === 'shake_effect') {
                     toggleShakeEffect(false);
+                } else if (data.eventType === 'measuring_grid') {
+                    applyMeasuringGrid(Boolean(data.enabled), false);
+                } else if (data.eventType === 'night_mode') {
+                    const enabled = Boolean(data.enabled);
+                    const nextBrightness =
+                        typeof data.brightness === 'number' ? data.brightness : brightness;
+                    applyNightMode(enabled, nextBrightness, false);
                 }
             }
         };
@@ -162,7 +153,14 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
         return () => {
             unsubscribe();
         };
-    }, [createRippleEffect, toggleLightningEffect, toggleShakeEffect]);
+    }, [
+        createRippleEffect,
+        toggleLightningEffect,
+        toggleShakeEffect,
+        applyMeasuringGrid,
+        applyNightMode,
+        brightness,
+    ]);
 
     // Apply shake effect to body
     useEffect(() => {
@@ -209,14 +207,6 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
             // If not a UI element, create a ripple
             if (!isUIElement) {
                 createRippleEffect(e.clientX, e.clientY);
-
-                // Broadcast the ripple effect to all viewers
-                websocketService.send({
-                    type: 'scene_event',
-                    eventType: 'ripple_effect',
-                    x: e.clientX,
-                    y: e.clientY
-                });
             }
         };
 
@@ -237,7 +227,16 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
     };
 
     const toggleDayNight = () => {
-        setIsDarkMode(!isDarkMode);
+        const nextEnabled = !isDarkMode;
+        applyNightMode(nextEnabled, brightness);
+    };
+
+    const toggleMeasuringGrid = () => {
+        applyMeasuringGrid(!showMeasuringGrid);
+    };
+
+    const handleBrightnessChange = (value: number) => {
+        applyNightMode(true, value);
     };
 
     // Check if a click is inside the menu area to prevent overlay from capturing those clicks
@@ -284,7 +283,7 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
                         <Button
                             variant="outline"
                             size="sm"
-                            className="px-4 py-2 rounded-md bg-zinc-900/80 backdrop-blur-sm border border-zinc-800 flex items-center gap-2"
+                            className="glass-panel flex items-center gap-2 px-4 py-2"
                         >
                             <Menu className="h-4 w-4" />
                             <span className="text-xs font-medium">Gameboard</span>
@@ -293,17 +292,17 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
                             {connectionStatus === 'connected' ? (
                                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse ml-1" />
                             ) : (
-                                <div className="h-2 w-2 rounded-full bg-zinc-600 ml-1" />
+                                <div className="ml-1 h-2 w-2 rounded-full bg-muted-foreground" />
                             )}
                         </Button>
                     </DropdownMenuTrigger>
 
-                    <DropdownMenuContent align="center" className="w-56 bg-zinc-900/90 backdrop-blur-sm border border-zinc-800">
+                    <DropdownMenuContent align="center" className="glass-panel w-56 border-border/50">
                         {/* Tools Section */}
-                        <DropdownMenuLabel className="text-xs font-medium text-zinc-400">Tools</DropdownMenuLabel>
+                        <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">Tools</DropdownMenuLabel>
 
                         <DropdownMenuItem
-                            className={cn("text-xs cursor-pointer", activeTool === 'pointer' && "bg-zinc-800")}
+                            className={cn("text-xs cursor-pointer", activeTool === 'pointer' && "bg-accent")}
                             onClick={() => setActiveTool('pointer')}
                         >
                             <MousePointer className="h-4 w-4 mr-2" />
@@ -311,7 +310,7 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
                         </DropdownMenuItem>
 
                         <DropdownMenuItem
-                            className={cn("text-xs cursor-pointer", activeTool === 'marker' && "bg-zinc-800")}
+                            className={cn("text-xs cursor-pointer", activeTool === 'marker' && "bg-accent")}
                             onClick={() => {
                                 setActiveTool('marker');
                                 setJustActivatedMarker(true);
@@ -322,17 +321,17 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
                         </DropdownMenuItem>
 
                         <DropdownMenuItem
-                            className={cn("text-xs cursor-pointer", showMeasuringGrid && "bg-zinc-800")}
-                            onClick={() => setShowMeasuringGrid(!showMeasuringGrid)}
+                            className={cn("text-xs cursor-pointer", showMeasuringGrid && "bg-accent")}
+                            onClick={toggleMeasuringGrid}
                         >
                             <Ruler className="h-4 w-4 mr-2" />
                             Measuring Grid (5ft)
                         </DropdownMenuItem>
 
-                        <DropdownMenuSeparator className="bg-zinc-800" />
+                        <DropdownMenuSeparator />
 
                         {/* Visual Effects Section */}
-                        <DropdownMenuLabel className="text-xs font-medium text-zinc-400">Visual Effects</DropdownMenuLabel>
+                        <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">Visual Effects</DropdownMenuLabel>
 
                         <DropdownMenuItem
                             className="text-xs cursor-pointer"
@@ -351,7 +350,7 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
                         </DropdownMenuItem>
 
                         <DropdownMenuItem
-                            className={cn("text-xs cursor-pointer", isDarkMode && "bg-zinc-800")}
+                            className={cn("text-xs cursor-pointer", isDarkMode && "bg-accent")}
                             onClick={toggleDayNight}
                         >
                             {isDarkMode ? (
@@ -370,28 +369,30 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
                         {/* Brightness Slider (only show in night mode) */}
                         {isDarkMode && (
                             <div className="px-2 py-2">
-                                <div className="text-xs text-zinc-400 mb-1">Brightness: {brightness}%</div>
+                                <div className="mb-1 text-xs text-muted-foreground">Brightness: {brightness}%</div>
                                 <input
                                     type="range"
                                     min="10"
                                     max="100"
                                     value={brightness}
-                                    onChange={(e) => setBrightness(parseInt(e.target.value))}
-                                    className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                                    onChange={(e) =>
+                                        handleBrightnessChange(parseInt(e.target.value, 10))
+                                    }
+                                    className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-primary/20 accent-primary"
                                 />
                             </div>
                         )}
 
-                        <DropdownMenuSeparator className="bg-zinc-800" />
+                        <DropdownMenuSeparator />
 
                         {/* Connection Status */}
-                        <DropdownMenuLabel className="text-xs font-medium text-zinc-400">Status</DropdownMenuLabel>
+                        <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">Status</DropdownMenuLabel>
                         <DropdownMenuItem className="text-xs cursor-default">
                             <Wifi className="h-4 w-4 mr-2" />
                             {connectionStatus === 'connected' ? (
                                 <span className="text-emerald-500">Connected</span>
                             ) : (
-                                <span className="text-zinc-600 capitalize">{connectionStatus}</span>
+                                <span className="capitalize text-muted-foreground">{connectionStatus}</span>
                             )}
                         </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -400,17 +401,17 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
 
             {/* Tool Status Indicator */}
             {activeTool === 'marker' && (
-                <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-[1002] bg-zinc-900/80 backdrop-blur-sm border border-zinc-800 px-4 py-2 rounded-md">
+                <div className="glass-panel fixed bottom-4 left-1/2 z-[1002] -translate-x-1/2 rounded-md px-4 py-2">
                     <div className="flex items-center gap-2">
-                        <Target className="h-4 w-4 text-emerald-500" />
-                        <span className="text-xs text-zinc-300">Click anywhere to create a ripple marker</span>
+                        <Target className="h-4 w-4 text-primary" />
+                        <span className="text-xs text-foreground">Click anywhere to create a ripple marker</span>
                         <Button
                             variant="ghost"
                             size="sm"
                             className="h-6 w-6 p-0 ml-2"
                             onClick={exitRippleMode}
                         >
-                            <X className="h-3 w-3 text-zinc-400" />
+                            <X className="h-3 w-3 text-muted-foreground" />
                         </Button>
                     </div>
                 </div>

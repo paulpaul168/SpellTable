@@ -1,5 +1,5 @@
 @echo off
 
 cd frontend
-call npm install
-call npm run dev
+call pnpm install
+call pnpm run dev
