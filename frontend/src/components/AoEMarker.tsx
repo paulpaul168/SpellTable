@@ -52,6 +52,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     onReset,
 }) => {
     const [isDragging, setIsDragging] = useState(false);
+    const [isRotating, setIsRotating] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
     const [showSizeIndicator, setShowSizeIndicator] = useState(false);
@@ -67,6 +68,9 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const markerRef = useRef<HTMLDivElement>(null);
     const positionRef = useRef(marker.position);
     const isDraggingRef = useRef(false);
+    const isRotatingRef = useRef(false);
+    const rotateOffsetRef = useRef(0);
+    const rotateHandleAngleRef = useRef(0);
     const ctrlHeldRef = useRef(false);
     const lastPointerClientRef = useRef({ x: 0, y: 0 });
     const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -107,6 +111,18 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
 
     const sizeInPixels = marker.sizeInFeet * effectiveGridSize / 5;
     const adjustedSizeInPixels = sizeInPixels;
+
+    const getRotationPivot = useCallback((): { x: number; y: number } => {
+        const center = positionRef.current;
+        if (marker.shape === 'line') {
+            const rotRad = (marker.rotation * Math.PI) / 180;
+            return {
+                x: center.x - (adjustedSizeInPixels / 2) * Math.cos(rotRad),
+                y: center.y - (adjustedSizeInPixels / 2) * Math.sin(rotRad),
+            };
+        }
+        return center;
+    }, [marker.shape, marker.rotation, adjustedSizeInPixels]);
 
     useEffect(() => {
         if (marker.effectId && aoeEffectTheme !== 'none') {
@@ -286,6 +302,50 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         [marker, getContainerRect, gridCellsX, gridCellsY, throttledUpdate, aoeSnapToGrid]
     );
 
+    const applyRotateAtClient = useCallback(
+        (clientX: number, clientY: number) => {
+            const containerRect = getContainerRect();
+            const pivot = getRotationPivot();
+            const pointerX = clientX - containerRect.left;
+            const pointerY = clientY - containerRect.top;
+            const pointerAngleDeg =
+                Math.atan2(pointerY - pivot.y, pointerX - pivot.x) * (180 / Math.PI);
+            let newRotation =
+                pointerAngleDeg - rotateHandleAngleRef.current + rotateOffsetRef.current;
+            newRotation = ((newRotation % 360) + 360) % 360;
+
+            onUpdate({
+                ...marker,
+                rotation: Math.round(newRotation),
+            });
+        },
+        [marker, onUpdate, getContainerRect, getRotationPivot]
+    );
+
+    const handleRotateMove = useCallback(
+        (e: MouseEvent) => {
+            if (!isRotatingRef.current) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+            applyRotateAtClient(e.clientX, e.clientY);
+        },
+        [applyRotateAtClient]
+    );
+
+    const handleRotateUp = useCallback(
+        (e: MouseEvent) => {
+            if (!isRotatingRef.current) return;
+
+            e.preventDefault();
+            applyRotateAtClient(e.clientX, e.clientY);
+            setIsRotating(false);
+            isRotatingRef.current = false;
+            document.body.classList.remove('dragging-aoe');
+        },
+        [applyRotateAtClient]
+    );
+
     const handleMouseMove = useCallback(
         (e: MouseEvent) => {
             if (!isDraggingRef.current) return;
@@ -342,15 +402,35 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     );
 
     useEffect(() => {
-        const handleGlobalMouseMove = (e: MouseEvent) => handleMouseMove(e);
-        const handleGlobalMouseUp = (e: MouseEvent) => handleMouseUp(e);
-        const handleGlobalKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape' && isDraggingRef.current) {
-                setIsDragging(false);
-                isDraggingRef.current = false;
-                ctrlHeldRef.current = false;
-                document.body.classList.remove('dragging-aoe');
+        const handleGlobalMouseMove = (e: MouseEvent) => {
+            if (isRotatingRef.current) {
+                handleRotateMove(e);
                 return;
+            }
+            handleMouseMove(e);
+        };
+        const handleGlobalMouseUp = (e: MouseEvent) => {
+            if (isRotatingRef.current) {
+                handleRotateUp(e);
+                return;
+            }
+            handleMouseUp(e);
+        };
+        const handleGlobalKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                if (isRotatingRef.current) {
+                    setIsRotating(false);
+                    isRotatingRef.current = false;
+                    document.body.classList.remove('dragging-aoe');
+                    return;
+                }
+                if (isDraggingRef.current) {
+                    setIsDragging(false);
+                    isDraggingRef.current = false;
+                    ctrlHeldRef.current = false;
+                    document.body.classList.remove('dragging-aoe');
+                    return;
+                }
             }
             if (
                 isDraggingRef.current &&
@@ -389,16 +469,39 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             window.removeEventListener('keyup', handleGlobalKeyUp);
             document.body.classList.remove('dragging-aoe');
         };
-    }, [handleMouseMove, handleMouseUp, applyDragAtClient, aoeSnapToGrid]);
+    }, [handleMouseMove, handleMouseUp, handleRotateMove, handleRotateUp, applyDragAtClient, aoeSnapToGrid]);
 
     useEffect(() => {
         isDraggingRef.current = isDragging;
-        if (isDragging) {
+        if (isDragging || isRotating) {
             document.body.classList.add('dragging-aoe');
         } else {
             document.body.classList.remove('dragging-aoe');
         }
-    }, [isDragging]);
+    }, [isDragging, isRotating]);
+
+    const handleRotateHandleMouseDown = (
+        e: React.MouseEvent,
+        handleLocalAngleDeg: number,
+    ) => {
+        if (!isActive || !isAdmin) return;
+
+        e.stopPropagation();
+        e.preventDefault();
+
+        const containerRect = getContainerRect();
+        const pivot = getRotationPivot();
+        const pointerX = e.clientX - containerRect.left;
+        const pointerY = e.clientY - containerRect.top;
+        const pointerAngleDeg =
+            Math.atan2(pointerY - pivot.y, pointerX - pivot.x) * (180 / Math.PI);
+
+        rotateHandleAngleRef.current = handleLocalAngleDeg;
+        rotateOffsetRef.current = marker.rotation - pointerAngleDeg + handleLocalAngleDeg;
+        setIsRotating(true);
+        isRotatingRef.current = true;
+        document.body.classList.add('dragging-aoe');
+    };
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (!isActive || !isAdmin) return;
@@ -475,20 +578,107 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             : adjustedSizeInPixels;
 
     const effectWidth = adjustedSizeInPixels;
+    const isCone = marker.shape === 'cone';
+    const isLine = marker.shape === 'line';
+    const isDirectional = isCone || isLine;
 
-    const shapeBoundsStyle: React.CSSProperties =
-        marker.shape === 'cone'
-            ? {
-                  position: 'relative',
-                  width: `${effectWidth}px`,
-                  height: `${effectHeight}px`,
-                  transform: 'translateX(-50%)',
-              }
-            : {
-                  position: 'relative',
-                  width: `${effectWidth}px`,
-                  height: `${effectHeight}px`,
-              };
+    const shapeBoundsStyle: React.CSSProperties = {
+        position: 'relative',
+        width: `${effectWidth}px`,
+        height: `${effectHeight}px`,
+    };
+
+    const conePivotStyle: React.CSSProperties = {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width: effectWidth,
+        height: effectHeight,
+        transform: `translate(-50%, 0) rotate(${marker.rotation}deg)`,
+        transformOrigin: '50% 0%',
+    };
+
+    const linePivotStyle: React.CSSProperties = {
+        position: 'absolute',
+        left: -effectWidth / 2,
+        top: -effectHeight / 2,
+        width: effectWidth,
+        height: effectHeight,
+        transform: `rotate(${marker.rotation}deg)`,
+        transformOrigin: '0% 50%',
+    };
+
+    const baseCenterHandleAngleDeg = Math.atan2(effectHeight, 0) * (180 / Math.PI);
+    const lineEndHandleAngleDeg = 0;
+    const showDirectionalRotationHandles = isAdmin && isActive && isDirectional;
+
+    const renderDirectionalRotationHandles = () => {
+        if (!showDirectionalRotationHandles) return null;
+
+        const rotateHandleClass =
+            'absolute z-20 h-3 w-3 rounded-full border-2 border-white shadow transition-opacity cursor-grab active:cursor-grabbing';
+        const pivotDotClass =
+            'pointer-events-none absolute z-20 h-2 w-2 rounded-full border border-black/60 bg-white shadow-sm';
+        const handleOpacity = isHovered || isRotating || isDragging ? 1 : 0.75;
+
+        if (isCone) {
+            return (
+                <>
+                    <div
+                        className={pivotDotClass}
+                        style={{
+                            left: effectWidth / 2,
+                            top: 0,
+                            transform: 'translate(-50%, -50%)',
+                        }}
+                        title="Rotation pivot"
+                    />
+                    <div
+                        className={rotateHandleClass}
+                        style={{
+                            backgroundColor: marker.color,
+                            opacity: handleOpacity,
+                            left: effectWidth / 2,
+                            top: effectHeight,
+                            transform: 'translate(-50%, -50%)',
+                        }}
+                        title="Drag to rotate"
+                        onMouseDown={(e) =>
+                            handleRotateHandleMouseDown(e, baseCenterHandleAngleDeg)
+                        }
+                    />
+                </>
+            );
+        }
+
+        return (
+            <>
+                <div
+                    className={pivotDotClass}
+                    style={{
+                        left: 0,
+                        top: effectHeight / 2,
+                        transform: 'translate(-50%, -50%)',
+                    }}
+                    title="Rotation pivot"
+                />
+                <div
+                    className={rotateHandleClass}
+                    style={{
+                        backgroundColor: marker.color,
+                        opacity: handleOpacity,
+                        left: effectWidth,
+                        top: effectHeight / 2,
+                        transform: 'translate(-50%, -50%)',
+                    }}
+                    title="Drag to rotate"
+                    onMouseDown={(e) =>
+                        handleRotateHandleMouseDown(e, lineEndHandleAngleDeg)
+                    }
+                />
+            </>
+        );
+    };
 
     const renderEffectSprite = () => {
         if (!marker.effectId || aoeEffectTheme === 'none') {
@@ -668,36 +858,11 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         return null;
     }
 
-    return (
-        <div
-            ref={markerRef}
-            className={`absolute select-none ${highlightAnimation ? 'highlighted-marker' : ''}`}
-            style={{
-                position: 'absolute',
-                left: `${currentPos.x}px`,
-                top: `${currentPos.y}px`,
-                width: marker.shape !== 'cone' ? effectWidth : undefined,
-                height: marker.shape !== 'cone' ? effectHeight : undefined,
-                transform: marker.shape === 'cone'
-                    ? `rotate(${marker.rotation}deg)`
-                    : `translate(-50%, -50%) rotate(${marker.rotation}deg)`,
-                transformOrigin: marker.shape === 'cone' ? 'center top' : 'center',
-                cursor: isActive && isAdmin ? (isDragging ? 'grabbing' : 'grab') : 'default',
-                pointerEvents: isActive ? 'auto' : 'none',
-                zIndex: isDragging ? 900 : 500,
-                touchAction: 'none'
-            }}
-            title={canOpenStagedMenu ? 'Right-click for trigger / reset' : undefined}
-            onMouseDown={handleMouseDown}
-            onContextMenu={handleContextMenu}
-            onWheel={handleWheel}
-            onDoubleClick={handleDoubleClick}
-            onMouseEnter={() => !isDragging && setIsHovered(true)}
-            onMouseLeave={() => !isDragging && setIsHovered(false)}
-        >
+    const markerContent = (
+        <>
             {highlightAnimation && (
                 <div key={highlightRippleKey}>
-                    {marker.shape === 'cone' ? (
+                    {isCone ? (
                         <svg
                             className="animate-ripple-cone-1"
                             width={adjustedSizeInPixels}
@@ -706,7 +871,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                                 position: 'absolute',
                                 top: 0,
                                 left: 0,
-                                transform: 'translateX(-50%)',
                             }}
                             viewBox={`${-adjustedSizeInPixels * 0.1} ${-adjustedSizeInPixels * 0.1} ${adjustedSizeInPixels * 1.2} ${adjustedSizeInPixels * 1.2 + 30}`}
                         >
@@ -732,7 +896,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                         />
                     )}
 
-                    {marker.shape === 'cone' ? (
+                    {isCone ? (
                         <svg
                             className="animate-ripple-cone-2"
                             width={adjustedSizeInPixels}
@@ -741,7 +905,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                                 position: 'absolute',
                                 top: 0,
                                 left: 0,
-                                transform: 'translateX(-50%)',
                             }}
                             viewBox={`${-adjustedSizeInPixels * 0.2} ${-adjustedSizeInPixels * 0.2} ${adjustedSizeInPixels * 1.4} ${adjustedSizeInPixels * 1.4 + 30}`}
                         >
@@ -767,7 +930,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                         />
                     )}
 
-                    {marker.shape === 'cone' ? (
+                    {isCone ? (
                         <svg
                             className="animate-ripple-cone-3"
                             width={adjustedSizeInPixels}
@@ -776,7 +939,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                                 position: 'absolute',
                                 top: 0,
                                 left: 0,
-                                transform: 'translateX(-50%)',
                             }}
                             viewBox={`${-adjustedSizeInPixels * 0.3} ${-adjustedSizeInPixels * 0.3} ${adjustedSizeInPixels * 1.6} ${adjustedSizeInPixels * 1.6 + 30}`}
                         >
@@ -805,12 +967,71 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             )}
 
             {isAdmin && showSizeIndicator && (
-                <div className={`absolute ${marker.shape === 'cone' ? 'bottom-0 left-0 translate-y-full ml-2' : 'bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full'} mt-1 px-2 py-1 bg-black/80 text-white text-xs rounded pointer-events-none`}>
+                <div className={`absolute ${isCone ? 'bottom-0 left-1/2 -translate-x-1/2 translate-y-full' : 'bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full'} mt-1 px-2 py-1 bg-black/80 text-white text-xs rounded pointer-events-none`}>
                     {marker.sizeInFeet}′
                 </div>
             )}
 
             {renderShape()}
+
+            {renderDirectionalRotationHandles()}
+
+            {marker.label && (
+                <div
+                    className="absolute px-2 py-1 bg-black/70 text-white text-xs rounded pointer-events-none"
+                    style={{
+                        whiteSpace: 'nowrap',
+                        top: `${effectHeight + 4}px`,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                    }}
+                >
+                    {marker.label}
+                </div>
+            )}
+        </>
+    );
+
+    return (
+        <div
+            ref={markerRef}
+            className={`absolute select-none ${highlightAnimation ? 'highlighted-marker' : ''}`}
+            style={{
+                position: 'absolute',
+                left: `${currentPos.x}px`,
+                top: `${currentPos.y}px`,
+                width: isDirectional ? 0 : effectWidth,
+                height: isDirectional ? 0 : effectHeight,
+                transform: isDirectional
+                    ? undefined
+                    : `translate(-50%, -50%) rotate(${marker.rotation}deg)`,
+                transformOrigin: isDirectional ? undefined : 'center',
+                cursor: isActive && isAdmin
+                    ? (isDragging || isRotating ? 'grabbing' : 'grab')
+                    : 'default',
+                pointerEvents: isActive ? 'auto' : 'none',
+                zIndex: isDragging || isRotating ? 900 : 500,
+                touchAction: 'none'
+            }}
+            title={canOpenStagedMenu ? 'Right-click for trigger / reset' : undefined}
+            onMouseDown={handleMouseDown}
+            onContextMenu={handleContextMenu}
+            onWheel={handleWheel}
+            onDoubleClick={handleDoubleClick}
+            onMouseEnter={() => !isDragging && setIsHovered(true)}
+            onMouseLeave={() => !isDragging && setIsHovered(false)}
+        >
+            {isCone ? (
+                <div style={conePivotStyle}>
+                    {markerContent}
+                </div>
+            ) : isLine ? (
+                <div style={linePivotStyle}>
+                    {markerContent}
+                </div>
+            ) : (
+                markerContent
+            )}
 
             {contextMenu &&
                 isAdmin &&
@@ -844,20 +1065,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                     </div>,
                     document.body,
                 )}
-
-            {marker.label && (
-                <div
-                    className="absolute px-2 py-1 bg-black/70 text-white text-xs rounded pointer-events-none"
-                    style={{
-                        whiteSpace: 'nowrap',
-                        top: `${effectHeight + 4}px`,
-                        left: marker.shape === 'cone' ? '0' : '50%',
-                        transform: marker.shape === 'cone' ? 'translateX(-50%)' : 'translateX(-50%)',
-                    }}
-                >
-                    {marker.label}
-                </div>
-            )}
 
             <style jsx>{`
                 @keyframes ripple-1 {
