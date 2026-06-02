@@ -5,6 +5,7 @@ import { Scene as SceneType, MapData, AoEMarker as AoEMarkerType, FogOfWar as Fo
 import { Map } from './Map';
 import { websocketService } from '@/services/websocket';
 import { UploadDialog } from './UploadDialog';
+import { MapUploadCompleteResult } from './MapUploadDialog';
 import { Button } from '@/components/ui/button';
 import {
     LayoutGrid,
@@ -258,169 +259,127 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         });
     };
 
-    const handleMapSelect = async (mapName: string | null) => {
-        console.log("Map selected:", mapName);
+    const createMapDataForScene = (
+        mapName: string,
+        mapInfo?: { folder?: string | null }
+    ): MapData => {
+        const gridCellsX = scene.gridSettings.gridCellsX || 32;
+        const gridCellsY = scene.gridSettings.gridCellsY || 18;
+        const centerGridX = Math.floor(gridCellsX / 2);
+        const centerGridY = Math.floor(gridCellsY / 2);
 
-        if (!mapName) {
-            // Just clear the selection
-            const updatedScene = {
-                ...scene,
-                activeMapId: null
-            };
-            setScene(updatedScene);
-            websocketService.send({
-                type: 'scene_update',
-                scene: updatedScene
-            });
-            return;
-        }
+        return {
+            name: mapName,
+            folder: mapInfo?.folder ?? undefined,
+            data: {
+                position: { x: centerGridX, y: centerGridY },
+                useGridCoordinates: true,
+                useGridScaling: true,
+                scale: 1,
+                rotation: 0,
+                isHidden: false,
+            },
+        };
+    };
 
-        // Check if the map already exists in the scene
-        const mapExists = scene.maps.some(m => m.name === mapName);
-        console.log("Map exists in scene:", mapExists);
+    const addMapsToScene = async (mapNames: string[]) => {
+        const uniqueNames = [...new Set(mapNames.filter(Boolean))];
+        if (uniqueNames.length === 0) return;
 
-        if (mapExists) {
-            // If it exists, just select it
-            const updatedScene = {
-                ...scene,
-                activeMapId: mapName
-            };
-            setScene(updatedScene);
-            websocketService.send({
-                type: 'scene_update',
-                scene: updatedScene
-            });
-            console.log("Selected existing map:", mapName);
-        } else {
-            // If not, fetch the map data and add it to the scene
-            try {
-                console.log("Fetching data for new map:", mapName);
+        const namesToAdd = uniqueNames.filter(
+            (name) => !scene.maps.some((m) => m.name === name)
+        );
 
-                // First fetch all map details including folder structure
+        try {
+            let mapsToAppend: MapData[] = [];
+
+            if (namesToAdd.length > 0) {
                 const API_BASE_URL = getApiUrl();
                 const listResponse = await fetch(`${API_BASE_URL}/maps/list`);
                 if (!listResponse.ok) throw new Error('Failed to fetch map list');
 
                 const listData = await listResponse.json();
-                console.log("All available maps:", listData.maps);
+                const libraryMaps: { name: string; folder?: string | null }[] =
+                    listData.maps || [];
 
-                const mapInfo = listData.maps.find((m: { name: string, folder?: string }) => m.name === mapName);
-                console.log("Found map info:", mapInfo);
-
-                if (!mapInfo) throw new Error(`Map ${mapName} not found`);
-
-                // Determine grid dimensions and calculate center cell
-                const gridCellsX = scene.gridSettings.gridCellsX || 32;
-                const gridCellsY = scene.gridSettings.gridCellsY || 18;
-
-                // Calculate center position in grid cells
-                // The gridCoordsToPixel function will add the 0.5 offset to center in cells
-                const centerGridX = Math.floor(gridCellsX / 2);
-                const centerGridY = Math.floor(gridCellsY / 2);
-
-                const newMap: MapData = {
-                    name: mapName,
-                    folder: mapInfo.folder,
-                    data: {
-                        position: { x: centerGridX, y: centerGridY },
-                        useGridCoordinates: true,
-                        useGridScaling: true, // Enable grid scaling for new maps
-                        scale: 1,
-                        rotation: 0,
-                        isHidden: false
+                const notFound: string[] = [];
+                for (const mapName of namesToAdd) {
+                    const mapInfo = libraryMaps.find((m) => m.name === mapName);
+                    if (!mapInfo) {
+                        notFound.push(mapName);
+                        continue;
                     }
-                };
-
-                console.log("Adding new map to scene with grid coordinates:", newMap);
-
-                // Add it to the scene
-                const updatedScene = {
-                    ...scene,
-                    maps: [...scene.maps, newMap],
-                    activeMapId: mapName
-                };
-
-                setScene(updatedScene);
-                websocketService.send({
-                    type: 'scene_update',
-                    scene: updatedScene
-                });
-
-                toast({
-                    title: "Map Added",
-                    description: `Map "${mapName}" added to scene`,
-                    duration: 3000,
-                });
-            } catch (error) {
-                console.error('Error adding map to scene:', error);
-                toast({
-                    title: "Error",
-                    description: "Failed to add map to scene. Please try again.",
-                    variant: "destructive",
-                    duration: 3000,
-                });
-            }
-        }
-    };
-
-    const handleUpload = async (file: File) => {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        try {
-            const API_BASE_URL = getApiUrl();
-            const response = await fetch(`${API_BASE_URL}/maps/upload`, {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!response.ok) {
-                throw new Error('Upload failed');
-            }
-
-            const data = await response.json();
-
-            // Determine grid dimensions and calculate center cell
-            const gridCellsX = scene.gridSettings.gridCellsX || 18;
-            const gridCellsY = scene.gridSettings.gridCellsY || 32;
-
-            // Calculate center position in grid cells
-            // The gridCoordsToPixel function will add the 0.5 offset to center in cells
-            const centerGridX = Math.floor(gridCellsX / 2);
-            const centerGridY = Math.floor(gridCellsY / 2);
-
-            const newMap: MapData = {
-                name: data.filename,
-                data: {
-                    position: { x: centerGridX, y: centerGridY },
-                    useGridCoordinates: true,
-                    useGridScaling: true, // Enable grid scaling for new maps
-                    scale: 1,
-                    rotation: 0,
-                    isHidden: false
+                    mapsToAppend.push(createMapDataForScene(mapName, mapInfo));
                 }
-            };
 
+                if (notFound.length > 0) {
+                    toast({
+                        title: 'Warning',
+                        description: `Map(s) not found in library: ${notFound.join(', ')}`,
+                        variant: 'destructive',
+                        duration: 3000,
+                    });
+                }
+            }
+
+            const activeMapId = uniqueNames[uniqueNames.length - 1];
             const updatedScene = {
                 ...scene,
-                maps: [...scene.maps, newMap],
-                activeMapId: newMap.name
+                maps: [...scene.maps, ...mapsToAppend],
+                activeMapId,
             };
 
             setScene(updatedScene);
             websocketService.send({
                 type: 'scene_update',
-                scene: updatedScene
+                scene: updatedScene,
             });
+
+            if (mapsToAppend.length > 0) {
+                toast({
+                    title: 'Maps Added',
+                    description:
+                        mapsToAppend.length === 1
+                            ? `Map "${mapsToAppend[0].name}" added to scene`
+                            : `${mapsToAppend.length} maps added to scene`,
+                    duration: 3000,
+                });
+            }
         } catch (error) {
-            console.error('Error uploading map:', error);
+            console.error('Error adding maps to scene:', error);
             toast({
-                title: "Error",
-                description: "Failed to upload map. Please try again.",
-                variant: "destructive",
+                title: 'Error',
+                description: 'Failed to add maps to scene. Please try again.',
+                variant: 'destructive',
                 duration: 3000,
             });
         }
+    };
+
+    const handleMapsAdd = (mapNames: string[]) => {
+        void addMapsToScene(mapNames);
+    };
+
+    const handleMapSelect = async (mapName: string | null) => {
+        if (!mapName) {
+            const updatedScene = {
+                ...scene,
+                activeMapId: null,
+            };
+            setScene(updatedScene);
+            websocketService.send({
+                type: 'scene_update',
+                scene: updatedScene,
+            });
+            return;
+        }
+
+        await addMapsToScene([mapName]);
+    };
+
+    const handleUpload = async (results: MapUploadCompleteResult[]) => {
+        if (results.length === 0) return;
+        await addMapsToScene(results.map((r) => r.filename));
     };
 
     const handleSaveScene = async (name: string, isSaveAs: boolean = false) => {
@@ -1225,7 +1184,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             onClick={() => setIsUploadOpen(true)}
                         >
                             <Upload className="h-4 w-4" />
-                            <span className="text-xs">Upload Map</span>
+                            <span className="text-xs">Upload Maps</span>
                         </Button>
                     </div>
                 )}
@@ -1318,6 +1277,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     <MapListSidebar
                         scene={scene}
                         onMapSelect={handleMapSelect}
+                        onMapsAdd={handleMapsAdd}
                         onMapVisibilityToggle={handleMapVisibilityToggle}
                         onMapAdd={() => setIsUploadOpen(true)}
                         onMapsReorder={handleMapsReorder}

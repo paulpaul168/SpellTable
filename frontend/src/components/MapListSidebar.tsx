@@ -106,6 +106,7 @@ interface MapListSidebarProps {
         activeMapId: string | null;
     };
     onMapSelect: (mapName: string | null) => void;
+    onMapsAdd: (mapNames: string[]) => void;
     onMapVisibilityToggle: (mapName: string) => void;
     onMapAdd: () => void;
     onMapsReorder: (newMaps: MapData[]) => void;
@@ -120,6 +121,7 @@ interface MapListSidebarProps {
 export const MapListSidebar: React.FC<MapListSidebarProps> = ({
     scene,
     onMapSelect,
+    onMapsAdd,
     onMapVisibilityToggle,
     onMapAdd,
     onMapsReorder,
@@ -231,8 +233,8 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
             <MapManagement
                 isOpen={isMapManagementOpen}
                 onClose={() => setIsMapManagementOpen(false)}
-                onMapSelect={(mapName) => {
-                    onMapSelect(mapName);
+                onMapsAdd={(mapNames) => {
+                    onMapsAdd(mapNames);
                     setIsMapManagementOpen(false);
                 }}
                 onRefreshMaps={onMapRefresh}
