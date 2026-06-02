@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Scene as SceneType, MapData, AoEMarker as AoEMarkerType, FogOfWar as FogOfWarType } from '../types/map';
 import { Map } from './Map';
 import { websocketService } from '@/services/websocket';
@@ -48,53 +48,11 @@ import { InitiativeIndicator } from './InitiativeIndicator';
 import { AoEMarker } from './AoEMarker';
 import { AoEPalette } from './AoEPalette';
 import { FogOfWar } from './FogOfWar';
-
-/** Convert AoE markers when toggling snap: grid cell indices ↔ pixel centers. */
-function adaptAoEMarkersSnap(
-    markers: AoEMarkerType[] | undefined,
-    enableSnap: boolean,
-    gridCellsX: number,
-    gridCellsY: number
-): AoEMarkerType[] {
-    if (!markers?.length) return markers || [];
-    const cw = window.innerWidth / gridCellsX;
-    const ch = window.innerHeight / gridCellsY;
-    if (enableSnap) {
-        return markers.map((m) => {
-            if (!m.useGridCoordinates) {
-                return {
-                    ...m,
-                    position: {
-                        x: Math.floor(m.position.x / cw),
-                        y: Math.floor(m.position.y / ch),
-                    },
-                    useGridCoordinates: true,
-                };
-            }
-            return {
-                ...m,
-                position: {
-                    x: Math.floor(m.position.x),
-                    y: Math.floor(m.position.y),
-                },
-                useGridCoordinates: true,
-            };
-        });
-    }
-    return markers.map((m) => {
-        if (m.useGridCoordinates) {
-            return {
-                ...m,
-                position: {
-                    x: (m.position.x + 0.5) * cw,
-                    y: (m.position.y + 0.5) * ch,
-                },
-                useGridCoordinates: false,
-            };
-        }
-        return m;
-    });
-}
+import {
+    adaptAoEMarkersSnap,
+    getPlayAreaRect,
+    migrateAoEMarkers,
+} from '@/utils/aoeCoordinates';
 import { FogOfWarPalette } from './FogOfWarPalette';
 import { DisplayCalculator } from './DisplayCalculator';
 import { BackupDialog } from './BackupDialog';
@@ -104,6 +62,17 @@ import { UserManagementDialog } from './UserManagementDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import {getApiUrl} from "@/utils/api";
 import {MonsterManagementDialog} from "@/components/MonsterManagementDialog";
+
+function withMigratedAoEMarkers(
+    scene: SceneType,
+    container: HTMLElement | null
+): SceneType {
+    const rect = getPlayAreaRect(container);
+    return {
+        ...scene,
+        aoeMarkers: migrateAoEMarkers(scene.aoeMarkers, rect),
+    };
+}
 
 interface SceneProps {
     initialScene?: SceneType;
@@ -199,6 +168,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
     // Remove display scale functionality, using fixed 1.0 scale
     const displayScale = 1.0;
+    const playAreaRef = useRef<HTMLDivElement>(null);
+
+    const applySceneWithAoEMigration = useCallback(
+        (nextScene: SceneType): SceneType =>
+            withMigratedAoEMarkers(nextScene, playAreaRef.current),
+        []
+    );
 
     useEffect(() => {
         websocketService.connect();
@@ -237,15 +213,17 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     }
                 }
 
-                setScene({
-                    ...data.scene,
-                    gridSettings: data.scene.gridSettings || {
-                        showGrid: true,
-                        gridSize: 50
-                    },
-                    aoeMarkers: data.scene.aoeMarkers || [],
-                    fogOfWar: data.scene.fogOfWar || []
-                });
+                setScene(
+                    applySceneWithAoEMigration({
+                        ...data.scene,
+                        gridSettings: data.scene.gridSettings || {
+                            showGrid: true,
+                            gridSize: 50
+                        },
+                        aoeMarkers: data.scene.aoeMarkers || [],
+                        fogOfWar: data.scene.fogOfWar || []
+                    })
+                );
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
             } else if (data.type === 'ripple_viewer_ready') {
@@ -660,11 +638,15 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             }) : [];
 
             if (!willSnap) {
+                const gridCellsX =
+                    newGridSettings.gridCellsX || scene.gridSettings.gridCellsX || 25;
+                const gridCellsY =
+                    newGridSettings.gridCellsY || scene.gridSettings.gridCellsY || 13;
                 updatedMarkers = updatedMarkers.map((m) => ({
                     ...m,
                     position: {
-                        x: (m.position.x + 0.5) * cellWidth,
-                        y: (m.position.y + 0.5) * cellHeight,
+                        x: (m.position.x + 0.5) / gridCellsX,
+                        y: (m.position.y + 0.5) / gridCellsY,
                     },
                     useGridCoordinates: false,
                 }));
@@ -993,18 +975,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         const centerGridY = Math.floor(gridCellsY / 2);
 
         const aoeSnapToGrid = scene.gridSettings.aoeSnapToGrid !== false;
-        const cellWidth = window.innerWidth / gridCellsX;
-        const cellHeight = window.innerHeight / gridCellsY;
 
         const newMarker: AoEMarkerType = {
             ...markerData,
             id: Date.now().toString(),
             position: aoeSnapToGrid
                 ? { x: centerGridX, y: centerGridY }
-                : {
-                    x: (centerGridX + 0.5) * cellWidth,
-                    y: (centerGridY + 0.5) * cellHeight,
-                },
+                : { x: 0.5, y: 0.5 },
             useGridCoordinates: aoeSnapToGrid
         };
 
@@ -1228,7 +1205,11 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     return (
         <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
             {/* Main Content */}
-            <div className="flex-1 relative w-full h-full overflow-hidden" style={{ height: '100%', width: '100%', margin: 0, padding: 0 }}>
+            <div
+                ref={playAreaRef}
+                className="flex-1 relative w-full h-full overflow-hidden"
+                style={{ height: '100%', width: '100%', margin: 0, padding: 0 }}
+            >
                 {(!scene.maps || scene.maps.length === 0) && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-4">
                         <div className="p-4 rounded-xl bg-zinc-900/30">
@@ -1288,6 +1269,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             scale={displayScale}
                             gridSettings={scene.gridSettings}
                             isHighlighted={marker.id === highlightedMarkerId}
+                            containerRef={playAreaRef}
                         />
                     ))}
                 </div>

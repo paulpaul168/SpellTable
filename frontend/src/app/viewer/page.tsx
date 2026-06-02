@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Scene as SceneType } from '../../types/map';
 import { Map } from '../../components/Map';
 import { websocketService } from '../../services/websocket';
@@ -11,6 +11,18 @@ import { RippleViewer } from '../../components/RippleViewer';
 import { ProtectedRoute } from '../../components/ProtectedRoute';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/button';
+import { getPlayAreaRect, migrateAoEMarkers } from '@/utils/aoeCoordinates';
+
+function withMigratedAoEMarkers(
+    scene: SceneType,
+    container: HTMLElement | null
+): SceneType {
+    const rect = getPlayAreaRect(container);
+    return {
+        ...scene,
+        aoeMarkers: migrateAoEMarkers(scene.aoeMarkers, rect),
+    };
+}
 
 const initialScene: SceneType = {
     id: 'default',
@@ -40,6 +52,13 @@ export default function ViewerPage() {
 
     // Use fixed 1.0 scale to match admin view exactly
     const displayScale = 1.0;
+    const playAreaRef = useRef<HTMLDivElement>(null);
+
+    const applySceneWithAoEMigration = useCallback(
+        (nextScene: SceneType): SceneType =>
+            withMigratedAoEMarkers(nextScene, playAreaRef.current),
+        []
+    );
 
     useEffect(() => {
         websocketService.connect();
@@ -71,7 +90,7 @@ export default function ViewerPage() {
                     }));
                 }
 
-                setScene(updatedScene);
+                setScene(applySceneWithAoEMigration(updatedScene));
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
             } else if (data.type === 'display_scale_update') {
@@ -162,6 +181,7 @@ export default function ViewerPage() {
             >
                 {/* Main Content */}
                 <div
+                    ref={playAreaRef}
                     className="flex-1 relative w-full h-full overflow-hidden"
                     style={{
                         height: '100%',
@@ -213,6 +233,7 @@ export default function ViewerPage() {
                                 scale={displayScale}
                                 gridSettings={scene.gridSettings}
                                 isHighlighted={marker.id === highlightedMarkerId}
+                                containerRef={playAreaRef}
                             />
                         ))}
                     </div>
