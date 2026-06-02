@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import {
     LayoutGrid,
     Users,
-    ChevronDown,
     Upload,
     Save,
     Image as ImageIcon,
@@ -27,8 +26,20 @@ import {
     RotateCw,
     UserPlus,
     Shield,
-    BookOpen, Skull
+    BookOpen,
+    Skull,
+    Menu,
+    Map as MapIcon,
+    Cloud,
 } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { GameboardDock } from '@/components/gameboard/GameboardDock';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -94,27 +105,18 @@ const SceneOperationStatusDialog: React.FC<SceneOperationStatusDialogProps> = ({
     type,
     message,
 }) => {
-    if (!isOpen) return null;
+    const title =
+        type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info';
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">
-                        {type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info'}
-                    </h3>
-                    <button
-                        onClick={onClose}
-                        className="text-gray-500 hover:text-gray-700"
-                    >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-                <p className="text-gray-700">{message}</p>
-            </div>
-        </div>
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{message}</DialogDescription>
+                </DialogHeader>
+            </DialogContent>
+        </Dialog>
     );
 };
 
@@ -1162,7 +1164,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     };
 
     return (
-        <div className="flex h-screen bg-zinc-950 overflow-hidden" style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
+        <div className="dark flex h-dvh w-dvw overflow-hidden bg-gameboard">
             {/* Main Content */}
             <div
                 ref={playAreaRef}
@@ -1170,22 +1172,28 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 style={{ height: '100%', width: '100%', margin: 0, padding: 0 }}
             >
                 {(!scene.maps || scene.maps.length === 0) && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center space-y-4">
-                        <div className="p-4 rounded-xl bg-zinc-900/30">
-                            <ImageIcon className="h-8 w-8 text-zinc-700" />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+                        <div className="glass-panel flex max-w-sm flex-col items-center gap-4 rounded-xl p-6">
+                            <div className="rounded-lg bg-muted/50 p-3">
+                                <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-medium text-foreground">
+                                    Welcome to SpellTable
+                                </h3>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    Upload your first map to get started
+                                </p>
+                            </div>
+                            <Button
+                                variant="default"
+                                className="gap-2"
+                                onClick={() => setIsUploadOpen(true)}
+                            >
+                                <Upload className="h-4 w-4" />
+                                Upload Maps
+                            </Button>
                         </div>
-                        <div>
-                            <h3 className="text-sm font-medium text-zinc-300">Welcome to SpellTable</h3>
-                            <p className="text-xs text-zinc-600">Upload your first map to get started</p>
-                        </div>
-                        <Button
-                            variant="outline"
-                            className="gap-2"
-                            onClick={() => setIsUploadOpen(true)}
-                        >
-                            <Upload className="h-4 w-4" />
-                            <span className="text-xs">Upload Maps</span>
-                        </Button>
                     </div>
                 )}
                 {/* Maps Container - Allow individual map z-indices based on their order */}
@@ -1252,7 +1260,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     ))}
                 </div>
 
-                {/* Grid Overlay - Always on top of maps and markers but below UI */}
+                {/* Grid Overlay - above maps/markers, below initiative UI */}
                 {scene.gridSettings?.showGrid && (
                     <div
                         className="absolute inset-0 pointer-events-none"
@@ -1267,6 +1275,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             opacity: scene.gridSettings.gridOpacity || 0.5,
                             zIndex: (scene.maps?.length || 0) + 200,
                         }}
+                    />
+                )}
+
+                {!isAdmin && scene.showCurrentPlayer && (
+                    <InitiativeIndicator
+                        initiativeOrder={scene.initiativeOrder}
+                        showCurrentPlayer={scene.showCurrentPlayer}
                     />
                 )}
             </div>
@@ -1291,21 +1306,6 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 </div>
             )}
 
-            {/* Show Map List Button - Only show when hidden and not in clean layout */}
-            {!isViewerMode && !showMapList && !isCleanLayout && (
-                <div className="absolute top-4 right-4 z-[1000]">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
-                        onClick={() => setShowMapList(true)}
-                    >
-                        <LayoutGrid className="h-4 w-4" />
-                        Show Maps
-                    </Button>
-                </div>
-            )}
-
             {/* GameboardMenu - Only show in normal layout */}
             {!isCleanLayout && (
                 <GameboardMenu connectionStatus={connectionStatus} />
@@ -1313,31 +1313,29 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             {/* Viewer Status Indicator - Only show when viewer is blanked */}
             {isViewerBlanked && (
-                <div className="absolute top-16 right-4 px-3 py-2 bg-red-900/80 backdrop-blur-sm rounded-md border border-red-700/50 z-[1000]">
+                <div className="glass-panel absolute top-4 right-4 z-[1000] rounded-md border-destructive/50 bg-destructive/10 px-3 py-2">
                     <div className="flex items-center gap-2">
-                        <EyeOff className="h-4 w-4 text-red-400" />
-                        <span className="text-xs text-red-400 font-medium">Viewer Blanked</span>
+                        <EyeOff className="h-4 w-4 text-destructive" />
+                        <span className="text-xs font-medium text-destructive">
+                            Viewer Blanked
+                        </span>
                     </div>
                 </div>
             )}
 
-            {/* Viewer Rotation Status Indicator - Only show when viewer is rotated */}
             {isViewerRotated && (
-                <div className="absolute top-16 right-4 px-3 py-2 bg-blue-900/80 backdrop-blur-sm rounded-md border border-blue-700/50 z-[1000]" style={{ top: isViewerBlanked ? '6rem' : '4rem' }}>
+                <div
+                    className={cn(
+                        'glass-panel absolute right-4 z-[1000] rounded-md border-primary/50 bg-primary/10 px-3 py-2',
+                        isViewerBlanked ? 'top-16' : 'top-4'
+                    )}
+                >
                     <div className="flex items-center gap-2">
-                        <RotateCw className="h-4 w-4 text-blue-400" />
-                        <span className="text-xs text-blue-400 font-medium">Viewport Rotated 180°</span>
+                        <RotateCw className="h-4 w-4 text-primary" />
+                        <span className="text-xs font-medium text-primary">
+                            Viewport Rotated 180°
+                        </span>
                     </div>
-                </div>
-            )}
-
-            {/* Current Player Indicator - Only show when not in clean layout */}
-            {!isAdmin && (
-                <div className="!z-[9999]">
-                    <InitiativeIndicator
-                        initiativeOrder={scene.initiativeOrder}
-                        showCurrentPlayer={scene.showCurrentPlayer}
-                    />
                 </div>
             )}
 
@@ -1355,92 +1353,27 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 </div>
             )}
 
-            {/* Show Initiative Button - Only show when hidden and not in clean layout */}
-            {!showInitiative && !isCleanLayout && (
-                <div className="absolute left-4 bottom-4 z-[1000]">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
-                        onClick={() => setShowInitiative(true)}
-                    >
-                        <Users className="h-4 w-4" />
-                        Show Initiative
-                    </Button>
-                </div>
-            )}
-
             {/* Floating Menu Button - Only show in non-viewer mode */}
             {!isViewerMode && (
                 <div className="absolute top-4 left-4 z-[1000]">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className={cn(
-                                "gap-2 bg-zinc-900/80 backdrop-blur-sm",
-                                isCleanLayout && "h-6 w-6 p-0"
-                            )}>
-                                <LayoutGrid className="h-4 w-4" />
+                            <Button
+                                variant="outline"
+                                size={isCleanLayout ? 'icon' : 'sm'}
+                                className={cn('glass-panel', !isCleanLayout && 'gap-2')}
+                            >
+                                <Menu className="h-4 w-4" />
                                 {!isCleanLayout && <span>Menu</span>}
-                                {!isCleanLayout && <ChevronDown className="h-4 w-4" />}
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-64 bg-zinc-900/95 backdrop-blur-sm border-zinc-800 z-[1001]">
-
-
-                            {/* Layout Toggle */}
-                            <DropdownMenuItem
-                                onClick={() => setIsCleanLayout(!isCleanLayout)}
-                                className="flex items-center gap-2"
-                            >
-                                <LayoutGrid className="h-4 w-4" />
-                                {isCleanLayout ? 'Show Full Menu' : 'Clean Layout'}
-                            </DropdownMenuItem>
-
-                            <DropdownMenuSeparator className="bg-zinc-800" />
-
-                            {/* Map List Toggle */}
-                            <DropdownMenuItem
-                                onClick={() => setShowMapList(!showMapList)}
-                                className="flex items-center gap-2"
-                            >
-                                <LayoutGrid className="h-4 w-4" />
-                                {showMapList ? 'Hide Map List' : 'Show Map List'}
-                            </DropdownMenuItem>
-
-                            {/* Initiative Toggle */}
-                            <DropdownMenuItem
-                                onClick={() => setShowInitiative(!showInitiative)}
-                                className="flex items-center gap-2"
-                            >
-                                <Users className="h-4 w-4" />
-                                {showInitiative ? 'Hide Initiative' : 'Show Initiative'}
-                            </DropdownMenuItem>
-
-                            {/* Soundboard Toggle */}
-                            <DropdownMenuItem
-                                onClick={() => setIsSoundboardOpen(!isSoundboardOpen)}
-                                className="flex items-center gap-2"
-                            >
-                                <Music className="h-4 w-4" />
-                                {isSoundboardOpen ? 'Hide Soundboard' : 'Show Soundboard'}
-                            </DropdownMenuItem>
-
-
-                            <DropdownMenuItem
-                                className="text-xs cursor-pointer"
-                                onClick={() => setIsAoEPaletteOpen(!isAoEPaletteOpen)}
-                            >
-                                <Zap className="h-4 w-4 mr-2" />
-                                {isAoEPaletteOpen ? 'Hide AoE Palette' : 'Show AoE Palette'}
-                            </DropdownMenuItem>
-
-                            <DropdownMenuSeparator className="bg-zinc-800" />
+                        <DropdownMenuContent className="glass-panel z-[1001] w-64 border-border/50">
 
                             {/* Scene Management */}
                             <div className="px-2 py-1">
                                 <div className="flex items-center gap-2 px-2 py-1">
-                                    <Settings className="h-4 w-4 text-zinc-400" />
-                                    <span className="text-xs font-medium text-zinc-300">Scene</span>
+                                    <Settings className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-xs font-medium text-foreground">Scene</span>
                                 </div>
                                 <div className="space-y-1 mt-1">
                                     <DropdownMenuItem
@@ -1467,13 +1400,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 </div>
                             </div>
 
-                            <DropdownMenuSeparator className="bg-zinc-800" />
+                            <DropdownMenuSeparator />
 
                             {/* Players Section */}
                             <div className="px-2 py-1">
                                 <div className="flex items-center gap-2 px-2 py-1">
-                                    <Users className="h-4 w-4 text-zinc-400" />
-                                    <span className="text-xs font-medium text-zinc-300">Players</span>
+                                    <Users className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-xs font-medium text-foreground">Players</span>
                                 </div>
                                 <DropdownMenuItem className="text-xs cursor-pointer">
                                     <Users className="h-4 w-4 mr-2" />
@@ -1509,13 +1442,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 </DropdownMenuItem>
                             </div>
 
-                            <DropdownMenuSeparator className="bg-zinc-800" />
+                            <DropdownMenuSeparator />
 
                             {/* Grid Settings */}
                             <div className="px-2 py-1">
                                 <div className="flex items-center gap-2 px-2 py-1">
-                                    <Grid className="h-4 w-4 text-zinc-400" />
-                                    <span className="text-xs font-medium text-zinc-300">Grid</span>
+                                    <Grid className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-xs font-medium text-foreground">Grid</span>
                                 </div>
                                 <div className="space-y-1 mt-1">
                                     <DropdownMenuItem
@@ -1539,14 +1472,14 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 </div>
                             </div>
 
-                            <DropdownMenuSeparator className="bg-zinc-800" />
+                            <DropdownMenuSeparator />
 
                             {/* User Management - Only show for admin users */}
                             {isUserAdmin && (
                                 <div className="px-2 py-1">
                                     <div className="flex items-center gap-2 px-2 py-1">
-                                        <Shield className="h-4 w-4 text-zinc-400" />
-                                        <span className="text-xs font-medium text-zinc-300">Admin</span>
+                                        <Shield className="h-4 w-4 text-muted-foreground" />
+                                        <span className="text-xs font-medium text-foreground">Admin</span>
                                     </div>
                                     <div className="space-y-1 mt-1">
                                         <DropdownMenuItem
@@ -1581,14 +1514,14 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 </div>
                             )}
 
-                            <DropdownMenuSeparator className="bg-zinc-800" />
+                            <DropdownMenuSeparator />
 
                             <DropdownMenuItem onClick={() => setIsBackupDialogOpen(true)}>
                                 <Database className="mr-2 h-4 w-4" />
                                 <span>Backup & Restore</span>
                             </DropdownMenuItem>
 
-                            <DropdownMenuSeparator className="bg-zinc-800" />
+                            <DropdownMenuSeparator />
 
                             {/* Move Everything */}
                             <DropdownMenuItem onClick={() => setIsMoveEverythingOpen(true)}>
@@ -1636,18 +1569,56 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 currentScene={scene}
             />
 
-            {/* Soundboard Toggle Button - Only show when not in clean layout */}
-            {!isViewerMode && !isCleanLayout && (
-                <div className="absolute bottom-4 right-4 z-[1000]">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
-                        onClick={() => setIsSoundboardOpen(!isSoundboardOpen)}
-                    >
-                        <Music className="h-4 w-4" />
-                        {isSoundboardOpen ? 'Hide Soundboard' : 'Show Soundboard'}
-                    </Button>
+            {/* Tool dock */}
+            {!isViewerMode && (
+                <div className="absolute bottom-5 left-1/2 z-[1000] -translate-x-1/2">
+                    <GameboardDock
+                        items={[
+                            {
+                                id: 'initiative',
+                                label: showInitiative ? 'Hide initiative' : 'Show initiative',
+                                icon: <Users className="h-4 w-4" />,
+                                active: showInitiative,
+                                onClick: () => setShowInitiative(!showInitiative),
+                            },
+                            {
+                                id: 'maps',
+                                label: showMapList ? 'Hide maps' : 'Show maps',
+                                icon: <MapIcon className="h-4 w-4" />,
+                                active: showMapList,
+                                onClick: () => setShowMapList(!showMapList),
+                            },
+                            {
+                                id: 'soundboard',
+                                label: isSoundboardOpen ? 'Hide soundboard' : 'Show soundboard',
+                                icon: <Music className="h-4 w-4" />,
+                                active: isSoundboardOpen,
+                                onClick: () => setIsSoundboardOpen(!isSoundboardOpen),
+                            },
+                            {
+                                id: 'aoe',
+                                label: isAoEPaletteOpen ? 'Hide AoE palette' : 'Show AoE palette',
+                                icon: <Zap className="h-4 w-4" />,
+                                active: isAoEPaletteOpen,
+                                onClick: () => setIsAoEPaletteOpen(!isAoEPaletteOpen),
+                            },
+                            {
+                                id: 'fog',
+                                label: isFogOfWarPaletteOpen ? 'Hide fog' : 'Show fog',
+                                icon: <Cloud className="h-4 w-4" />,
+                                active: isFogOfWarPaletteOpen,
+                                onClick: () =>
+                                    setIsFogOfWarPaletteOpen(!isFogOfWarPaletteOpen),
+                            },
+                            {
+                                id: 'layout',
+                                label: isCleanLayout ? 'Full layout' : 'Clean layout',
+                                icon: <LayoutGrid className="h-4 w-4" />,
+                                active: isCleanLayout,
+                                onClick: () => setIsCleanLayout(!isCleanLayout),
+                            },
+                        ]}
+                    />
                 </div>
             )}
 
@@ -1757,29 +1728,6 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 onClose={() => setIsMonsterManagementOpen(false)}
             />
 
-            {/* AoE and Fog of War Palette Toggle Buttons - Only show when not in clean layout */}
-            {!isViewerMode && !isCleanLayout && (
-                <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 z-[1000] flex gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
-                        onClick={() => setIsAoEPaletteOpen(!isAoEPaletteOpen)}
-                    >
-                        <Zap className="h-4 w-4" />
-                        {isAoEPaletteOpen ? 'Hide AoE' : 'Show AoE'}
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2 bg-zinc-900/80 backdrop-blur-sm"
-                        onClick={() => setIsFogOfWarPaletteOpen(!isFogOfWarPaletteOpen)}
-                    >
-                        <Eye className="h-4 w-4" />
-                        {isFogOfWarPaletteOpen ? 'Hide Fog' : 'Show Fog'}
-                    </Button>
-                </div>
-            )}
         </div>
     );
 }; 

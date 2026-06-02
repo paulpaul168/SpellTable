@@ -20,6 +20,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { cn } from '../lib/utils';
+import { GlassPanel } from './gameboard/GlassPanel';
 
 interface InitiativeSidebarProps {
     isAdmin: boolean;
@@ -276,40 +277,65 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                 </Button>
             )}
             {isVisible && (
-                <div className="fixed bottom-0 left-0 w-[320px] min-h-[200px] max-h-[80%] bg-zinc-900/50 backdrop-blur-sm border-t border-zinc-800/50 flex flex-col rounded-tr-lg z-[1000]">
-                    <div className="p-4 border-b border-zinc-800/50">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-sm font-medium text-zinc-300">Initiative</h3>
-                            <div className="flex items-center gap-2">
-                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={moveToPreviousTurn}>
-                                    <ChevronUp className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={moveToNextTurn}>
-                                    <ChevronDown className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0"
-                                    onClick={onToggleCurrentPlayer}
-                                    title={showCurrentPlayer ? "Hide current player indicator" : "Show current player indicator"}
-                                >
-                                    {showCurrentPlayer ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0"
-                                    onClick={onClose}
-                                    title="Close sidebar"
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </div>
-
+                <GlassPanel
+                    title="Initiative"
+                    edge="bottom-left"
+                    onClose={onClose}
+                    headerActions={
+                        <>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={moveToPreviousTurn}
+                                title="Previous turn"
+                            >
+                                <ChevronUp className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={moveToNextTurn}
+                                title="Next turn"
+                            >
+                                <ChevronDown className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={onToggleCurrentPlayer}
+                                title={
+                                    showCurrentPlayer
+                                        ? 'Hide current player indicator'
+                                        : 'Show current player indicator'
+                                }
+                            >
+                                {showCurrentPlayer ? (
+                                    <EyeOff className="h-4 w-4" />
+                                ) : (
+                                    <Eye className="h-4 w-4" />
+                                )}
+                            </Button>
+                        </>
+                    }
+                    footer={
+                        isAdmin && entries.some((entry) => entry.isKilled) ? (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                                onClick={clearKilledEntries}
+                            >
+                                <X className="mr-2 h-4 w-4" />
+                                Clear Killed Entries
+                            </Button>
+                        ) : undefined
+                    }
+                >
                         {isAdmin && (
-                            <div className="space-y-4">
+                            <div className="mb-3 space-y-4 border-b border-border/50 pb-3">
                                 <div className="flex flex-col gap-2">
                                     <div className="flex gap-2">
                                         <div className="flex-1 flex flex-col gap-1">
@@ -352,7 +378,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                         </div>
                                     </div>
 
-                                    <div className="h-px bg-zinc-800/50 my-2" />
+                                    <div className="my-2 h-px bg-border/50" />
 
                                     <div className="flex gap-2">
                                         <div className="flex-1 flex flex-col gap-1">
@@ -398,9 +424,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                 </div>
                             </div>
                         )}
-                    </div>
 
-                    <div className="flex-1 overflow-y-auto p-2 space-y-1">
                         <DndContext
                             sensors={sensors}
                             collisionDetection={closestCenter}
@@ -414,10 +438,12 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                     <div
                                         key={entry.id}
                                         className={cn(
-                                            "flex items-center justify-between p-2 rounded-md",
-                                            entry.isCurrentTurn ? "bg-emerald-500/20" : "hover:bg-zinc-800/50",
-                                            entry.isPlayer ? "text-zinc-300" : "text-red-400",
-                                            entry.isKilled ? "opacity-50" : ""
+                                            'flex min-h-9 items-center justify-between rounded-md border-l-2 p-2 transition-colors',
+                                            entry.isCurrentTurn
+                                                ? 'border-primary bg-accent/20'
+                                                : 'border-transparent hover:bg-accent/10',
+                                            entry.isPlayer ? 'text-foreground' : 'text-destructive',
+                                            entry.isKilled && 'opacity-50'
                                         )}
                                     >
                                         <div className="flex items-center gap-2">
@@ -447,7 +473,9 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                                     />
                                                 </div>
                                             )}
-                                            <span className="text-xs font-mono text-zinc-500">{entry.initiative}</span>
+                                            <span className="font-mono text-xs text-muted-foreground">
+                                                {entry.initiative}
+                                            </span>
                                             {isAdmin && (
                                                 <div className="flex gap-1">
                                                     {entry.isKilled ? (
@@ -483,22 +511,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                 ))}
                             </SortableContext>
                         </DndContext>
-                    </div>
-
-                    {isAdmin && entries.some(entry => entry.isKilled) && (
-                        <div className="p-2 border-t border-zinc-800/50">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="w-full"
-                                onClick={clearKilledEntries}
-                            >
-                                <X className="h-4 w-4 mr-2" />
-                                Clear Killed Entries
-                            </Button>
-                        </div>
-                    )}
-                </div>
+                </GlassPanel>
             )}
         </>
     );

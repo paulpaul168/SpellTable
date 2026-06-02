@@ -41,7 +41,7 @@ export function ConnectionStatus() {
                     icon: <WifiOff className="h-4 w-4" />,
                     label: 'Disconnected',
                     variant: 'secondary' as const,
-                    className: 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700'
+                    className: 'bg-muted text-muted-foreground border-border'
                 };
             case 'error':
                 return {
@@ -62,7 +62,7 @@ export function ConnectionStatus() {
                     icon: <WifiOff className="h-4 w-4" />,
                     label: 'Unknown',
                     variant: 'secondary' as const,
-                    className: 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700'
+                    className: 'bg-muted text-muted-foreground border-border'
                 };
         }
     };

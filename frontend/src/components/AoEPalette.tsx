@@ -20,29 +20,7 @@ import {
     EyeIcon,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-
-// Define a simple slider component since we don't have access to the slider component
-const SimpleSlider: React.FC<{
-    value: number[];
-    min: number;
-    max: number;
-    step: number;
-    onValueChange: (values: number[]) => void;
-    className?: string;
-}> = ({ value, min, max, step, onValueChange, className }) => {
-    return (
-        <input
-            type="range"
-            min={min}
-            max={max}
-            step={step}
-            value={value[0]}
-            onChange={(e) => onValueChange([Number(e.target.value)])}
-            className={className}
-            style={{ width: '100%' }}
-        />
-    );
-};
+import { Slider } from './ui/slider';
 
 interface AoEPaletteProps {
     isOpen: boolean;
@@ -146,10 +124,10 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-[1001] bg-zinc-900/90 backdrop-blur-sm rounded-lg border border-zinc-800 shadow-xl transition-all duration-200 w-72">
+        <div className="glass-panel fixed bottom-20 left-1/2 z-[1001] w-72 -translate-x-1/2 rounded-lg transition-all duration-200">
             {/* Header */}
-            <div className="flex items-center justify-between p-2 border-b border-zinc-800">
-                <h3 className="text-sm font-medium text-zinc-300">AoE Markers</h3>
+            <div className="glass-panel-header flex items-center justify-between py-2">
+                <h3 className="text-sm font-medium text-foreground">AoE Markers</h3>
                 <div className="flex gap-1 ml-auto">
                     <Button
                         variant="ghost"
@@ -165,7 +143,7 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
             {/* Content */}
             <div>
                 {/* Tabs */}
-                <div className="flex items-center p-2 border-b border-zinc-800">
+                <div className="flex items-center border-b border-border/50 p-2">
                     <Button
                         variant={activeTab === 'shapes' ? 'default' : 'ghost'}
                         size="sm"
@@ -204,9 +182,9 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                 {activeTab !== 'markers' && (
                     <div className="px-3 pt-2">
                         <div className="flex items-center justify-between">
-                            <Label className="text-xs text-zinc-400">Opacity: {Math.round(opacity * 100)}%</Label>
+                            <Label className="text-xs text-muted-foreground">Opacity: {Math.round(opacity * 100)}%</Label>
                         </div>
-                        <SimpleSlider
+                        <Slider
                             value={[opacity * 100]}
                             min={10}
                             max={90}
@@ -426,7 +404,7 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                                 {activeMarkers.map((marker) => (
                                     <div
                                         key={marker.id}
-                                        className="flex items-center justify-between p-2 bg-zinc-800/50 rounded-md"
+                                        className="flex items-center justify-between rounded-md bg-accent/10 p-2"
                                     >
                                         <div className="flex items-center gap-2">
                                             {renderShapePreview(marker.shape, marker.color)}
