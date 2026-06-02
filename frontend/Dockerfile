@@ -18,17 +18,21 @@ FROM node:22-alpine AS production
 
 WORKDIR /app
 
-RUN corepack enable
-
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
-COPY --from=build /app/package.json /app/pnpm-lock.yaml ./
 COPY --from=build /app/.next ./.next
 COPY --from=build /app/public ./public
 COPY --from=build /app/node_modules ./node_modules
 
+RUN chown -R nextjs:nodejs /app
+
 USER nextjs
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 
 EXPOSE 3000
 
-CMD ["pnpm", "start"]
+# Run Next directly — pnpm start re-runs install/deps checks and needs write access to /app
+CMD ["node", "node_modules/next/dist/bin/next", "start"]
