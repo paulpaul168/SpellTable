@@ -27,10 +27,15 @@ Thumbs.db
 .env.test.local
 .env.production.local
 
+# Package managers
+.pnpm-store/
+package-lock.json
+
 # Logs
 logs/*
 *.log
 npm-debug.log*
+pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*

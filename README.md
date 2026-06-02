@@ -99,7 +99,7 @@ Enhancements in progress or planned include UI polish for touch tables, measurin
 
 - **Python 3.13** (see `backend/pyproject.toml` for the supported range)
 - **[uv](https://docs.astral.sh/uv/getting-started/installation/)** for the backend virtualenv and dependencies
-- **Node.js** (LTS recommended) and **npm**
+- **Node.js** (LTS recommended) and **[pnpm](https://pnpm.io/installation)**
 
 ### Quick start
 
@@ -159,8 +159,8 @@ uv run uvicorn main:app --reload --host 0.0.0.0 --port 8010
 
 ```bash
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 ### Data and environment
@@ -208,6 +208,7 @@ spelltable/
 │   │   └── lib/
 │   ├── public/
 │   ├── package.json
+│   ├── pnpm-lock.yaml
 │   └── Dockerfile
 └── .github/
 ```
@@ -231,7 +232,7 @@ pytest
 
 ```bash
 cd frontend
-npm run lint
+pnpm run lint
 ```
 
 ### Commit messages
@@ -245,7 +246,7 @@ Use a **single subject line**, imperative mood, about 50 characters when practic
 By contributing, you agree your work is licensed under the same terms as the project (see [License](#license)).
 
 1. Fork the repo and follow [Getting started](#getting-started).
-2. Branch from `main`, make focused changes, run `pytest` and `npm run lint` where relevant.
+2. Branch from `main`, make focused changes, run `pytest` and `pnpm run lint` where relevant.
 3. Open a pull request with a short description and, for UI work, screenshots.
 
 Report bugs via GitHub Issues with steps to reproduce and environment details.

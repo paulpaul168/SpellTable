@@ -49,7 +49,6 @@ sounds/*
 # Logs
 logs/
 
-venv/
 .venv/
 
 # Database
