@@ -297,9 +297,8 @@ export const CombatantToken: React.FC<CombatantTokenProps> = ({
         document.body.classList.add('dragging-token');
     };
 
-    const showEnemyRipple =
-        entry.isCurrentTurn && !entry.isPlayer && !entry.isKilled;
-    const showPlayerTurnGlow = entry.isCurrentTurn && entry.isPlayer;
+    const showTurnRipple = entry.isCurrentTurn && !entry.isKilled;
+    const rippleBorderClass = entry.isPlayer ? 'border-primary' : 'border-destructive';
 
     const half = tokenDiameter / 2;
 
@@ -323,15 +322,30 @@ export const CombatantToken: React.FC<CombatantTokenProps> = ({
             onClick={(e) => e.stopPropagation()}
             title={isAdmin ? 'Right-click to change size' : undefined}
         >
-            {showEnemyRipple && (
+            {showTurnRipple && (
                 <div
-                    key={`ripple-${footprint}-${Math.round(tokenDiameter)}`}
+                    key={`ripple-${entry.isPlayer ? 'player' : 'enemy'}-${footprint}-${Math.round(tokenDiameter)}`}
                     className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-visible"
                     aria-hidden
                 >
-                    <div className="absolute inset-0 rounded-full border-2 border-destructive animate-combatant-ripple-1" />
-                    <div className="absolute inset-0 rounded-full border-2 border-destructive animate-combatant-ripple-2" />
-                    <div className="absolute inset-0 rounded-full border-2 border-destructive animate-combatant-ripple-3" />
+                    <div
+                        className={cn(
+                            'absolute inset-0 rounded-full border-2 animate-combatant-ripple-1',
+                            rippleBorderClass
+                        )}
+                    />
+                    <div
+                        className={cn(
+                            'absolute inset-0 rounded-full border-2 animate-combatant-ripple-2',
+                            rippleBorderClass
+                        )}
+                    />
+                    <div
+                        className={cn(
+                            'absolute inset-0 rounded-full border-2 animate-combatant-ripple-3',
+                            rippleBorderClass
+                        )}
+                    />
                 </div>
             )}
 
@@ -341,7 +355,6 @@ export const CombatantToken: React.FC<CombatantTokenProps> = ({
                     entry.isPlayer
                         ? 'border-primary text-primary'
                         : 'border-destructive text-destructive',
-                    showPlayerTurnGlow && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
                     isDragging && 'opacity-90'
                 )}
                 onContextMenu={handleContextMenu}
