@@ -58,12 +58,14 @@ import { Soundboard } from './Soundboard';
 import { cn } from '@/lib/utils';
 import { InitiativeIndicator } from './InitiativeIndicator';
 import { AoEMarker } from './AoEMarker';
+import { CombatantToken } from './CombatantToken';
 import { AoEPalette } from './AoEPalette';
 import { FogOfWar } from './FogOfWar';
 import {
     adaptAoEMarkersSnap,
     getPlayAreaRect,
     migrateAoEMarkers,
+    pointerToAoEPosition,
 } from '@/utils/aoeCoordinates';
 import { FogOfWarPalette } from './FogOfWarPalette';
 import { DisplayCalculator } from './DisplayCalculator';
@@ -169,6 +171,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isViewerRotated, setIsViewerRotated] = useState(false);
     const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
     const [isMonsterManagementOpen, setIsMonsterManagementOpen] = useState(false);
+    const [placingEntryId, setPlacingEntryId] = useState<string | null>(null);
 
     // Remove display scale functionality, using fixed 1.0 scale
     const displayScale = 1.0;
@@ -773,6 +776,75 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         });
     };
 
+    const handleUpdateCombatantEntry = (updatedEntry: InitiativeEntry) => {
+        const entries = scene.initiativeOrder.map((e) =>
+            e.id === updatedEntry.id ? updatedEntry : e
+        );
+        handleEncounterUpdate({ entries });
+    };
+
+    const handleStartPlaceEntry = (id: string) => {
+        const entry = scene.initiativeOrder.find((e) => e.id === id);
+        if (!entry) return;
+        setPlacingEntryId(id);
+        toast({
+            title: 'Place token',
+            description: `Click the map to place ${entry.name}`,
+        });
+    };
+
+    const handleClearEntryPosition = (id: string) => {
+        const entries = scene.initiativeOrder.map((e) =>
+            e.id === id ? { ...e, mapPosition: undefined } : e
+        );
+        handleEncounterUpdate({ entries });
+        if (placingEntryId === id) {
+            setPlacingEntryId(null);
+        }
+    };
+
+    const handlePlayAreaClick = (e: React.MouseEvent) => {
+        if (!isAdmin || !placingEntryId) return;
+        if ((e.target as HTMLElement).closest('[data-gameboard-ui]')) return;
+
+        const containerRect = getPlayAreaRect(playAreaRef.current);
+        const containerRelativeX = e.clientX - containerRect.left;
+        const containerRelativeY = e.clientY - containerRect.top;
+        const aoeSnapToGrid = scene.gridSettings.aoeSnapToGrid !== false;
+        const gridCellsX = scene.gridSettings.gridCellsX ?? 25;
+        const gridCellsY = scene.gridSettings.gridCellsY ?? 13;
+
+        const { position, useGridCoordinates } = pointerToAoEPosition(
+            containerRelativeX,
+            containerRelativeY,
+            aoeSnapToGrid,
+            aoeSnapToGrid,
+            containerRect,
+            gridCellsX,
+            gridCellsY
+        );
+
+        const entries = scene.initiativeOrder.map((entry) =>
+            entry.id === placingEntryId
+                ? {
+                      ...entry,
+                      mapPosition: { ...position, useGridCoordinates },
+                  }
+                : entry
+        );
+        const placed = entries.find((en) => en.id === placingEntryId);
+        handleEncounterUpdate({ entries });
+        setPlacingEntryId(null);
+        toast({
+            title: 'Token placed',
+            description: placed?.name,
+        });
+    };
+
+    const placedCombatants = scene.initiativeOrder.filter(
+        (e) => e.mapPosition && !e.isKilled
+    );
+
     const handleToggleCurrentPlayer = () => {
         const updatedScene = {
             ...scene,
@@ -1111,7 +1183,18 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     x: point.x + dx,
                     y: point.y + dy
                 }))
-            }))
+            })),
+            initiativeOrder: scene.initiativeOrder.map((entry) => {
+                if (!entry.mapPosition) return entry;
+                return {
+                    ...entry,
+                    mapPosition: {
+                        ...entry.mapPosition,
+                        x: entry.mapPosition.x + dx,
+                        y: entry.mapPosition.y + dy,
+                    },
+                };
+            }),
         };
         setScene(updatedScene);
         websocketService.send({
@@ -1176,8 +1259,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             {/* Main Content */}
             <div
                 ref={playAreaRef}
-                className="flex-1 relative w-full h-full overflow-hidden"
+                className={cn(
+                    'flex-1 relative w-full h-full overflow-hidden',
+                    placingEntryId && isAdmin && 'cursor-crosshair'
+                )}
                 style={{ height: '100%', width: '100%', margin: 0, padding: 0 }}
+                onClick={handlePlayAreaClick}
             >
                 {(!scene.maps || scene.maps.length === 0) && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
@@ -1267,6 +1354,44 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                         />
                     ))}
                 </div>
+
+                {/* Combatant tokens - above fog/grid so viewers see them */}
+                <div
+                    className="absolute inset-0 pointer-events-none [&>*]:pointer-events-auto"
+                    style={{ zIndex: (scene.maps?.length || 0) + 210 }}
+                >
+                    {placedCombatants.map((entry) => (
+                        <CombatantToken
+                            key={entry.id}
+                            entry={entry}
+                            isAdmin={isAdmin}
+                            onUpdate={handleUpdateCombatantEntry}
+                            containerRef={playAreaRef}
+                            gridSettings={scene.gridSettings}
+                            defaultTokenFootprint={scene.gridSettings.defaultTokenFootprint}
+                        />
+                    ))}
+                </div>
+
+                {placingEntryId && isAdmin && (
+                    <div
+                        className="pointer-events-none absolute left-1/2 top-4 z-[1000] -translate-x-1/2 rounded-md border border-primary/50 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary"
+                        data-gameboard-ui
+                    >
+                        Click the map to place{' '}
+                        {scene.initiativeOrder.find((e) => e.id === placingEntryId)?.name}
+                        <button
+                            type="button"
+                            className="ml-2 underline pointer-events-auto"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setPlacingEntryId(null);
+                            }}
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                )}
 
                 {/* Grid Overlay - above maps/markers, below initiative UI */}
                 {scene.gridSettings?.showGrid && (
@@ -1358,6 +1483,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                         showCurrentPlayer={scene.showCurrentPlayer}
                         onToggleCurrentPlayer={handleToggleCurrentPlayer}
                         onClose={() => setShowInitiative(false)}
+                        placingEntryId={placingEntryId}
+                        onStartPlaceEntry={handleStartPlaceEntry}
+                        onClearEntryPosition={handleClearEntryPosition}
                     />
                 </div>
             )}

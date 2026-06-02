@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useToast } from './ui/use-toast';
-import { Plus, Trash2, ChevronDown, ChevronUp, Eye, EyeOff, Skull, X, ChevronRight, ScrollText } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, Eye, EyeOff, Skull, X, ChevronRight, ScrollText, MapPin, MapPinOff } from 'lucide-react';
 import { EncounterHistoryEntry, InitiativeEntry } from '../types/map';
 import {
     DndContext,
@@ -90,6 +90,9 @@ interface InitiativeSidebarProps {
     showCurrentPlayer: boolean;
     onToggleCurrentPlayer: () => void;
     onClose: () => void;
+    placingEntryId?: string | null;
+    onStartPlaceEntry?: (id: string) => void;
+    onClearEntryPosition?: (id: string) => void;
 }
 
 export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
@@ -99,7 +102,10 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
     onEncounterUpdate,
     showCurrentPlayer,
     onToggleCurrentPlayer,
-    onClose
+    onClose,
+    placingEntryId = null,
+    onStartPlaceEntry,
+    onClearEntryPosition,
 }) => {
     const { toast } = useToast();
     const [isVisible, setIsVisible] = useState(true);
@@ -514,6 +520,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                 <GlassPanel
                     title="Initiative"
                     edge="bottom-left"
+                    className="!w-[26rem] max-w-[95vw]"
                     onClose={onClose}
                     headerActions={
                         <>
@@ -603,32 +610,39 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                     <div
                                         key={entry.id}
                                         className={cn(
-                                            'flex min-h-9 items-center justify-between rounded-md border-l-2 p-2 transition-colors',
+                                            'flex min-h-9 flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-md border-l-2 p-2 transition-colors',
                                             entry.isCurrentTurn
                                                 ? 'border-primary bg-accent/20'
                                                 : 'border-transparent hover:bg-accent/10',
-                                            entry.isPlayer ? 'text-foreground' : 'text-destructive',
-                                            entry.isKilled && 'opacity-50'
+                                            entry.isPlayer ? 'text-foreground' : 'text-foreground',
+                                            entry.isKilled && 'opacity-50',
+                                            placingEntryId === entry.id && 'ring-1 ring-primary'
                                         )}
                                     >
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex min-w-0 flex-1 items-center gap-2">
                                             {entry.isCurrentTurn && (
-                                                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                                                <div className="h-2 w-2 shrink-0 rounded-full bg-emerald-500 animate-pulse" />
                                             )}
-                                            <span className="text-sm font-medium">
+                                            <span
+                                                className={cn(
+                                                    'truncate text-sm font-medium',
+                                                    !entry.isPlayer && 'text-red-200'
+                                                )}
+                                            >
                                                 {entry.name}
                                             </span>
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                                             {!entry.isPlayer && entry.hp !== undefined && (
-                                                <div className="flex items-center gap-1">
-                                                    <span className="text-sm font-mono w-16 text-right">
-                                                        {entry.isKilled && entry.hp < 0 ? entry.hp : entry.hp}/{entry.initialHP}
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="rounded-md border border-red-500/50 bg-red-950/70 px-2 py-0.5 text-sm font-semibold tabular-nums text-red-50">
+                                                        {entry.isKilled && entry.hp < 0 ? entry.hp : entry.hp}
+                                                        <span className="text-red-300/90">/{entry.initialHP}</span>
                                                     </span>
                                                     <Input
                                                         type="text"
                                                         placeholder="±HP"
-                                                        className="w-12 h-6 text-[10px]"
+                                                        className="h-7 w-14 border-red-500/30 bg-red-950/40 text-xs text-red-50 placeholder:text-red-300/50"
                                                         onKeyDown={(e) => {
                                                             if (e.key === 'Enter') {
                                                                 adjustHP(entry.id, e.currentTarget.value);
@@ -641,6 +655,33 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                             <span className="font-mono text-xs text-muted-foreground">
                                                 {entry.initiative}
                                             </span>
+                                            {isAdmin && onStartPlaceEntry && onClearEntryPosition && (
+                                                <div className="flex items-center gap-0.5">
+                                                    {entry.mapPosition ? (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 w-6 p-0 text-muted-foreground"
+                                                            title="Remove from map"
+                                                            onClick={() => onClearEntryPosition(entry.id)}
+                                                        >
+                                                            <MapPinOff className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    ) : (
+                                                        !entry.isKilled && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 w-6 p-0"
+                                                                title="Place on map"
+                                                                onClick={() => onStartPlaceEntry(entry.id)}
+                                                            >
+                                                                <MapPin className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        )
+                                                    )}
+                                                </div>
+                                            )}
                                             {isAdmin && (
                                                 <div className="flex gap-1">
                                                     {entry.isKilled ? (

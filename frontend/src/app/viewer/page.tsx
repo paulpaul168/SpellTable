@@ -7,6 +7,7 @@ import { websocketService } from '../../services/websocket';
 import { InitiativeIndicator } from '../../components/InitiativeIndicator';
 import { AoEMarker } from '../../components/AoEMarker';
 import { FogOfWar } from '../../components/FogOfWar';
+import { CombatantToken } from '../../components/CombatantToken';
 import { RippleViewer } from '../../components/RippleViewer';
 import { ProtectedRoute } from '../../components/ProtectedRoute';
 import { useAuth } from '../../contexts/AuthContext';
@@ -253,6 +254,26 @@ export default function ViewerPage() {
                                 gridSettings={scene.gridSettings}
                             />
                         ))}
+                    </div>
+
+                    {/* Combatant tokens */}
+                    <div
+                        className="absolute inset-0 pointer-events-none [&>*]:pointer-events-none"
+                        style={{ zIndex: (scene.maps?.length || 0) + 210 }}
+                    >
+                        {scene.initiativeOrder
+                            .filter((e) => e.mapPosition && !e.isKilled)
+                            .map((entry) => (
+                                <CombatantToken
+                                    key={entry.id}
+                                    entry={entry}
+                                    isAdmin={false}
+                                    onUpdate={() => {}}
+                                    containerRef={playAreaRef}
+                                    gridSettings={scene.gridSettings}
+                                    defaultTokenFootprint={scene.gridSettings.defaultTokenFootprint}
+                                />
+                            ))}
                     </div>
 
                     {/* Grid Overlay - above maps/markers, below initiative UI */}
