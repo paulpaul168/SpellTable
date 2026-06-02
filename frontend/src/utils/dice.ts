@@ -79,3 +79,43 @@ export function parseInitiativeModifier(input: string): number {
 export function rollInitiative(modifier: number): number {
     return rollDie(20) + modifier;
 }
+
+export function isDiceExpression(input: string): boolean {
+    return /d/i.test(input.trim());
+}
+
+export function resolveHP(input: string): number | undefined {
+    const trimmed = input.trim();
+    if (!trimmed) {
+        return undefined;
+    }
+
+    if (isDiceExpression(trimmed)) {
+        return rollDiceExpression(trimmed);
+    }
+
+    const value = parseInt(trimmed, 10);
+    if (Number.isNaN(value)) {
+        throw new Error(`Invalid HP: ${input}`);
+    }
+
+    return value;
+}
+
+export function resolveInitiative(input: string): number {
+    const trimmed = input.trim();
+    if (!trimmed) {
+        throw new Error('Empty initiative');
+    }
+
+    if (/^[+-]/.test(trimmed)) {
+        return rollInitiative(parseInitiativeModifier(trimmed));
+    }
+
+    const value = parseInt(trimmed, 10);
+    if (Number.isNaN(value)) {
+        throw new Error(`Invalid initiative: ${input}`);
+    }
+
+    return value;
+}

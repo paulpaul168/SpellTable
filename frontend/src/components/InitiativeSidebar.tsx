@@ -31,7 +31,10 @@ import {
 } from './ui/dialog';
 import { Label } from './ui/label';
 import {
+    isDiceExpression,
     parseInitiativeModifier,
+    resolveHP,
+    resolveInitiative,
     rollDiceExpression,
     rollInitiative,
 } from '../utils/dice';
@@ -380,15 +383,41 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
             });
             return;
         }
-        const initiative = parseInt(enemyInitiative);
-        const hp = enemyHP ? parseInt(enemyHP) : undefined;
-        const hpLabel = hp !== undefined ? `, HP ${hp}` : '';
+
+        const initInput = enemyInitiative.trim();
+        const hpInput = enemyHP.trim();
+        const initRolled = /^[+-]/.test(initInput);
+        const hpRolled = hpInput !== '' && isDiceExpression(hpInput);
+
+        let initiative: number;
+        let hp: number | undefined;
+
+        try {
+            initiative = resolveInitiative(enemyInitiative);
+            hp = resolveHP(enemyHP);
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: error instanceof Error ? error.message : 'Invalid HP or initiative value',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        const initLabel = initRolled ? `init ${initiative} from ${initInput}` : `init ${initiative}`;
+        const hpLabel =
+            hp === undefined
+                ? ''
+                : hpRolled
+                  ? `, HP ${hp} from ${hpInput}`
+                  : `, HP ${hp}`;
+
         addEntry(
             enemyName,
             initiative,
             false,
             hp,
-            `Added enemy ${enemyName} (init ${initiative}${hpLabel})`
+            `Added enemy ${enemyName} (${initLabel}${hpLabel})`
         );
         setEnemyName('');
         setEnemyInitiative('');
@@ -709,15 +738,15 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                         className="flex-1"
                                     />
                                     <Input
-                                        type="number"
-                                        placeholder="HP"
+                                        type="text"
+                                        placeholder="HP / 5d6+6"
                                         value={enemyHP}
                                         onChange={(e) => setEnemyHP(e.target.value)}
-                                        className="w-20"
+                                        className="w-24"
                                     />
                                     <Input
-                                        type="number"
-                                        placeholder="Init"
+                                        type="text"
+                                        placeholder="Init / +3"
                                         value={enemyInitiative}
                                         onChange={(e) => setEnemyInitiative(e.target.value)}
                                         onKeyDown={(e) => {
@@ -725,7 +754,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                                 addEnemyEntry();
                                             }
                                         }}
-                                        className="w-20"
+                                        className="w-24"
                                     />
                                     <Button onClick={addEnemyEntry} size="icon" variant="outline">
                                         <Plus className="h-4 w-4" />
