@@ -47,19 +47,42 @@ const commonAoEs = [
     { name: 'Cylinder (20\')', shape: 'cylinder', size: 20, color: '#CC5AFF' },
 ];
 
-// Common D&D spells with AoE
-const commonSpells = [
-    // 20′ radius in D&D 5e → 40′ diameter (sizeInFeet is the shape width/diameter on the map)
-    { name: 'Fireball', shape: 'circle', size: 40, color: '#FF5A5A' },
-    { name: 'Burning Hands', shape: 'cone', size: 15, color: '#FF5A5A' },
-    { name: 'Lightning Bolt', shape: 'line', size: 100, color: '#5AD5FF' },
-    { name: 'Cone of Cold', shape: 'cone', size: 60, color: '#5AD5FF' },
-    { name: 'Wall of Fire', shape: 'line', size: 60, color: '#FF5A5A' },
-    { name: 'Cloudkill', shape: 'circle', size: 20, color: '#C9E265' },
-    { name: 'Spirit Guardians', shape: 'circle', size: 15, color: '#CC5AFF' },
+type SpellPreset = {
+    name: string;
+    shape: AoEShape;
+    size: number;
+    color: string;
+    effectId?: string;
+};
+
+// Common D&D spells with AoE (20′ radius → 40′ diameter for sizeInFeet)
+const commonSpells: SpellPreset[] = [
+    { name: 'Fireball', shape: 'circle', size: 40, color: '#FF5A5A', effectId: 'fireball' },
+    { name: 'Burning Hands', shape: 'cone', size: 15, color: '#FF5A5A', effectId: 'burning-hands' },
+    { name: 'Lightning Bolt', shape: 'line', size: 100, color: '#5AD5FF', effectId: 'lightning-bolt' },
+    { name: 'Call Lightning', shape: 'circle', size: 40, color: '#5AD5FF', effectId: 'call-lightning' },
+    { name: 'Cone of Cold', shape: 'cone', size: 60, color: '#5AD5FF', effectId: 'cone-of-cold' },
+    { name: 'Wall of Fire', shape: 'line', size: 60, color: '#FF5A5A', effectId: 'wall-of-fire' },
+    { name: 'Cloudkill', shape: 'circle', size: 20, color: '#C9E265', effectId: 'cloudkill' },
+    { name: 'Spirit Guardians', shape: 'circle', size: 15, color: '#CC5AFF', effectId: 'spirit-guardians' },
+    {
+        name: 'Spirit Guardians (Nekrotisch)',
+        shape: 'circle',
+        size: 15,
+        color: '#3D5C2E',
+        effectId: 'spirit-guardians-necrotic',
+    },
+    {
+        name: 'Spirit Guardians (Radiant)',
+        shape: 'circle',
+        size: 15,
+        color: '#FFE566',
+        effectId: 'spirit-guardians-radiant',
+    },
+    { name: 'Meteor Swarm', shape: 'circle', size: 40, color: '#FF5A5A', effectId: 'meteor-swarm' },
     { name: 'Web', shape: 'cube', size: 20, color: '#FFFFFF' },
-    { name: 'Darkness', shape: 'circle', size: 15, color: '#000000' },
-    { name: 'Fog Cloud', shape: 'circle', size: 20, color: '#C9C9C9' },
+    { name: 'Darkness', shape: 'circle', size: 15, color: '#000000', effectId: 'darkness' },
+    { name: 'Fog Cloud', shape: 'circle', size: 20, color: '#C9C9C9', effectId: 'fog-cloud' },
 ];
 
 export const AoEPalette: React.FC<AoEPaletteProps> = ({
@@ -78,14 +101,21 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
     const [opacity, setOpacity] = useState(0.5);
 
     // Function to handle adding from presets
-    const handleAddFromPreset = (shape: AoEShape, size: number, color: string, label?: string) => {
+    const handleAddFromPreset = (
+        shape: AoEShape,
+        size: number,
+        color: string,
+        label?: string,
+        effectId?: string,
+    ) => {
         onAddMarker({
             shape,
             sizeInFeet: size,
             color,
             rotation: 0,
             opacity,
-            label
+            label,
+            effectId,
         });
     };
 
@@ -229,10 +259,11 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                                     size="sm"
                                     className="text-xs justify-start"
                                     onClick={() => handleAddFromPreset(
-                                        spell.shape as AoEShape,
+                                        spell.shape,
                                         spell.size,
                                         spell.color,
-                                        spell.name
+                                        spell.name,
+                                        spell.effectId,
                                     )}
                                 >
                                     <div

@@ -46,6 +46,8 @@ export interface AoEMarker {
     rotation: number;
     opacity: number;
     label?: string;
+    /** Key under /aoe-effects/{id}/ for animated sprite sheet */
+    effectId?: string;
 }
 
 export interface FogOfWar {

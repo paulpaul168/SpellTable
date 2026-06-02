@@ -1,0 +1,10 @@
+{
+  "frameWidth": 128,
+  "frameHeight": 128,
+  "frameCount": 10,
+  "fps": 14,
+  "loop": true,
+  "blendMode": "screen",
+  "fit": "cone",
+  "scale": 1.5
+}

@@ -222,6 +222,48 @@ body {
   20%, 40%, 60%, 80% { transform: translateX(5px); }
 }
 
+@keyframes aoe-effect-sprite {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: var(--aoe-shift-x) 0;
+  }
+}
+
+@keyframes aoe-orbit-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes aoe-orbit-counter {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes aoe-fireball-pulse {
+  0%, 100% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+.aoe-fireball-glow {
+  animation: aoe-fireball-pulse 1.8s ease-in-out infinite;
+}
+
 .animate-ripple-1 {
   animation: ripple 3s ease-out infinite;
 }

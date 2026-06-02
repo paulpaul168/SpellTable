@@ -5,6 +5,8 @@ import {
     pointerToAoEPosition,
     toDisplayPixels,
 } from '@/utils/aoeCoordinates';
+import { AoEEffectSprite } from './AoEEffectSprite';
+import { prefetchAoEEffectMeta } from '@/lib/aoeEffects';
 
 interface AoEMarkerProps {
     marker: AoEMarkerType;
@@ -43,6 +45,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const [showSizeIndicator, setShowSizeIndicator] = useState(false);
     const [highlightAnimation, setHighlightAnimation] = useState(false);
     const [highlightRippleKey, setHighlightRippleKey] = useState(0);
+    const [effectLoaded, setEffectLoaded] = useState(false);
     const lastUpdateRef = useRef<number>(0);
     const pendingUpdateRef = useRef<AoEMarkerType | null>(null);
     const mouseDragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -79,6 +82,13 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
 
     const sizeInPixels = marker.sizeInFeet * effectiveGridSize / 5;
     const adjustedSizeInPixels = sizeInPixels;
+
+    useEffect(() => {
+        if (marker.effectId) {
+            prefetchAoEEffectMeta(marker.effectId);
+            setEffectLoaded(false);
+        }
+    }, [marker.effectId]);
 
     useEffect(() => {
         if (isHighlighted) {
@@ -368,7 +378,50 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         }
     };
 
-    const renderShape = () => {
+    const effectHeight =
+        marker.shape === 'line'
+            ? effectiveGridSize / 2
+            : adjustedSizeInPixels;
+
+    const effectWidth = adjustedSizeInPixels;
+
+    const shapeBoundsStyle: React.CSSProperties =
+        marker.shape === 'cone'
+            ? {
+                  position: 'relative',
+                  width: `${effectWidth}px`,
+                  height: `${effectHeight}px`,
+                  transform: 'translateX(-50%)',
+              }
+            : {
+                  position: 'relative',
+                  width: `${effectWidth}px`,
+                  height: `${effectHeight}px`,
+              };
+
+    const renderEffectSprite = () => {
+        if (!marker.effectId) {
+            return null;
+        }
+        return (
+            <div
+                className="pointer-events-none absolute left-0 top-0"
+                style={{ width: effectWidth, height: effectHeight }}
+            >
+                <AoEEffectSprite
+                    effectId={marker.effectId}
+                    shape={marker.shape}
+                    width={effectWidth}
+                    height={effectHeight}
+                    opacity={marker.opacity}
+                    tintColor={marker.color}
+                    onMetaLoaded={setEffectLoaded}
+                />
+            </div>
+        );
+    };
+
+    const renderSolidShape = () => {
         switch (marker.shape) {
             case 'circle':
                 return (
@@ -386,36 +439,14 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 return (
                     <svg
                         width={adjustedSizeInPixels}
-                        height={adjustedSizeInPixels + 30}
-                        style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            transform: 'translateX(-50%)',
-                            opacity: marker.opacity
-                        }}
-                        viewBox={`0 0 ${adjustedSizeInPixels} ${adjustedSizeInPixels + 30}`}
+                        height={adjustedSizeInPixels}
+                        style={{ opacity: marker.opacity }}
+                        viewBox={`0 0 ${adjustedSizeInPixels} ${adjustedSizeInPixels}`}
                     >
                         <polygon
                             points={`${adjustedSizeInPixels / 2},0 0,${adjustedSizeInPixels} ${adjustedSizeInPixels},${adjustedSizeInPixels}`}
                             fill={marker.color}
                         />
-                        {marker.label && (
-                            <text
-                                x={adjustedSizeInPixels / 2}
-                                y={adjustedSizeInPixels + 20}
-                                textAnchor="middle"
-                                fill="white"
-                                className="text-xs"
-                                style={{
-                                    fontSize: '12px',
-                                    fontFamily: 'sans-serif',
-                                    textShadow: '0 0 3px rgba(0,0,0,0.8)'
-                                }}
-                            >
-                                {marker.label}
-                            </text>
-                        )}
                     </svg>
                 );
             case 'line':
@@ -469,6 +500,16 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         }
     };
 
+    const renderShape = () => {
+        const showSolid = !marker.effectId || !effectLoaded;
+        return (
+            <div style={shapeBoundsStyle}>
+                {showSolid && renderSolidShape()}
+                {renderEffectSprite()}
+            </div>
+        );
+    };
+
     const handleDoubleClick = (e: React.MouseEvent) => {
         if (!isAdmin) return;
         e.stopPropagation();
@@ -483,6 +524,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 position: 'absolute',
                 left: `${currentPos.x}px`,
                 top: `${currentPos.y}px`,
+                width: marker.shape !== 'cone' ? effectWidth : undefined,
+                height: marker.shape !== 'cone' ? effectHeight : undefined,
                 transform: marker.shape === 'cone'
                     ? `rotate(${marker.rotation}deg)`
                     : `translate(-50%, -50%) rotate(${marker.rotation}deg)`,
@@ -615,14 +658,14 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
 
             {renderShape()}
 
-            {marker.label && marker.shape !== 'cone' && (
+            {marker.label && (
                 <div
                     className="absolute px-2 py-1 bg-black/70 text-white text-xs rounded pointer-events-none"
                     style={{
                         whiteSpace: 'nowrap',
-                        top: `${adjustedSizeInPixels}px`,
-                        left: '50%',
-                        transform: 'translateX(-50%)',
+                        top: `${effectHeight + 4}px`,
+                        left: marker.shape === 'cone' ? '0' : '50%',
+                        transform: marker.shape === 'cone' ? 'translateX(-50%)' : 'translateX(-50%)',
                     }}
                 >
                     {marker.label}

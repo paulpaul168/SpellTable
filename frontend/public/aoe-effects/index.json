@@ -1,0 +1,54 @@
+{
+  "fireball": {
+    "label": "Fireball",
+    "source": "CodeManu fire (ball)"
+  },
+  "wall-of-fire": {
+    "label": "Wall of Fire",
+    "source": "CodeManu flamelash (line-fill)"
+  },
+  "lightning-bolt": {
+    "label": "Lightning Bolt",
+    "source": "CodeManu bluefire (line-fill)"
+  },
+  "call-lightning": {
+    "label": "Call Lightning",
+    "source": "CodeManu nebula (ball)"
+  },
+  "cone-of-cold": {
+    "label": "Cone of Cold",
+    "source": "CodeManu freezing"
+  },
+  "spirit-guardians": {
+    "label": "Spirit Guardians",
+    "source": "CodeManu phantom"
+  },
+  "spirit-guardians-necrotic": {
+    "label": "Spirit Guardians (Nekrotisch)",
+    "source": "CodeManu phantom"
+  },
+  "spirit-guardians-radiant": {
+    "label": "Spirit Guardians (Radiant)",
+    "source": "CodeManu phantom"
+  },
+  "meteor-swarm": {
+    "label": "Meteor Swarm",
+    "source": "CodeManu brightfire"
+  },
+  "burning-hands": {
+    "label": "Burning Hands",
+    "source": "CodeManu flamelash"
+  },
+  "fog-cloud": {
+    "label": "Fog Cloud",
+    "source": "Kenney smoke"
+  },
+  "cloudkill": {
+    "label": "Cloudkill",
+    "source": "Kenney smoke"
+  },
+  "darkness": {
+    "label": "Darkness",
+    "source": "CodeManu midnight"
+  }
+}

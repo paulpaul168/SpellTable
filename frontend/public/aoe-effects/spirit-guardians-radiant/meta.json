@@ -1,0 +1,11 @@
+{
+  "frameWidth": 128,
+  "frameHeight": 128,
+  "frameCount": 16,
+  "fps": 11,
+  "loop": true,
+  "blendMode": "screen",
+  "fit": "orbit",
+  "orbitCount": 10,
+  "filter": "brightness(1.35) saturate(1.4) hue-rotate(-25deg) drop-shadow(0 0 6px rgba(255,220,120,0.9))"
+}

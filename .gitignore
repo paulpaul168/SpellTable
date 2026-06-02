@@ -59,3 +59,6 @@ campaign_images/*
 
 # Exceptions
 .cursor/
+
+# AoE asset build temp downloads
+.tmp-aoe-downloads/
