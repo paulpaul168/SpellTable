@@ -16,6 +16,7 @@ interface MapProps {
         useFixedGrid?: boolean;
         gridCellsX?: number;
         gridCellsY?: number;
+        mapsLocked?: boolean;
     };
     onOpenAoEPalette?: () => void;
 }
@@ -90,6 +91,8 @@ export const Map: React.FC<MapProps> = ({
 
     // Calculate the grid scaling factor (how much the current grid differs from base)
     const gridScaleFactor = cellWidth / baseGridSize;
+
+    const mapsLocked = gridSettings?.mapsLocked === true;
 
     // Update local state when props change (including external updates in viewer mode)
     useEffect(() => {
@@ -313,7 +316,7 @@ export const Map: React.FC<MapProps> = ({
 
     // Start dragging on mouse down
     const handleMouseDown = (e: React.MouseEvent) => {
-        if (!isActive || isViewerMode) return;
+        if (!isActive || isViewerMode || mapsLocked) return;
 
         e.preventDefault();
         e.stopPropagation();
@@ -336,7 +339,7 @@ export const Map: React.FC<MapProps> = ({
 
     // Handle wheel events for scaling and rotation
     const handleWheel = (e: React.WheelEvent) => {
-        if (!isActive || isViewerMode) return;
+        if (!isActive || isViewerMode || mapsLocked) return;
 
         e.preventDefault();
 
@@ -400,11 +403,12 @@ export const Map: React.FC<MapProps> = ({
         <>
             <div
                 ref={dragRef}
-                className={`absolute ${isActive ? 'cursor-grab' : ''} ${isMapDragging ? 'cursor-grabbing' : ''}`}
+                className={`absolute ${isActive && !mapsLocked ? 'cursor-grab' : ''} ${isMapDragging ? 'cursor-grabbing' : ''}`}
                 style={getImageStyle()}
                 onMouseDown={handleMouseDown}
                 onWheel={handleWheel}
                 onDoubleClick={handleDoubleClick}
+                title={mapsLocked && isActive ? 'Maps are locked' : undefined}
             >
                 <img
                     ref={imageRef}

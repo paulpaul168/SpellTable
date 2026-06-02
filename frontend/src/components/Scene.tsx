@@ -1503,6 +1503,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                         onMapRename={handleMapRename}
                         hideInvisibleMaps={hideInvisibleMaps}
                         onToggleHideInvisibleMaps={() => setHideInvisibleMaps(!hideInvisibleMaps)}
+                        mapsLocked={scene.gridSettings.mapsLocked === true}
+                        onToggleMapsLocked={() =>
+                            handleUpdateGridSettings({
+                                mapsLocked: !(scene.gridSettings.mapsLocked === true),
+                            })
+                        }
                     />
                 </div>
             )}

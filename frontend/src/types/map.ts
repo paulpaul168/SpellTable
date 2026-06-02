@@ -104,6 +104,8 @@ export interface Scene {
         aoeEffectTheme?: AoEEffectTheme;
         /** When true, new AoE markers stay hidden from viewers until admin triggers them. Default false. */
         aoeStagedReveal?: boolean;
+        /** When true, maps cannot be moved, scaled, or rotated on the play area. Default false. */
+        mapsLocked?: boolean;
         /** Default token grid footprint when entry.tokenFootprint is unset. */
         defaultTokenFootprint?: 1 | 2 | 3;
         /** @deprecated Use defaultTokenFootprint */
