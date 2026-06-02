@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback, RefObject } from 'react';
 import { AoEMarker as AoEMarkerType } from '../types/map';
 import {
-    fromContainerPointer,
     getPlayAreaRect,
+    pointerToAoEPosition,
     toDisplayPixels,
 } from '@/utils/aoeCoordinates';
 
@@ -49,6 +49,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const markerRef = useRef<HTMLDivElement>(null);
     const positionRef = useRef(marker.position);
     const isDraggingRef = useRef(false);
+    const ctrlHeldRef = useRef(false);
+    const lastPointerClientRef = useRef({ x: 0, y: 0 });
     const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
     const highlightTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -119,6 +121,10 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     }, [currentPos]);
 
     useEffect(() => {
+        if (isDraggingRef.current) {
+            return;
+        }
+
         const updatePosition = () => {
             const newPosition = calculatePosition();
             setCurrentPos(newPosition);
@@ -154,73 +160,141 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         }
     }, [onUpdate]);
 
-    const handleMouseMove = useCallback((e: MouseEvent) => {
-        if (!isDraggingRef.current) return;
+    const applyDragAtClient = useCallback(
+        (clientX: number, clientY: number, ctrlKey: boolean) => {
+            const containerRect = getContainerRect();
+            const containerRelativeX =
+                clientX - containerRect.left - mouseDragOffsetRef.current.x;
+            const containerRelativeY =
+                clientY - containerRect.top - mouseDragOffsetRef.current.y;
 
-        e.preventDefault();
-        e.stopPropagation();
+            const snapDisplay = aoeSnapToGrid || ctrlKey;
+            const { position, useGridCoordinates, displayPixels } = pointerToAoEPosition(
+                containerRelativeX,
+                containerRelativeY,
+                snapDisplay,
+                aoeSnapToGrid,
+                containerRect,
+                gridCellsX,
+                gridCellsY
+            );
 
-        const containerRect = getContainerRect();
-        const containerRelativeX =
-            e.clientX - containerRect.left - mouseDragOffsetRef.current.x;
-        const containerRelativeY =
-            e.clientY - containerRect.top - mouseDragOffsetRef.current.y;
+            setCurrentPos(displayPixels);
+            positionRef.current = displayPixels;
 
-        const snapNow = aoeSnapToGrid || e.ctrlKey;
-        const { position, useGridCoordinates, displayPixels } = fromContainerPointer(
-            containerRelativeX,
-            containerRelativeY,
-            snapNow,
-            containerRect,
-            gridCellsX,
-            gridCellsY
-        );
+            throttledUpdate({
+                ...marker,
+                position,
+                useGridCoordinates,
+            });
+        },
+        [marker, getContainerRect, gridCellsX, gridCellsY, throttledUpdate, aoeSnapToGrid]
+    );
 
-        setCurrentPos(displayPixels);
-        positionRef.current = displayPixels;
+    const handleMouseMove = useCallback(
+        (e: MouseEvent) => {
+            if (!isDraggingRef.current) return;
 
-        throttledUpdate({
-            ...marker,
-            position,
-            useGridCoordinates,
-        });
-    }, [marker, getContainerRect, gridCellsX, gridCellsY, throttledUpdate, aoeSnapToGrid]);
-
-    const handleMouseUp = useCallback((e: MouseEvent) => {
-        if (isDraggingRef.current) {
             e.preventDefault();
-            if (pendingUpdateRef.current) {
-                onUpdate(pendingUpdateRef.current);
-                pendingUpdateRef.current = null;
-            }
+            e.stopPropagation();
+
+            lastPointerClientRef.current = { x: e.clientX, y: e.clientY };
+            ctrlHeldRef.current = e.ctrlKey;
+            applyDragAtClient(e.clientX, e.clientY, e.ctrlKey);
+        },
+        [applyDragAtClient]
+    );
+
+    const handleMouseUp = useCallback(
+        (e: MouseEvent) => {
+            if (!isDraggingRef.current) return;
+
+            e.preventDefault();
+
+            const containerRect = getContainerRect();
+            const containerRelativeX =
+                e.clientX - containerRect.left - mouseDragOffsetRef.current.x;
+            const containerRelativeY =
+                e.clientY - containerRect.top - mouseDragOffsetRef.current.y;
+            const snapDisplay = aoeSnapToGrid || e.ctrlKey;
+            const { position, useGridCoordinates, displayPixels } = pointerToAoEPosition(
+                containerRelativeX,
+                containerRelativeY,
+                snapDisplay,
+                aoeSnapToGrid,
+                containerRect,
+                gridCellsX,
+                gridCellsY
+            );
+            const finalMarker: AoEMarkerType = {
+                ...marker,
+                position,
+                useGridCoordinates,
+            };
+
+            onUpdate(finalMarker);
+            pendingUpdateRef.current = null;
+            lastUpdateRef.current = performance.now();
+            setCurrentPos(displayPixels);
+            positionRef.current = displayPixels;
+
             setIsDragging(false);
             isDraggingRef.current = false;
+            ctrlHeldRef.current = false;
             document.body.classList.remove('dragging-aoe');
-        }
-    }, [onUpdate]);
+        },
+        [marker, onUpdate, getContainerRect, gridSettings, gridCellsX, gridCellsY, aoeSnapToGrid]
+    );
 
     useEffect(() => {
         const handleGlobalMouseMove = (e: MouseEvent) => handleMouseMove(e);
         const handleGlobalMouseUp = (e: MouseEvent) => handleMouseUp(e);
-        const handleGlobalEscapeKey = (e: KeyboardEvent) => {
+        const handleGlobalKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && isDraggingRef.current) {
                 setIsDragging(false);
                 isDraggingRef.current = false;
+                ctrlHeldRef.current = false;
                 document.body.classList.remove('dragging-aoe');
+                return;
+            }
+            if (
+                isDraggingRef.current &&
+                !aoeSnapToGrid &&
+                e.key === 'Control' &&
+                !ctrlHeldRef.current
+            ) {
+                ctrlHeldRef.current = true;
+                const { x, y } = lastPointerClientRef.current;
+                applyDragAtClient(x, y, true);
+            }
+        };
+
+        const handleGlobalKeyUp = (e: KeyboardEvent) => {
+            if (
+                isDraggingRef.current &&
+                !aoeSnapToGrid &&
+                e.key === 'Control' &&
+                ctrlHeldRef.current
+            ) {
+                ctrlHeldRef.current = false;
+                const { x, y } = lastPointerClientRef.current;
+                applyDragAtClient(x, y, false);
             }
         };
 
         window.addEventListener('mousemove', handleGlobalMouseMove, { capture: true });
         window.addEventListener('mouseup', handleGlobalMouseUp, { capture: true });
-        window.addEventListener('keydown', handleGlobalEscapeKey);
+        window.addEventListener('keydown', handleGlobalKeyDown);
+        window.addEventListener('keyup', handleGlobalKeyUp);
 
         return () => {
             window.removeEventListener('mousemove', handleGlobalMouseMove, { capture: true });
             window.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
-            window.removeEventListener('keydown', handleGlobalEscapeKey);
+            window.removeEventListener('keydown', handleGlobalKeyDown);
+            window.removeEventListener('keyup', handleGlobalKeyUp);
             document.body.classList.remove('dragging-aoe');
         };
-    }, [handleMouseMove, handleMouseUp]);
+    }, [handleMouseMove, handleMouseUp, applyDragAtClient, aoeSnapToGrid]);
 
     useEffect(() => {
         isDraggingRef.current = isDragging;
@@ -246,6 +320,9 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             x: mouseRelX - display.x,
             y: mouseRelY - display.y,
         };
+
+        lastPointerClientRef.current = { x: e.clientX, y: e.clientY };
+        ctrlHeldRef.current = e.ctrlKey;
 
         setIsDragging(true);
         isDraggingRef.current = true;

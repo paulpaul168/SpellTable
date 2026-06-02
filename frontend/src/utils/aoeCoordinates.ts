@@ -17,10 +17,10 @@ export function isGridAoE(
     marker: AoEMarker,
     gridSettings?: AoEGridSettings
 ): boolean {
-    return (
-        marker.useGridCoordinates === true &&
-        gridSettings?.aoeSnapToGrid !== false
-    );
+    if (gridSettings?.aoeSnapToGrid === false) {
+        return false;
+    }
+    return marker.useGridCoordinates === true;
 }
 
 export function gridCoordsToPixel(
@@ -60,11 +60,16 @@ export type PointerAoEPosition = {
     displayPixels: { x: number; y: number };
 };
 
-/** Convert container-relative pointer position to stored AoE coordinates. */
-export function fromContainerPointer(
+/**
+ * Convert container-relative pointer position to stored AoE coordinates.
+ * @param snapDisplay - snap visual position to grid cell centers (Ctrl or global snap)
+ * @param persistAsGridCells - store grid cell indices (only when global snap is on)
+ */
+export function pointerToAoEPosition(
     containerRelativeX: number,
     containerRelativeY: number,
-    snapToGrid: boolean,
+    snapDisplay: boolean,
+    persistAsGridCells: boolean,
     containerRect: DOMRect,
     gridCellsX: number,
     gridCellsY: number
@@ -72,19 +77,38 @@ export function fromContainerPointer(
     const cellWidth = containerRect.width / gridCellsX;
     const cellHeight = containerRect.height / gridCellsY;
 
-    if (snapToGrid) {
+    if (snapDisplay) {
         const rawGridPos = {
             x: containerRelativeX / cellWidth,
             y: containerRelativeY / cellHeight,
         };
-        const position = {
+        const gridCell = {
             x: Math.floor(rawGridPos.x),
             y: Math.floor(rawGridPos.y),
         };
+        const displayPixels = gridCoordsToPixel(
+            gridCell,
+            containerRect,
+            gridCellsX,
+            gridCellsY
+        );
+
+        if (persistAsGridCells) {
+            return {
+                position: gridCell,
+                useGridCoordinates: true,
+                displayPixels,
+            };
+        }
+
+        // Ctrl-hold temporary snap while global snap is off: keep normalized storage
         return {
-            position,
-            useGridCoordinates: true,
-            displayPixels: gridCoordsToPixel(position, containerRect, gridCellsX, gridCellsY),
+            position: {
+                x: displayPixels.x / containerRect.width,
+                y: displayPixels.y / containerRect.height,
+            },
+            useGridCoordinates: false,
+            displayPixels,
         };
     }
 
@@ -100,6 +124,26 @@ export function fromContainerPointer(
             y: containerRelativeY,
         },
     };
+}
+
+/** @deprecated Use pointerToAoEPosition */
+export function fromContainerPointer(
+    containerRelativeX: number,
+    containerRelativeY: number,
+    snapToGrid: boolean,
+    containerRect: DOMRect,
+    gridCellsX: number,
+    gridCellsY: number
+): PointerAoEPosition {
+    return pointerToAoEPosition(
+        containerRelativeX,
+        containerRelativeY,
+        snapToGrid,
+        snapToGrid,
+        containerRect,
+        gridCellsX,
+        gridCellsY
+    );
 }
 
 /** Legacy grid-less markers stored viewport pixels (values typically > 1). */
