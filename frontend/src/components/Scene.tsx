@@ -65,8 +65,12 @@ import {
     adaptAoEMarkersSnap,
     getPlayAreaRect,
     migrateAoEMarkers,
-    pointerToAoEPosition,
 } from '@/utils/aoeCoordinates';
+import {
+    DEFAULT_TOKEN_FOOTPRINT,
+    normalizeTokenFootprint,
+    pointerToTokenPosition,
+} from '@/utils/tokenFootprint';
 import { FogOfWarPalette } from './FogOfWarPalette';
 import { DisplayCalculator } from './DisplayCalculator';
 import { BackupDialog } from './BackupDialog';
@@ -810,26 +814,29 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         const containerRect = getPlayAreaRect(playAreaRef.current);
         const containerRelativeX = e.clientX - containerRect.left;
         const containerRelativeY = e.clientY - containerRect.top;
-        const aoeSnapToGrid = scene.gridSettings.aoeSnapToGrid !== false;
         const gridCellsX = scene.gridSettings.gridCellsX ?? 25;
         const gridCellsY = scene.gridSettings.gridCellsY ?? 13;
+        const placingEntry = scene.initiativeOrder.find((e) => e.id === placingEntryId);
+        if (!placingEntry) return;
+        const footprint = normalizeTokenFootprint(
+            placingEntry,
+            scene.gridSettings.defaultTokenFootprint ?? DEFAULT_TOKEN_FOOTPRINT
+        );
 
-        const { position, useGridCoordinates } = pointerToAoEPosition(
+        const tokenSnapToGrid = scene.gridSettings.tokenSnapToGrid !== false;
+        const { mapPosition } = pointerToTokenPosition(
             containerRelativeX,
             containerRelativeY,
-            aoeSnapToGrid,
-            aoeSnapToGrid,
+            footprint,
             containerRect,
             gridCellsX,
-            gridCellsY
+            gridCellsY,
+            tokenSnapToGrid
         );
 
         const entries = scene.initiativeOrder.map((entry) =>
             entry.id === placingEntryId
-                ? {
-                      ...entry,
-                      mapPosition: { ...position, useGridCoordinates },
-                  }
+                ? { ...entry, mapPosition }
                 : entry
         );
         const placed = entries.find((en) => en.id === placingEntryId);

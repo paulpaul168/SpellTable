@@ -1,4 +1,5 @@
-import type { InitiativeEntry } from '@/types/map';
+import type { InitiativeEntry, MapPosition } from '@/types/map';
+import { gridCoordsToPixel } from '@/utils/aoeCoordinates';
 
 /** Grid cells per side: 1 = Medium (5×5 ft), 2 = Large (10×10 ft), 3 = Huge (15×15 ft). */
 export const TOKEN_FOOTPRINTS = [1, 2, 3] as const;
@@ -70,4 +71,103 @@ export function getTokenDiameterPixels(
     gridCellsY: number
 ): number {
     return footprint * getGridCellSize(containerRect, gridCellsX, gridCellsY);
+}
+
+/** Snap token center to grid; odd footprints align to cell centers, even to cell corners. */
+export function snapTokenCenterToGrid(
+    containerRelativeX: number,
+    containerRelativeY: number,
+    footprint: TokenFootprint,
+    containerRect: DOMRect,
+    gridCellsX: number,
+    gridCellsY: number
+): { centerGx: number; centerGy: number } {
+    const cellWidth = containerRect.width / gridCellsX;
+    const cellHeight = containerRect.height / gridCellsY;
+    const gx = containerRelativeX / cellWidth;
+    const gy = containerRelativeY / cellHeight;
+
+    if (footprint % 2 === 1) {
+        return {
+            centerGx: Math.floor(gx) + 0.5,
+            centerGy: Math.floor(gy) + 0.5,
+        };
+    }
+    return {
+        centerGx: Math.round(gx),
+        centerGy: Math.round(gy),
+    };
+}
+
+export type TokenPointerPosition = {
+    mapPosition: MapPosition;
+    displayPixels: { x: number; y: number };
+};
+
+export function pointerToTokenPosition(
+    containerRelativeX: number,
+    containerRelativeY: number,
+    footprint: TokenFootprint,
+    containerRect: DOMRect,
+    gridCellsX: number,
+    gridCellsY: number,
+    snapToGrid: boolean = true
+): TokenPointerPosition {
+    if (!snapToGrid) {
+        return {
+            mapPosition: {
+                x: containerRelativeX / containerRect.width,
+                y: containerRelativeY / containerRect.height,
+                useGridCoordinates: false,
+            },
+            displayPixels: {
+                x: containerRelativeX,
+                y: containerRelativeY,
+            },
+        };
+    }
+
+    const cellWidth = containerRect.width / gridCellsX;
+    const cellHeight = containerRect.height / gridCellsY;
+    const { centerGx, centerGy } = snapTokenCenterToGrid(
+        containerRelativeX,
+        containerRelativeY,
+        footprint,
+        containerRect,
+        gridCellsX,
+        gridCellsY
+    );
+
+    return {
+        mapPosition: {
+            x: centerGx - 0.5,
+            y: centerGy - 0.5,
+            useGridCoordinates: true,
+        },
+        displayPixels: {
+            x: centerGx * cellWidth,
+            y: centerGy * cellHeight,
+        },
+    };
+}
+
+/** Display position for a token on the map (grid or legacy normalized). */
+export function tokenMapPositionToDisplayPixels(
+    mapPosition: MapPosition,
+    containerRect: DOMRect,
+    gridCellsX: number,
+    gridCellsY: number
+): { x: number; y: number } {
+    if (mapPosition.useGridCoordinates !== false) {
+        return gridCoordsToPixel(
+            mapPosition,
+            containerRect,
+            gridCellsX,
+            gridCellsY
+        );
+    }
+    return {
+        x: mapPosition.x * containerRect.width,
+        y: mapPosition.y * containerRect.height,
+    };
 }

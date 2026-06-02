@@ -1,19 +1,16 @@
 import React, { useState, useRef, useEffect, useCallback, RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { InitiativeEntry, MapPosition } from '../types/map';
-import {
-    getPlayAreaRect,
-    pointerToAoEPosition,
-    toDisplayPixels,
-    type AoEGridSettings,
-} from '@/utils/aoeCoordinates';
+import { InitiativeEntry } from '../types/map';
+import { getPlayAreaRect, type AoEGridSettings } from '@/utils/aoeCoordinates';
 import {
     DEFAULT_TOKEN_FOOTPRINT,
     getTokenDiameterPixels,
     normalizeTokenFootprint,
+    pointerToTokenPosition,
     TOKEN_FOOTPRINT_DND,
     TOKEN_FOOTPRINT_FEET,
     TOKEN_FOOTPRINTS,
+    tokenMapPositionToDisplayPixels,
     type TokenFootprint,
 } from '@/utils/tokenFootprint';
 import { cn } from '../lib/utils';
@@ -29,19 +26,9 @@ interface CombatantTokenProps {
     gridSettings?: AoEGridSettings & {
         defaultTokenFootprint?: TokenFootprint;
         defaultTokenSize?: number;
+        tokenSnapToGrid?: boolean;
     };
     defaultTokenFootprint?: TokenFootprint;
-}
-
-function positionedEntry(entry: InitiativeEntry): {
-    position: { x: number; y: number };
-    useGridCoordinates?: boolean;
-} {
-    const pos = entry.mapPosition!;
-    return {
-        position: { x: pos.x, y: pos.y },
-        useGridCoordinates: pos.useGridCoordinates,
-    };
 }
 
 export const CombatantToken: React.FC<CombatantTokenProps> = ({
@@ -66,7 +53,7 @@ export const CombatantToken: React.FC<CombatantTokenProps> = ({
 
     const gridCellsX = gridSettings?.gridCellsX ?? 25;
     const gridCellsY = gridSettings?.gridCellsY ?? 13;
-    const aoeSnapToGrid = gridSettings?.aoeSnapToGrid !== false;
+    const tokenSnapToGrid = gridSettings?.tokenSnapToGrid !== false;
     const sceneDefaultFootprint =
         gridSettings?.defaultTokenFootprint ??
         (gridSettings?.defaultTokenSize !== undefined &&
@@ -91,14 +78,13 @@ export const CombatantToken: React.FC<CombatantTokenProps> = ({
 
     const calculatePosition = useCallback(() => {
         const containerRect = getContainerRect();
-        return toDisplayPixels(
-            positionedEntry(entry),
-            gridSettings,
+        return tokenMapPositionToDisplayPixels(
+            mapPosition,
             containerRect,
             gridCellsX,
             gridCellsY
         );
-    }, [entry, gridSettings, getContainerRect, gridCellsX, gridCellsY]);
+    }, [mapPosition, getContainerRect, gridCellsX, gridCellsY]);
 
     const [currentPos, setCurrentPos] = useState(calculatePosition);
 
@@ -139,29 +125,27 @@ export const CombatantToken: React.FC<CombatantTokenProps> = ({
     );
 
     const applyDragAtClient = useCallback(
-        (clientX: number, clientY: number, ctrlKey: boolean) => {
+        (clientX: number, clientY: number) => {
             const containerRect = getContainerRect();
             const containerRelativeX =
                 clientX - containerRect.left - mouseDragOffsetRef.current.x;
             const containerRelativeY =
                 clientY - containerRect.top - mouseDragOffsetRef.current.y;
 
-            const snapDisplay = aoeSnapToGrid || ctrlKey;
-            const { position, useGridCoordinates, displayPixels } = pointerToAoEPosition(
+            const { mapPosition: newMapPosition, displayPixels } = pointerToTokenPosition(
                 containerRelativeX,
                 containerRelativeY,
-                snapDisplay,
-                aoeSnapToGrid,
+                footprint,
                 containerRect,
                 gridCellsX,
-                gridCellsY
+                gridCellsY,
+                tokenSnapToGrid
             );
 
-            const newMapPosition: MapPosition = { ...position, useGridCoordinates };
             setCurrentPos(displayPixels);
             throttledUpdate({ ...entry, mapPosition: newMapPosition });
         },
-        [entry, getContainerRect, gridCellsX, gridCellsY, throttledUpdate, aoeSnapToGrid]
+        [entry, footprint, getContainerRect, gridCellsX, gridCellsY, throttledUpdate, tokenSnapToGrid]
     );
 
     const handleMouseMove = useCallback(
@@ -169,7 +153,7 @@ export const CombatantToken: React.FC<CombatantTokenProps> = ({
             if (!isDraggingRef.current) return;
             e.preventDefault();
             e.stopPropagation();
-            applyDragAtClient(e.clientX, e.clientY, e.ctrlKey);
+            applyDragAtClient(e.clientX, e.clientY);
         },
         [applyDragAtClient]
     );
@@ -178,7 +162,7 @@ export const CombatantToken: React.FC<CombatantTokenProps> = ({
         (e: MouseEvent) => {
             if (!isDraggingRef.current) return;
             e.preventDefault();
-            applyDragAtClient(e.clientX, e.clientY, e.ctrlKey);
+            applyDragAtClient(e.clientX, e.clientY);
             pendingUpdateRef.current = null;
             lastUpdateRef.current = performance.now();
             setIsDragging(false);
@@ -247,10 +231,31 @@ export const CombatantToken: React.FC<CombatantTokenProps> = ({
     }, [contextMenu]);
 
     const setFootprint = (newFootprint: TokenFootprint) => {
+        let mapPosition = entry.mapPosition;
+        if (mapPosition) {
+            const containerRect = getContainerRect();
+            const display = tokenMapPositionToDisplayPixels(
+                mapPosition,
+                containerRect,
+                gridCellsX,
+                gridCellsY
+            );
+            const { mapPosition: snapped } = pointerToTokenPosition(
+                display.x,
+                display.y,
+                newFootprint,
+                containerRect,
+                gridCellsX,
+                gridCellsY,
+                tokenSnapToGrid
+            );
+            mapPosition = snapped;
+        }
         onUpdate({
             ...entry,
             tokenFootprint: newFootprint,
             tokenSize: undefined,
+            mapPosition,
         });
         setContextMenu(null);
         if (closeOtherTokenMenus === closeThisMenu) {

@@ -37,6 +37,7 @@ interface DisplayCalculatorProps {
         gridCellsY?: number;
         useFixedGrid?: boolean;
         aoeSnapToGrid?: boolean;
+        tokenSnapToGrid?: boolean;
         aoeEffectTheme?: AoEEffectTheme;
     };
     onUpdateGridSettings?: (settings: any) => void;
@@ -71,6 +72,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
     const [gridCellsX, setGridCellsX] = useState(gridSettings?.gridCellsX || 25);
     const [gridCellsY, setGridCellsY] = useState(gridSettings?.gridCellsY || 13);
     const [aoeSnapToGrid, setAoeSnapToGrid] = useState(gridSettings?.aoeSnapToGrid !== false);
+    const [tokenSnapToGrid, setTokenSnapToGrid] = useState(gridSettings?.tokenSnapToGrid !== false);
     const [aoeEffectTheme, setAoeEffectTheme] = useState<AoEEffectTheme>(
         gridSettings?.aoeEffectTheme ?? DEFAULT_AOE_EFFECT_THEME,
     );
@@ -90,6 +92,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 setGridCellsX(gridSettings.gridCellsX || 25);
                 setGridCellsY(gridSettings.gridCellsY || 13);
                 setAoeSnapToGrid(gridSettings.aoeSnapToGrid !== false);
+                setTokenSnapToGrid(gridSettings.tokenSnapToGrid !== false);
                 setAoeEffectTheme(gridSettings.aoeEffectTheme ?? DEFAULT_AOE_EFFECT_THEME);
             }
         });
@@ -181,6 +184,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 gridCellsX,
                 gridCellsY,
                 aoeSnapToGrid,
+                tokenSnapToGrid,
                 aoeEffectTheme,
             });
 
@@ -207,6 +211,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 gridCellsX,
                 gridCellsY,
                 aoeSnapToGrid,
+                tokenSnapToGrid,
                 aoeEffectTheme,
             });
         } else {
@@ -333,6 +338,20 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                         </div>
                         <p className="text-xs text-zinc-500 -mt-1 pl-6">
                             Turn off to place and drag area effects at any position.
+                        </p>
+
+                        <div className="flex items-center space-x-2 pt-1">
+                            <Checkbox
+                                id="token-snap-toggle"
+                                checked={tokenSnapToGrid}
+                                onCheckedChange={(c) => setTokenSnapToGrid(c === true)}
+                            />
+                            <Label htmlFor="token-snap-toggle" className="text-sm font-normal cursor-pointer">
+                                Snap combatant tokens to grid
+                            </Label>
+                        </div>
+                        <p className="text-xs text-zinc-500 -mt-1 pl-6">
+                            Turn off to place and drag player/enemy tokens freely.
                         </p>
 
                         <div className="space-y-2 pt-2">

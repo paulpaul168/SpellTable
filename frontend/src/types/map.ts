@@ -96,6 +96,8 @@ export interface Scene {
         gridCellsY?: number;
         /** When false, AoE markers use pixel coordinates and move freely (no cell snapping). Default true. */
         aoeSnapToGrid?: boolean;
+        /** When false, combatant tokens use free placement (no cell snapping). Default true. */
+        tokenSnapToGrid?: boolean;
         /** Visual style for spell AoE animations (synced to viewers). Default pixel. */
         aoeEffectTheme?: AoEEffectTheme;
         /** Default token grid footprint when entry.tokenFootprint is unset. */
