@@ -52,6 +52,8 @@ class WebSocketService {
     private pendingSceneUpdate: Scene | null = null;
     private sceneUpdateTimer: ReturnType<typeof setTimeout> | null = null;
     private readonly sceneUpdateDebounceMs = 300;
+    /** Suppress onerror noise when we close a socket still in CONNECTING (Strict Mode / HMR). */
+    private closingIntentionally = false;
 
     connect() {
         if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) {
@@ -116,10 +118,15 @@ class WebSocketService {
         };
 
         this.ws.onclose = (event) => {
-            console.log('🔌 WebSocket disconnected:', event.code, event.reason || '(no reason)');
+            const intentional = this.closingIntentionally;
+            this.closingIntentionally = false;
             this.isConnecting = false;
             this.stopConnectionHealthCheck();
-            this.notifyListeners({ type: 'connection_status', status: 'disconnected' });
+
+            if (!intentional) {
+                console.log('🔌 WebSocket disconnected:', event.code, event.reason || '(no reason)');
+                this.notifyListeners({ type: 'connection_status', status: 'disconnected' });
+            }
 
             // Only attempt reconnect if it wasn't a manual close
             if (event.code !== 1000) {
@@ -128,6 +135,9 @@ class WebSocketService {
         };
 
         this.ws.onerror = () => {
+            if (this.closingIntentionally) {
+                return;
+            }
             // The browser passes a generic Event with no message; details appear on `onclose`.
             console.error('❌ WebSocket error (no details from browser)', {
                 url: this.lastWsUrl,
@@ -241,6 +251,7 @@ class WebSocketService {
 
     reconnect() {
         if (this.ws) {
+            this.closingIntentionally = true;
             this.ws.close();
             this.ws = null;
         }
@@ -271,6 +282,7 @@ class WebSocketService {
         }
         this.pendingSceneUpdate = null;
         if (this.ws) {
+            this.closingIntentionally = true;
             this.ws.close(1000, 'Manual disconnect');
             this.ws = null;
         }
