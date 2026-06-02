@@ -291,6 +291,54 @@ body {
   }
 }
 
+@keyframes aoe-reveal-center {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes aoe-reveal-cone {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes aoe-reveal-line {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+.aoe-reveal-center {
+  animation: aoe-reveal-center 0.7s ease-out forwards;
+  transform-origin: center center;
+}
+
+.aoe-reveal-cone {
+  animation: aoe-reveal-cone 0.7s ease-out forwards;
+  transform-origin: top center;
+}
+
+.aoe-reveal-line {
+  animation: aoe-reveal-line 0.7s ease-out forwards;
+  transform-origin: left center;
+}
+
 .animate-combatant-ripple-1 {
   animation: combatant-token-ripple 3s ease-out infinite;
   transform-origin: center center;

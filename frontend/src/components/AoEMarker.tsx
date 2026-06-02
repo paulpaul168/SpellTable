@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { AoEMarker as AoEMarkerType } from '../types/map';
 import {
     getPlayAreaRect,
@@ -26,10 +27,14 @@ interface AoEMarkerProps {
         gridSize: number;
         aoeSnapToGrid?: boolean;
         aoeEffectTheme?: AoEEffectTheme;
+        aoeStagedReveal?: boolean;
     };
     isHighlighted?: boolean;
     containerRef?: RefObject<HTMLElement | null>;
+    onTrigger?: (markerId: string) => void;
 }
+
+let closeOtherAoEMenus: (() => void) | null = null;
 
 export const AoEMarker: React.FC<AoEMarkerProps> = ({
     marker,
@@ -42,6 +47,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     gridSettings,
     isHighlighted = false,
     containerRef,
+    onTrigger,
 }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
@@ -50,6 +56,9 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const [highlightAnimation, setHighlightAnimation] = useState(false);
     const [highlightRippleKey, setHighlightRippleKey] = useState(0);
     const [effectLoaded, setEffectLoaded] = useState(false);
+    const [playRevealAnimation, setPlayRevealAnimation] = useState(false);
+    const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+    const prevRevealedRef = useRef(marker.revealed);
     const lastUpdateRef = useRef<number>(0);
     const pendingUpdateRef = useRef<AoEMarkerType | null>(null);
     const mouseDragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -86,6 +95,15 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const aoeEffectTheme = normalizeAoEEffectTheme(
         gridSettings?.aoeEffectTheme ?? DEFAULT_AOE_EFFECT_THEME,
     );
+    const aoeStagedReveal = gridSettings?.aoeStagedReveal === true;
+    const isHiddenFromViewer = !isAdmin && aoeStagedReveal && marker.revealed === false;
+    const isLongEffectGhost =
+        isAdmin &&
+        aoeStagedReveal &&
+        marker.revealed === false &&
+        (marker.shape === 'line' || marker.shape === 'cone');
+    const canTrigger =
+        isAdmin && aoeStagedReveal && marker.revealed === false && onTrigger;
 
     const sizeInPixels = marker.sizeInFeet * effectiveGridSize / 5;
     const adjustedSizeInPixels = sizeInPixels;
@@ -114,6 +132,66 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             }, 3500);
         }
     }, [isHighlighted]);
+
+    useEffect(() => {
+        if (!aoeStagedReveal) {
+            prevRevealedRef.current = marker.revealed;
+            return;
+        }
+        const wasUnrevealed = prevRevealedRef.current === false;
+        const nowRevealed = marker.revealed !== false;
+        if (wasUnrevealed && nowRevealed && !isAdmin) {
+            setPlayRevealAnimation(true);
+        }
+        prevRevealedRef.current = marker.revealed;
+    }, [marker.revealed, aoeStagedReveal, isAdmin]);
+
+    const closeThisMenu = useCallback(() => {
+        setContextMenu(null);
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (closeOtherAoEMenus === closeThisMenu) {
+                closeOtherAoEMenus = null;
+            }
+        };
+    }, [closeThisMenu]);
+
+    useEffect(() => {
+        if (!contextMenu) return;
+
+        const handlePointerDown = (e: PointerEvent) => {
+            if (e.button === 2) return;
+            const target = e.target as Node;
+            if (markerRef.current?.contains(target)) return;
+            if (
+                target instanceof Element &&
+                target.closest('[data-aoe-context-menu]')
+            ) {
+                return;
+            }
+            setContextMenu(null);
+        };
+
+        const handleScroll = () => setContextMenu(null);
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setContextMenu(null);
+        };
+
+        const timerId = window.setTimeout(() => {
+            document.addEventListener('pointerdown', handlePointerDown, true);
+            document.addEventListener('scroll', handleScroll, true);
+            document.addEventListener('keydown', handleKeyDown);
+        }, 0);
+
+        return () => {
+            window.clearTimeout(timerId);
+            document.removeEventListener('pointerdown', handlePointerDown, true);
+            document.removeEventListener('scroll', handleScroll, true);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [contextMenu]);
 
     useEffect(() => {
         return () => {
@@ -325,6 +403,12 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const handleMouseDown = (e: React.MouseEvent) => {
         if (!isActive || !isAdmin) return;
 
+        if (e.button === 2) {
+            e.stopPropagation();
+            return;
+        }
+        if (e.button !== 0) return;
+
         e.stopPropagation();
         e.preventDefault();
 
@@ -441,6 +525,104 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         );
     };
 
+    const getRevealClass = (): string => {
+        if (!playRevealAnimation) return '';
+        if (marker.shape === 'cone') return 'aoe-reveal-cone';
+        if (marker.shape === 'line') return 'aoe-reveal-line';
+        return 'aoe-reveal-center';
+    };
+
+    const renderAnchorDot = () => (
+        <div
+            className="pointer-events-none absolute z-10 rounded-full border border-black/60 bg-white shadow-sm"
+            style={{
+                width: 8,
+                height: 8,
+                ...(marker.shape === 'cone'
+                    ? { top: 0, left: '50%', transform: 'translate(-50%, -50%)' }
+                    : { left: 0, top: '50%', transform: 'translate(-50%, -50%)' }),
+            }}
+        />
+    );
+
+    const renderGhostShape = () => {
+        const ghostOpacity = 0.35;
+        switch (marker.shape) {
+            case 'circle':
+                return (
+                    <div
+                        className="rounded-full border-2 border-dashed"
+                        style={{
+                            width: `${adjustedSizeInPixels}px`,
+                            height: `${adjustedSizeInPixels}px`,
+                            borderColor: marker.color,
+                            backgroundColor: `${marker.color}18`,
+                            opacity: ghostOpacity,
+                        }}
+                    />
+                );
+            case 'cone':
+                return (
+                    <svg
+                        width={adjustedSizeInPixels}
+                        height={adjustedSizeInPixels}
+                        style={{ opacity: ghostOpacity }}
+                        viewBox={`0 0 ${adjustedSizeInPixels} ${adjustedSizeInPixels}`}
+                    >
+                        <polygon
+                            points={`${adjustedSizeInPixels / 2},0 0,${adjustedSizeInPixels} ${adjustedSizeInPixels},${adjustedSizeInPixels}`}
+                            fill={`${marker.color}18`}
+                            stroke={marker.color}
+                            strokeWidth="2"
+                            strokeDasharray="6 4"
+                        />
+                    </svg>
+                );
+            case 'line':
+                return (
+                    <div
+                        className="border-2 border-dashed"
+                        style={{
+                            width: `${adjustedSizeInPixels}px`,
+                            height: `${effectiveGridSize / 2}px`,
+                            borderColor: marker.color,
+                            backgroundColor: `${marker.color}18`,
+                            opacity: ghostOpacity,
+                        }}
+                    />
+                );
+            case 'square':
+            case 'cube':
+                return (
+                    <div
+                        className="border-2 border-dashed"
+                        style={{
+                            width: `${adjustedSizeInPixels}px`,
+                            height: `${adjustedSizeInPixels}px`,
+                            borderColor: marker.color,
+                            backgroundColor: `${marker.color}18`,
+                            opacity: ghostOpacity,
+                        }}
+                    />
+                );
+            case 'cylinder':
+                return (
+                    <div
+                        className="rounded-full border-2 border-dashed"
+                        style={{
+                            width: `${adjustedSizeInPixels}px`,
+                            height: `${adjustedSizeInPixels}px`,
+                            borderColor: marker.color,
+                            backgroundColor: `${marker.color}18`,
+                            opacity: ghostOpacity,
+                        }}
+                    />
+                );
+            default:
+                return null;
+        }
+    };
+
     const renderSolidShape = () => {
         switch (marker.shape) {
             case 'circle':
@@ -521,10 +703,23 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     };
 
     const renderShape = () => {
+        if (isLongEffectGhost) {
+            return (
+                <div style={shapeBoundsStyle} className="relative">
+                    {renderGhostShape()}
+                    {renderAnchorDot()}
+                </div>
+            );
+        }
+
         const showSolid =
             aoeEffectTheme === 'none' || !marker.effectId || !effectLoaded;
         return (
-            <div style={shapeBoundsStyle}>
+            <div
+                style={shapeBoundsStyle}
+                className={getRevealClass()}
+                onAnimationEnd={() => setPlayRevealAnimation(false)}
+            >
                 {showSolid && renderSolidShape()}
                 {renderEffectSprite()}
             </div>
@@ -536,6 +731,24 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         e.stopPropagation();
         onDelete(marker.id);
     };
+
+    const handleContextMenu = (e: React.MouseEvent) => {
+        if (!isAdmin || !canTrigger) return;
+        e.preventDefault();
+        e.stopPropagation();
+        closeOtherAoEMenus?.();
+        closeOtherAoEMenus = closeThisMenu;
+        setContextMenu({ x: e.clientX, y: e.clientY });
+    };
+
+    const handleTrigger = () => {
+        onTrigger?.(marker.id);
+        setContextMenu(null);
+    };
+
+    if (isHiddenFromViewer) {
+        return null;
+    }
 
     return (
         <div
@@ -556,7 +769,9 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 zIndex: isDragging ? 900 : 500,
                 touchAction: 'none'
             }}
+            title={canTrigger ? 'Right-click to trigger' : undefined}
             onMouseDown={handleMouseDown}
+            onContextMenu={handleContextMenu}
             onWheel={handleWheel}
             onDoubleClick={handleDoubleClick}
             onMouseEnter={() => !isDragging && setIsHovered(true)}
@@ -678,6 +893,28 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             )}
 
             {renderShape()}
+
+            {contextMenu &&
+                isAdmin &&
+                createPortal(
+                    <div
+                        data-aoe-context-menu
+                        role="menu"
+                        className="fixed z-[10002] min-w-[11rem] overflow-hidden rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-lg"
+                        style={{ left: contextMenu.x, top: contextMenu.y }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onContextMenu={(e) => e.preventDefault()}
+                    >
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-accent"
+                            onClick={handleTrigger}
+                        >
+                            Trigger (reveal to viewers)
+                        </button>
+                    </div>,
+                    document.body,
+                )}
 
             {marker.label && (
                 <div

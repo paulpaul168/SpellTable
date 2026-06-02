@@ -1030,7 +1030,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             position: aoeSnapToGrid
                 ? { x: centerGridX, y: centerGridY }
                 : { x: 0.5, y: 0.5 },
-            useGridCoordinates: aoeSnapToGrid
+            useGridCoordinates: aoeSnapToGrid,
+            ...(scene.gridSettings.aoeStagedReveal === true ? { revealed: false } : {}),
         };
 
         const updatedScene = {
@@ -1068,6 +1069,35 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         websocketService.send({
             type: 'scene_update',
             scene: updatedScene
+        });
+    };
+
+    // Handler for triggering (revealing) a staged AoE marker to viewers
+    const handleTriggerAoEMarker = (markerId: string) => {
+        if (!scene.aoeMarkers) return;
+
+        const marker = scene.aoeMarkers.find(m => m.id === markerId);
+        if (!marker || marker.revealed !== false) return;
+
+        const updatedMarkers = scene.aoeMarkers.map(m =>
+            m.id === markerId ? { ...m, revealed: true } : m
+        );
+
+        const updatedScene = {
+            ...scene,
+            aoeMarkers: updatedMarkers
+        };
+
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
+        });
+
+        toast({
+            title: "Marker Triggered",
+            description: marker.label || `${marker.shape} marker revealed to viewers`,
+            duration: 2000,
         });
     };
 
@@ -1335,6 +1365,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             isAdmin={isAdmin}
                             onUpdate={handleUpdateAoEMarker}
                             onDelete={handleDeleteAoEMarker}
+                            onTrigger={handleTriggerAoEMarker}
                             scale={displayScale}
                             gridSettings={scene.gridSettings}
                             isHighlighted={marker.id === highlightedMarkerId}
@@ -1588,7 +1619,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
                             <DropdownMenuSeparator />
 
-                            {/* Grid Settings */}
+                            {/* Grid and AoE Settings */}
                             <div className="px-2 py-1">
                                 <div className="flex items-center gap-2 px-2 py-1">
                                     <Grid className="h-4 w-4 text-muted-foreground" />
@@ -1611,7 +1642,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                         onClick={() => setIsGridSettingsOpen(true)}
                                     >
                                         <Settings className="h-4 w-4 mr-2" />
-                                        Grid Settings
+                                        Grid and AoE Settings
                                     </DropdownMenuItem>
                                 </div>
                             </div>
@@ -1777,9 +1808,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 isOpen={isAoEPaletteOpen}
                 onClose={() => setIsAoEPaletteOpen(false)}
                 onAddMarker={handleAddAoEMarker}
-                aoeEffectTheme={scene.gridSettings.aoeEffectTheme ?? 'pixel'}
-                onThemeChange={(theme) =>
-                    handleUpdateGridSettings({ ...scene.gridSettings, aoeEffectTheme: theme })
+                aoeStagedReveal={scene.gridSettings.aoeStagedReveal === true}
+                onStagedRevealChange={(enabled) =>
+                    handleUpdateGridSettings({ ...scene.gridSettings, aoeStagedReveal: enabled })
                 }
                 activeMarkers={scene.aoeMarkers || []}
                 onDeleteMarker={handleDeleteAoEMarker}

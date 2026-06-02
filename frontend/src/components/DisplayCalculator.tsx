@@ -39,6 +39,7 @@ interface DisplayCalculatorProps {
         aoeSnapToGrid?: boolean;
         tokenSnapToGrid?: boolean;
         aoeEffectTheme?: AoEEffectTheme;
+        aoeStagedReveal?: boolean;
     };
     onUpdateGridSettings?: (settings: any) => void;
 }
@@ -76,6 +77,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
     const [aoeEffectTheme, setAoeEffectTheme] = useState<AoEEffectTheme>(
         gridSettings?.aoeEffectTheme ?? DEFAULT_AOE_EFFECT_THEME,
     );
+    const [aoeStagedReveal, setAoeStagedReveal] = useState(gridSettings?.aoeStagedReveal === true);
 
     // Active tab state
     const [activeTab, setActiveTab] = useState("settings");
@@ -94,6 +96,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 setAoeSnapToGrid(gridSettings.aoeSnapToGrid !== false);
                 setTokenSnapToGrid(gridSettings.tokenSnapToGrid !== false);
                 setAoeEffectTheme(gridSettings.aoeEffectTheme ?? DEFAULT_AOE_EFFECT_THEME);
+                setAoeStagedReveal(gridSettings.aoeStagedReveal === true);
             }
         });
     }, [currentGridSize, gridSettings]);
@@ -186,6 +189,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 aoeSnapToGrid,
                 tokenSnapToGrid,
                 aoeEffectTheme,
+                aoeStagedReveal,
             });
 
             // When we apply new grid settings, show a message about existing elements
@@ -213,6 +217,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 aoeSnapToGrid,
                 tokenSnapToGrid,
                 aoeEffectTheme,
+                aoeStagedReveal,
             });
         } else {
             onApplyGridSize(useFixedGrid ? calculatedGridSize : gridSize);
@@ -224,15 +229,15 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[550px]">
                 <DialogHeader>
-                    <DialogTitle>Grid Settings</DialogTitle>
+                    <DialogTitle>Grid and AoE Settings</DialogTitle>
                     <DialogDescription>
-                        Configure grid appearance and calculate optimal display settings
+                        Configure grid appearance, AoE options, and calculate optimal display settings
                     </DialogDescription>
                 </DialogHeader>
 
                 <Tabs defaultValue="settings" value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="grid grid-cols-3 mb-4">
-                        <TabsTrigger value="settings">Grid Settings</TabsTrigger>
+                        <TabsTrigger value="settings">Grid and AoE</TabsTrigger>
                         <TabsTrigger value="layout">Grid Layout</TabsTrigger>
                         <TabsTrigger value="calculator">Display Calculator</TabsTrigger>
                     </TabsList>
@@ -372,6 +377,20 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        <div className="flex items-center space-x-2 pt-1">
+                            <Checkbox
+                                id="aoe-staged-reveal-toggle"
+                                checked={aoeStagedReveal}
+                                onCheckedChange={(c) => setAoeStagedReveal(c === true)}
+                            />
+                            <Label htmlFor="aoe-staged-reveal-toggle" className="text-sm font-normal cursor-pointer">
+                                Staged AoE reveal
+                            </Label>
+                        </div>
+                        <p className="text-xs text-zinc-500 -mt-1 pl-6">
+                            Hide new AoE markers from viewers until admin triggers them.
+                        </p>
 
                         <div className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg mt-4">
                             <div className="flex items-center mb-2">

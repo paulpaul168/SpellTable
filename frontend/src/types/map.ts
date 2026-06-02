@@ -67,6 +67,8 @@ export interface AoEMarker {
     label?: string;
     /** Key under /aoe-effects/{id}/ for animated sprite sheet */
     effectId?: string;
+    /** When aoeStagedReveal is on: false hides from viewers until triggered. Undefined = already revealed. */
+    revealed?: boolean;
 }
 
 export interface FogOfWar {
@@ -100,6 +102,8 @@ export interface Scene {
         tokenSnapToGrid?: boolean;
         /** Visual style for spell AoE animations (synced to viewers). Default pixel. */
         aoeEffectTheme?: AoEEffectTheme;
+        /** When true, new AoE markers stay hidden from viewers until admin triggers them. Default false. */
+        aoeStagedReveal?: boolean;
         /** Default token grid footprint when entry.tokenFootprint is unset. */
         defaultTokenFootprint?: 1 | 2 | 3;
         /** @deprecated Use defaultTokenFootprint */

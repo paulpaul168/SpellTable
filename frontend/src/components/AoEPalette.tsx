@@ -4,7 +4,6 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import {
-    Zap,
     Circle,
     PlusCircle,
     Triangle,
@@ -13,37 +12,18 @@ import {
     Box,
     Cylinder as CylinderIcon,
     X,
-    ChevronDown,
-    ChevronUp,
-    PanelLeftClose,
     Trash2,
     EyeIcon,
 } from 'lucide-react';
-import { cn } from '../lib/utils';
 import { Slider } from './ui/slider';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from './ui/select';
-import type { AoEEffectTheme } from '@/types/aoeEffect';
-import { AOE_EFFECT_THEMES } from '@/types/aoeEffect';
-import { DEFAULT_AOE_EFFECT_THEME } from '@/types/aoeEffect';
-
-const THEME_LABELS: Record<AoEEffectTheme, string> = {
-    pixel: 'Pixel',
-    realistic: 'Hyper-realistic',
-    none: 'No animations',
-};
+import { Checkbox } from './ui/checkbox';
 
 interface AoEPaletteProps {
     isOpen: boolean;
     onClose: () => void;
     onAddMarker: (marker: Omit<AoEMarker, 'id' | 'position'>) => void;
-    aoeEffectTheme?: AoEEffectTheme;
-    onThemeChange?: (theme: AoEEffectTheme) => void;
+    aoeStagedReveal?: boolean;
+    onStagedRevealChange?: (enabled: boolean) => void;
     activeMarkers?: AoEMarker[];
     onDeleteMarker?: (id: string) => void;
     onHighlightMarker?: (id: string) => void;
@@ -107,13 +87,13 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
     isOpen,
     onClose,
     onAddMarker,
-    aoeEffectTheme = DEFAULT_AOE_EFFECT_THEME,
-    onThemeChange,
+    aoeStagedReveal = false,
+    onStagedRevealChange,
     activeMarkers = [],
     onDeleteMarker,
     onHighlightMarker,
 }) => {
-    const [activeTab, setActiveTab] = useState<'shapes' | 'spells' | 'custom' | 'markers'>('shapes');
+    const [activeTab, setActiveTab] = useState<'shapes' | 'spells' | 'custom' | 'markers' | 'settings'>('shapes');
     const [customShape, setCustomShape] = useState<AoEShape>('circle');
     const [customSize, setCustomSize] = useState(20);
     const [customColor, setCustomColor] = useState('#FF5A5A');
@@ -192,28 +172,6 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
 
             {/* Content */}
             <div>
-                {onThemeChange && (
-                    <div className="border-b border-border/50 px-3 py-2">
-                        <Label className="text-xs text-muted-foreground">Animation theme</Label>
-                        <Select
-                            value={aoeEffectTheme}
-                            onValueChange={(value) =>
-                                onThemeChange(value as AoEEffectTheme)
-                            }
-                        >
-                            <SelectTrigger className="mt-1 h-8 text-xs">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {AOE_EFFECT_THEMES.map((theme) => (
-                                    <SelectItem key={theme} value={theme}>
-                                        {THEME_LABELS[theme]}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                )}
                 {/* Tabs */}
                 <div className="flex items-center border-b border-border/50 p-2">
                     <Button
@@ -248,10 +206,18 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                     >
                         Markers
                     </Button>
+                    <Button
+                        variant={activeTab === 'settings' ? 'default' : 'ghost'}
+                        size="sm"
+                        className="text-xs flex-1"
+                        onClick={() => setActiveTab('settings')}
+                    >
+                        Settings
+                    </Button>
                 </div>
 
-                {/* Opacity control - common to all tabs except markers */}
-                {activeTab !== 'markers' && (
+                {/* Opacity control - common to shape tabs only */}
+                {activeTab !== 'markers' && activeTab !== 'settings' && (
                     <div className="px-3 pt-2">
                         <div className="flex items-center justify-between">
                             <Label className="text-xs text-muted-foreground">Opacity: {Math.round(opacity * 100)}%</Label>
@@ -507,6 +473,29 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Settings Tab */}
+                {activeTab === 'settings' && (
+                    <div className="p-3 space-y-3">
+                        {onStagedRevealChange && (
+                            <div className="flex items-start space-x-2">
+                                <Checkbox
+                                    id="aoe-staged-reveal"
+                                    checked={aoeStagedReveal}
+                                    onCheckedChange={(c) => onStagedRevealChange(c === true)}
+                                />
+                                <div className="space-y-1">
+                                    <Label htmlFor="aoe-staged-reveal" className="text-xs font-normal cursor-pointer leading-snug">
+                                        Staged reveal (hide from viewers until triggered)
+                                    </Label>
+                                    <p className="text-xs text-zinc-500">
+                                        New markers show as ghost outlines on admin for lines and cones. Right-click a marker on the map to trigger it for viewers.
+                                    </p>
+                                </div>
                             </div>
                         )}
                     </div>
