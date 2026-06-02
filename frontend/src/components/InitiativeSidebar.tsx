@@ -21,6 +21,41 @@ import {
 } from '@dnd-kit/sortable';
 import { cn } from '../lib/utils';
 import { GlassPanel } from './gameboard/GlassPanel';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from './ui/dialog';
+import { Label } from './ui/label';
+import {
+    parseInitiativeModifier,
+    rollDiceExpression,
+    rollInitiative,
+} from '../utils/dice';
+
+function createEntryId(): string {
+    return crypto.randomUUID();
+}
+
+function createInitiativeEntry(
+    name: string,
+    initiative: number,
+    isPlayer: boolean,
+    hp?: number
+): InitiativeEntry {
+    return {
+        id: createEntryId(),
+        name,
+        initiative,
+        isPlayer,
+        isCurrentTurn: false,
+        hp,
+        initialHP: hp,
+        isKilled: false,
+    };
+}
 
 interface InitiativeSidebarProps {
     isAdmin: boolean;
@@ -41,14 +76,20 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
 }) => {
     const { toast } = useToast();
     const [isVisible, setIsVisible] = useState(true);
+    const [addDialogOpen, setAddDialogOpen] = useState(false);
     const [playerName, setPlayerName] = useState('');
     const [playerInitiative, setPlayerInitiative] = useState('');
     const [enemyName, setEnemyName] = useState('');
     const [enemyInitiative, setEnemyInitiative] = useState('');
     const [enemyHP, setEnemyHP] = useState('');
+    const [enemyCount, setEnemyCount] = useState('');
+    const [bulkEnemyName, setBulkEnemyName] = useState('');
+    const [bulkEnemyHP, setBulkEnemyHP] = useState('');
+    const [bulkEnemyInitMod, setBulkEnemyInitMod] = useState('');
     const [playerNames, setPlayerNames] = useState<string[]>([]);
     const playerNameRef = useRef<HTMLInputElement>(null);
     const enemyNameRef = useRef<HTMLInputElement>(null);
+    const bulkEnemyNameRef = useRef<HTMLInputElement>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -58,16 +99,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
     );
 
     const addEntry = (name: string, initiative: number, isPlayer: boolean, hp?: number) => {
-        const newEntry: InitiativeEntry = {
-            id: Date.now().toString(),
-            name,
-            initiative,
-            isPlayer,
-            isCurrentTurn: false,
-            hp: hp,
-            initialHP: hp,
-            isKilled: false
-        };
+        const newEntry = createInitiativeEntry(name, initiative, isPlayer, hp);
 
         const newEntries = [...entries, newEntry].sort((a, b) => b.initiative - a.initiative);
         onUpdate(newEntries);
@@ -264,6 +296,77 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
         enemyNameRef.current?.focus();
     };
 
+    const addBulkEnemyEntries = () => {
+        const count = parseInt(enemyCount, 10);
+        const baseName = bulkEnemyName.trim();
+
+        if (!baseName || !enemyCount || Number.isNaN(count) || count < 1) {
+            toast({
+                title: 'Error',
+                description: 'Please enter a count (≥ 1) and enemy name',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        if (!bulkEnemyHP.trim()) {
+            toast({
+                title: 'Error',
+                description: 'Please enter an HP dice expression (e.g. 5d6+6)',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        let initiativeModifier: number;
+        try {
+            initiativeModifier = parseInitiativeModifier(bulkEnemyInitMod);
+        } catch {
+            toast({
+                title: 'Error',
+                description: 'Please enter a valid initiative modifier (e.g. +3)',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        const rolledHP: number[] = [];
+        const rolledInit: number[] = [];
+        const newEntries: InitiativeEntry[] = [];
+
+        try {
+            for (let i = 0; i < count; i++) {
+                const hp = rollDiceExpression(bulkEnemyHP);
+                const initiative = rollInitiative(initiativeModifier);
+                rolledHP.push(hp);
+                rolledInit.push(initiative);
+                newEntries.push(
+                    createInitiativeEntry(`${baseName}_${i + 1}`, initiative, false, hp)
+                );
+            }
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: error instanceof Error ? error.message : 'Invalid HP dice expression',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        onUpdate([...entries, ...newEntries].sort((a, b) => b.initiative - a.initiative));
+
+        toast({
+            title: `Added ${count} ${baseName}${count === 1 ? '' : 's'}`,
+            description: `HP: ${rolledHP.join(', ')} | Init: ${rolledInit.join(', ')}`,
+        });
+
+        setEnemyCount('');
+        setBulkEnemyName('');
+        setBulkEnemyHP('');
+        setBulkEnemyInitMod('');
+        bulkEnemyNameRef.current?.focus();
+    };
+
     return (
         <>
             {!isVisible && (
@@ -283,6 +386,17 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                     onClose={onClose}
                     headerActions={
                         <>
+                            {isAdmin && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => setAddDialogOpen(true)}
+                                    title="Add player or enemy"
+                                >
+                                    <Plus className="h-4 w-4" />
+                                </Button>
+                            )}
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -334,97 +448,6 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                         ) : undefined
                     }
                 >
-                        {isAdmin && (
-                            <div className="mb-3 space-y-4 border-b border-border/50 pb-3">
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex gap-2">
-                                        <div className="flex-1 flex flex-col gap-1">
-                                            <div className="flex gap-1">
-                                                <Input
-                                                    ref={playerNameRef}
-                                                    type="text"
-                                                    placeholder="Player name"
-                                                    value={playerName}
-                                                    onChange={(e) => setPlayerName(e.target.value)}
-                                                    list="playerNames"
-                                                    className="h-8 text-xs"
-                                                />
-                                                <Input
-                                                    type="number"
-                                                    placeholder="Init"
-                                                    value={playerInitiative}
-                                                    onChange={(e) => setPlayerInitiative(e.target.value)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') {
-                                                            addPlayerEntry();
-                                                        }
-                                                    }}
-                                                    className="w-16 h-8 text-xs"
-                                                />
-                                                <Button
-                                                    onClick={addPlayerEntry}
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-8 w-8 p-0"
-                                                >
-                                                    <Plus className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                            <datalist id="playerNames">
-                                                {playerNames.map(name => (
-                                                    <option key={name} value={name} />
-                                                ))}
-                                            </datalist>
-                                        </div>
-                                    </div>
-
-                                    <div className="my-2 h-px bg-border/50" />
-
-                                    <div className="flex gap-2">
-                                        <div className="flex-1 flex flex-col gap-1">
-                                            <div className="flex gap-1">
-                                                <Input
-                                                    ref={enemyNameRef}
-                                                    type="text"
-                                                    placeholder="Enemy name"
-                                                    value={enemyName}
-                                                    onChange={(e) => setEnemyName(e.target.value)}
-                                                    className="h-8 text-xs"
-                                                />
-                                                <Input
-                                                    type="number"
-                                                    placeholder="HP"
-                                                    value={enemyHP}
-                                                    onChange={(e) => setEnemyHP(e.target.value)}
-                                                    className="w-16 h-8 text-xs"
-                                                />
-                                                <Input
-                                                    type="number"
-                                                    placeholder="Init"
-                                                    value={enemyInitiative}
-                                                    onChange={(e) => setEnemyInitiative(e.target.value)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') {
-                                                            addEnemyEntry();
-                                                        }
-                                                    }}
-                                                    className="w-16 h-8 text-xs"
-                                                />
-                                                <Button
-                                                    onClick={addEnemyEntry}
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-8 w-8 p-0"
-                                                >
-                                                    <Plus className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
                         <DndContext
                             sensors={sensors}
                             collisionDetection={closestCenter}
@@ -512,6 +535,147 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                             </SortableContext>
                         </DndContext>
                 </GlassPanel>
+            )}
+
+            {isAdmin && (
+                <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Add to Initiative</DialogTitle>
+                            <DialogDescription>
+                                Add a player, single enemy, or multiple enemies with rolled HP and initiative.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="space-y-5">
+                            <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">Player</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        ref={playerNameRef}
+                                        type="text"
+                                        placeholder="Player name"
+                                        value={playerName}
+                                        onChange={(e) => setPlayerName(e.target.value)}
+                                        list="playerNames"
+                                    />
+                                    <Input
+                                        type="number"
+                                        placeholder="Init"
+                                        value={playerInitiative}
+                                        onChange={(e) => setPlayerInitiative(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                addPlayerEntry();
+                                            }
+                                        }}
+                                        className="w-20"
+                                    />
+                                    <Button onClick={addPlayerEntry} size="icon" variant="outline">
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                <datalist id="playerNames">
+                                    {playerNames.map(name => (
+                                        <option key={name} value={name} />
+                                    ))}
+                                </datalist>
+                            </div>
+
+                            <div className="h-px bg-border" />
+
+                            <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">Enemy</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        ref={enemyNameRef}
+                                        type="text"
+                                        placeholder="Enemy name"
+                                        value={enemyName}
+                                        onChange={(e) => setEnemyName(e.target.value)}
+                                        className="flex-1"
+                                    />
+                                    <Input
+                                        type="number"
+                                        placeholder="HP"
+                                        value={enemyHP}
+                                        onChange={(e) => setEnemyHP(e.target.value)}
+                                        className="w-20"
+                                    />
+                                    <Input
+                                        type="number"
+                                        placeholder="Init"
+                                        value={enemyInitiative}
+                                        onChange={(e) => setEnemyInitiative(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                addEnemyEntry();
+                                            }
+                                        }}
+                                        className="w-20"
+                                    />
+                                    <Button onClick={addEnemyEntry} size="icon" variant="outline">
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="h-px bg-border" />
+
+                            <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">
+                                    Bulk enemies (rolled HP &amp; initiative)
+                                </Label>
+                                <div className="grid grid-cols-[4rem_1fr] gap-2">
+                                    <Input
+                                        type="number"
+                                        placeholder="#"
+                                        title="Count"
+                                        min={1}
+                                        value={enemyCount}
+                                        onChange={(e) => setEnemyCount(e.target.value)}
+                                    />
+                                    <Input
+                                        ref={bulkEnemyNameRef}
+                                        type="text"
+                                        placeholder="Base name (e.g. Goblin → Goblin_1, Goblin_2…)"
+                                        value={bulkEnemyName}
+                                        onChange={(e) => setBulkEnemyName(e.target.value)}
+                                    />
+                                </div>
+                                <div className="flex gap-2">
+                                    <Input
+                                        type="text"
+                                        placeholder="HP dice (5d6+6)"
+                                        value={bulkEnemyHP}
+                                        onChange={(e) => setBulkEnemyHP(e.target.value)}
+                                        className="flex-1"
+                                    />
+                                    <Input
+                                        type="text"
+                                        placeholder="Init (+3)"
+                                        value={bulkEnemyInitMod}
+                                        onChange={(e) => setBulkEnemyInitMod(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                addBulkEnemyEntries();
+                                            }
+                                        }}
+                                        className="w-24"
+                                    />
+                                    <Button
+                                        onClick={addBulkEnemyEntries}
+                                        size="icon"
+                                        variant="outline"
+                                        title="Add multiple enemies with rolled HP and initiative"
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             )}
         </>
     );
