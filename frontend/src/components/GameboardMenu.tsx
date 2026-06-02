@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import {
     MousePointer,
     ZapIcon,
@@ -8,19 +7,10 @@ import {
     MoonIcon,
     Ruler,
     Target,
-    Wifi,
     CloudLightning,
-    Menu,
-    X
+    X,
 } from 'lucide-react';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { GameboardDock } from '@/components/gameboard/GameboardDock';
 import { websocketService } from '../services/websocket';
 import type { Scene } from '@/types/map';
 import { MeasureOverlay } from './MeasureOverlay';
@@ -322,135 +312,130 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
         setActiveTool('pointer');
     };
 
-    const activateMeasureTool = () => {
-        if (activeTool === 'measure') {
-            setActiveTool('pointer');
-            return;
-        }
+    const selectPointerTool = () => {
+        setActiveTool('pointer');
+    };
+
+    const selectMarkerTool = () => {
+        setActiveTool('marker');
+        setJustActivatedMarker(true);
+    };
+
+    const selectMeasureTool = () => {
         setActiveTool('measure');
         setJustActivatedMeasure(true);
     };
+
+    const toolDockItems = useMemo(
+        () => [
+            {
+                id: 'pointer',
+                label: 'Pointer',
+                icon: <MousePointer className="h-4 w-4" />,
+                active: activeTool === 'pointer',
+                onClick: selectPointerTool,
+            },
+            {
+                id: 'marker',
+                label: 'Marker (ripple)',
+                icon: <Target className="h-4 w-4" />,
+                active: activeTool === 'marker',
+                onClick: selectMarkerTool,
+            },
+            {
+                id: 'measure',
+                label: 'Measure (ft)',
+                icon: <Ruler className="h-4 w-4" />,
+                active: activeTool === 'measure',
+                onClick: selectMeasureTool,
+            },
+        ],
+        [activeTool]
+    );
+
+    const effectDockItems = useMemo(
+        () => [
+            {
+                id: 'lightning',
+                label: 'Lightning flash',
+                icon: <CloudLightning className="h-4 w-4" />,
+                onClick: () => toggleLightningEffect(),
+            },
+            {
+                id: 'shake',
+                label: 'Shake board',
+                icon: <ZapIcon className="h-4 w-4" />,
+                onClick: () => toggleShakeEffect(),
+            },
+        ],
+        [toggleLightningEffect, toggleShakeEffect]
+    );
+
+    const nightDockItems = useMemo(
+        () => [
+            {
+                id: 'night',
+                label: isDarkMode ? 'Day mode' : 'Night mode',
+                icon: isDarkMode ? (
+                    <SunIcon className="h-4 w-4" />
+                ) : (
+                    <MoonIcon className="h-4 w-4" />
+                ),
+                active: isDarkMode,
+                onClick: toggleDayNight,
+            },
+        ],
+        [isDarkMode, toggleDayNight]
+    );
 
     const showMeasureOverlay =
         activeTool === 'measure' || measurePoints.length > 0;
 
     return (
         <>
-            <div ref={menuRef} className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1002]">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="glass-panel flex items-center gap-2 px-4 py-2"
-                        >
-                            <Menu className="h-4 w-4" />
-                            <span className="text-xs font-medium">Gameboard</span>
-
-                            {connectionStatus === 'connected' ? (
-                                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse ml-1" />
-                            ) : (
-                                <div className="ml-1 h-2 w-2 rounded-full bg-muted-foreground" />
-                            )}
-                        </Button>
-                    </DropdownMenuTrigger>
-
-                    <DropdownMenuContent align="center" className="glass-panel w-56 border-border/50">
-                        <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">Tools</DropdownMenuLabel>
-
-                        <DropdownMenuItem
-                            className={cn("text-xs cursor-pointer", activeTool === 'pointer' && "bg-accent")}
-                            onClick={() => setActiveTool('pointer')}
-                        >
-                            <MousePointer className="h-4 w-4 mr-2" />
-                            Pointer
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem
-                            className={cn("text-xs cursor-pointer", activeTool === 'marker' && "bg-accent")}
-                            onClick={() => {
-                                setActiveTool('marker');
-                                setJustActivatedMarker(true);
-                            }}
-                        >
-                            <Target className="h-4 w-4 mr-2" />
-                            Marker (Ripple Effect)
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem
-                            className={cn("text-xs cursor-pointer", activeTool === 'measure' && "bg-accent")}
-                            onClick={activateMeasureTool}
-                        >
-                            <Ruler className="h-4 w-4 mr-2" />
-                            Measure (ft)
-                        </DropdownMenuItem>
-
-                        <DropdownMenuSeparator />
-
-                        <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">Visual Effects</DropdownMenuLabel>
-
-                        <DropdownMenuItem
-                            className="text-xs cursor-pointer"
-                            onClick={() => toggleLightningEffect()}
-                        >
-                            <CloudLightning className="h-4 w-4 mr-2" />
-                            Lightning Flash
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem
-                            className="text-xs cursor-pointer"
-                            onClick={() => toggleShakeEffect()}
-                        >
-                            <ZapIcon className="h-4 w-4 mr-2" />
-                            Shake Board
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem
-                            className={cn("text-xs cursor-pointer", isDarkMode && "bg-accent")}
-                            onClick={toggleDayNight}
-                        >
-                            {isDarkMode ? (
-                                <>
-                                    <SunIcon className="h-4 w-4 mr-2" />
-                                    Day Mode
-                                </>
-                            ) : (
-                                <>
-                                    <MoonIcon className="h-4 w-4 mr-2" />
-                                    Night Mode
-                                </>
-                            )}
-                        </DropdownMenuItem>
-
-                        {isDarkMode && (
-                            <div className="px-2 py-2">
-                                <div className="mb-1 text-xs text-muted-foreground">Brightness: {brightness}%</div>
-                                <input
-                                    type="range"
-                                    min="10"
-                                    max="100"
-                                    value={brightness}
-                                    onChange={(e) =>
-                                        handleBrightnessChange(parseInt(e.target.value, 10))
-                                    }
-                                    className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-primary/20 accent-primary"
-                                />
-                            </div>
+            <div
+                ref={menuRef}
+                className="absolute top-4 left-1/2 z-[1002] flex -translate-x-1/2 flex-col items-center gap-1"
+                data-ui-element="true"
+            >
+                <div className="flex items-center gap-2">
+                    <GameboardDock items={toolDockItems} />
+                    <div className="h-6 w-px bg-border/50" aria-hidden />
+                    <GameboardDock items={effectDockItems} />
+                    <GameboardDock items={nightDockItems} />
+                    <div
+                        className="glass-panel flex h-9 w-9 items-center justify-center rounded-full"
+                        title={
+                            connectionStatus === 'connected'
+                                ? 'Connected'
+                                : connectionStatus
+                        }
+                    >
+                        {connectionStatus === 'connected' ? (
+                            <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                        ) : (
+                            <div className="h-2 w-2 rounded-full bg-muted-foreground" />
                         )}
-
-                        <DropdownMenuSeparator />
-
-                        <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">Status</DropdownMenuLabel>
-                        <DropdownMenuItem className="text-xs cursor-default">
-                            <Wifi className="h-4 w-4 mr-2" />
-                            {connectionStatus === 'connected' ? (
-                                <span className="text-emerald-500">Connected</span>
-                            ) : (
-                                <span className="capitalize text-muted-foreground">{connectionStatus}</span>
-                            )}
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                    </div>
+                </div>
+                {isDarkMode && (
+                    <div className="glass-panel flex w-56 items-center gap-2 rounded-full px-3 py-1.5">
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                            {brightness}%
+                        </span>
+                        <input
+                            type="range"
+                            min={10}
+                            max={100}
+                            value={brightness}
+                            onChange={(e) =>
+                                handleBrightnessChange(parseInt(e.target.value, 10))
+                            }
+                            className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-primary/20 accent-primary"
+                            aria-label="Night mode brightness"
+                        />
+                    </div>
+                )}
             </div>
 
             {activeTool === 'marker' && (
