@@ -1058,46 +1058,44 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     }, [toast]);
 
     const handleTriggerAoEMarker = useCallback((markerId: string) => {
-        setScene((prev) => {
+        const marker = scene.aoeMarkers?.find((m) => m.id === markerId);
+        if (!marker || marker.revealed !== false) return;
+
+        applyScenePatch((prev) => {
             if (!prev.aoeMarkers) return prev;
-            const marker = prev.aoeMarkers.find((m) => m.id === markerId);
-            if (!marker || marker.revealed !== false) return prev;
-            const next = {
+            return {
                 ...prev,
                 aoeMarkers: prev.aoeMarkers.map((m) =>
                     m.id === markerId ? { ...m, revealed: true } : m,
                 ),
             };
-            websocketService.sendSceneUpdate(next);
-            toast({
-                title: "Marker Triggered",
-                description: marker.label || `${marker.shape} marker revealed to viewers`,
-                duration: 2000,
-            });
-            return next;
         });
-    }, [toast]);
+        toast({
+            title: "Marker Triggered",
+            description: marker.label || `${marker.shape} marker revealed to viewers`,
+            duration: 2000,
+        });
+    }, [applyScenePatch, scene.aoeMarkers, toast]);
 
     const handleResetAoEMarker = useCallback((markerId: string) => {
-        setScene((prev) => {
+        const marker = scene.aoeMarkers?.find((m) => m.id === markerId);
+        if (!marker || marker.revealed !== true) return;
+
+        applyScenePatch((prev) => {
             if (!prev.aoeMarkers) return prev;
-            const marker = prev.aoeMarkers.find((m) => m.id === markerId);
-            if (!marker || marker.revealed !== true) return prev;
-            const next = {
+            return {
                 ...prev,
                 aoeMarkers: prev.aoeMarkers.map((m) =>
                     m.id === markerId ? { ...m, revealed: false } : m,
                 ),
             };
-            websocketService.sendSceneUpdate(next);
-            toast({
-                title: "Marker Reset",
-                description: marker.label || `${marker.shape} marker hidden from viewers`,
-                duration: 2000,
-            });
-            return next;
         });
-    }, [toast]);
+        toast({
+            title: "Marker Reset",
+            description: marker.label || `${marker.shape} marker hidden from viewers`,
+            duration: 2000,
+        });
+    }, [applyScenePatch, scene.aoeMarkers, toast]);
 
     const handleUpdateFogOfWar = useCallback(
         (updatedFogOfWar: FogOfWarType, options?: LiveSyncOptions) => {
