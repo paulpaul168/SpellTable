@@ -49,6 +49,9 @@ class WebSocketService {
     private isConnecting = false;
     private messageQueue: string[] = [];
     private connectionCheckInterval: NodeJS.Timeout | null = null;
+    private pendingSceneUpdate: Scene | null = null;
+    private sceneUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+    private readonly sceneUpdateDebounceMs = 300;
 
     connect() {
         if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) {
@@ -202,6 +205,40 @@ class WebSocketService {
         }
     }
 
+    /** Scene sync; debounce with `{ debounce: true }` for high-frequency edits (e.g. AoE resize). */
+    sendSceneUpdate(scene: Scene, options?: { debounce?: boolean }) {
+        if (!options?.debounce) {
+            if (this.sceneUpdateTimer) {
+                clearTimeout(this.sceneUpdateTimer);
+                this.sceneUpdateTimer = null;
+            }
+            this.pendingSceneUpdate = null;
+            this.send({ type: 'scene_update', scene });
+            return;
+        }
+        this.pendingSceneUpdate = scene;
+        if (this.sceneUpdateTimer) {
+            clearTimeout(this.sceneUpdateTimer);
+        }
+        this.sceneUpdateTimer = setTimeout(
+            () => this.flushSceneUpdate(),
+            this.sceneUpdateDebounceMs,
+        );
+    }
+
+    flushSceneUpdate() {
+        if (this.sceneUpdateTimer) {
+            clearTimeout(this.sceneUpdateTimer);
+            this.sceneUpdateTimer = null;
+        }
+        if (!this.pendingSceneUpdate) {
+            return;
+        }
+        const scene = this.pendingSceneUpdate;
+        this.pendingSceneUpdate = null;
+        this.send({ type: 'scene_update', scene });
+    }
+
     reconnect() {
         if (this.ws) {
             this.ws.close();
@@ -228,6 +265,11 @@ class WebSocketService {
     }
 
     disconnect() {
+        if (this.sceneUpdateTimer) {
+            clearTimeout(this.sceneUpdateTimer);
+            this.sceneUpdateTimer = null;
+        }
+        this.pendingSceneUpdate = null;
         if (this.ws) {
             this.ws.close(1000, 'Manual disconnect');
             this.ws = null;

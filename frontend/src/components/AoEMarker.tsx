@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, RefObject } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, memo, RefObject, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AoEMarker as AoEMarkerType } from '../types/map';
 import {
@@ -11,13 +11,14 @@ import { AoEEffectVideo } from './AoEEffectVideo';
 import { normalizeAoEEffectTheme, prefetchAoEEffectMeta } from '@/lib/aoeEffects';
 import type { AoEEffectTheme } from '@/types/aoeEffect';
 import { DEFAULT_AOE_EFFECT_THEME } from '@/types/aoeEffect';
+import { createThrottledLiveSync, type LiveSyncOptions } from '@/utils/liveSync';
 
 interface AoEMarkerProps {
     marker: AoEMarkerType;
     gridSize: number;
     isActive: boolean;
     isAdmin: boolean;
-    onUpdate: (updatedMarker: AoEMarkerType) => void;
+    onUpdate: (updatedMarker: AoEMarkerType, options?: LiveSyncOptions) => void;
     onDelete: (markerId: string) => void;
     scale?: number;
     gridSettings?: {
@@ -37,7 +38,7 @@ interface AoEMarkerProps {
 
 let closeOtherAoEMenus: (() => void) | null = null;
 
-export const AoEMarker: React.FC<AoEMarkerProps> = ({
+export const AoEMarker = memo(function AoEMarker({
     marker,
     gridSize,
     isActive,
@@ -50,7 +51,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     containerRef,
     onTrigger,
     onReset,
-}) => {
+}: AoEMarkerProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [isRotating, setIsRotating] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
@@ -63,7 +64,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
     const prevRevealedRef = useRef(marker.revealed);
     const revealWaitingForEffectRef = useRef(false);
-    const lastUpdateRef = useRef<number>(0);
     const pendingUpdateRef = useRef<AoEMarkerType | null>(null);
     const mouseDragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     const markerRef = useRef<HTMLDivElement>(null);
@@ -76,6 +76,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const lastPointerClientRef = useRef({ x: 0, y: 0 });
     const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
     const highlightTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const [localRotation, setLocalRotation] = useState<number | null>(null);
+    const pendingRotationRef = useRef<number | null>(null);
 
     const useFixedGrid = gridSettings?.useFixedGrid || false;
     const gridCellsX = gridSettings?.gridCellsX || 25;
@@ -262,26 +264,10 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         };
     }, [marker.position, marker.useGridCoordinates, calculatePosition]);
 
-    const throttledUpdate = useCallback((newMarker: AoEMarkerType) => {
-        const now = performance.now();
-        if (now - lastUpdateRef.current >= 32) {
-            onUpdate(newMarker);
-            lastUpdateRef.current = now;
-            pendingUpdateRef.current = null;
-        } else {
-            pendingUpdateRef.current = newMarker;
-            if (!lastUpdateRef.current) {
-                requestAnimationFrame(() => {
-                    const pendingMarker = pendingUpdateRef.current;
-                    if (pendingMarker) {
-                        onUpdate(pendingMarker);
-                        pendingUpdateRef.current = null;
-                    }
-                    lastUpdateRef.current = performance.now();
-                });
-            }
-        }
-    }, [onUpdate]);
+    const displayRotation = localRotation ?? marker.rotation;
+
+    const liveSync = useMemo(() => createThrottledLiveSync(onUpdate), [onUpdate]);
+    const rotateLiveSync = useMemo(() => createThrottledLiveSync(onUpdate), [onUpdate]);
 
     const applyDragAtClient = useCallback(
         (clientX: number, clientY: number, ctrlKey: boolean) => {
@@ -304,18 +290,18 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
 
             setCurrentPos(displayPixels);
             positionRef.current = displayPixels;
-
-            throttledUpdate({
+            pendingUpdateRef.current = {
                 ...marker,
                 position,
                 useGridCoordinates,
-            });
+            };
+            liveSync.throttledLive(pendingUpdateRef.current);
         },
-        [marker, getContainerRect, gridCellsX, gridCellsY, throttledUpdate, aoeSnapToGrid]
+        [marker, getContainerRect, gridCellsX, gridCellsY, aoeSnapToGrid, liveSync]
     );
 
     const applyRotateAtClient = useCallback(
-        (clientX: number, clientY: number) => {
+        (clientX: number, clientY: number, syncLive = false) => {
             const containerRect = getContainerRect();
             const pivot = getRotationPivot();
             const pointerX = clientX - containerRect.left;
@@ -325,13 +311,17 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             let newRotation =
                 pointerAngleDeg - rotateHandleAngleRef.current + rotateOffsetRef.current;
             newRotation = ((newRotation % 360) + 360) % 360;
-
-            onUpdate({
-                ...marker,
-                rotation: Math.round(newRotation),
-            });
+            const rounded = Math.round(newRotation);
+            pendingRotationRef.current = rounded;
+            setLocalRotation(rounded);
+            if (syncLive) {
+                rotateLiveSync.throttledLive({
+                    ...marker,
+                    rotation: rounded,
+                });
+            }
         },
-        [marker, onUpdate, getContainerRect, getRotationPivot]
+        [getContainerRect, getRotationPivot, marker, rotateLiveSync]
     );
 
     const handleRotateMove = useCallback(
@@ -340,7 +330,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
 
             e.preventDefault();
             e.stopPropagation();
-            applyRotateAtClient(e.clientX, e.clientY);
+            applyRotateAtClient(e.clientX, e.clientY, true);
         },
         [applyRotateAtClient]
     );
@@ -350,12 +340,19 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             if (!isRotatingRef.current) return;
 
             e.preventDefault();
-            applyRotateAtClient(e.clientX, e.clientY);
+            applyRotateAtClient(e.clientX, e.clientY, false);
+            const nextRotation = pendingRotationRef.current ?? marker.rotation;
+            rotateLiveSync.commit({
+                ...marker,
+                rotation: nextRotation,
+            });
+            pendingRotationRef.current = null;
+            setLocalRotation(null);
             setIsRotating(false);
             isRotatingRef.current = false;
             document.body.classList.remove('dragging-aoe');
         },
-        [applyRotateAtClient]
+        [applyRotateAtClient, marker, rotateLiveSync]
     );
 
     const handleMouseMove = useCallback(
@@ -393,15 +390,15 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 gridCellsX,
                 gridCellsY
             );
-            const finalMarker: AoEMarkerType = {
-                ...marker,
-                position,
-                useGridCoordinates,
-            };
+            const finalMarker: AoEMarkerType =
+                pendingUpdateRef.current ?? {
+                    ...marker,
+                    position,
+                    useGridCoordinates,
+                };
 
-            onUpdate(finalMarker);
+            liveSync.commit(finalMarker);
             pendingUpdateRef.current = null;
-            lastUpdateRef.current = performance.now();
             setCurrentPos(displayPixels);
             positionRef.current = displayPixels;
 
@@ -410,10 +407,14 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             ctrlHeldRef.current = false;
             document.body.classList.remove('dragging-aoe');
         },
-        [marker, onUpdate, getContainerRect, gridSettings, gridCellsX, gridCellsY, aoeSnapToGrid]
+        [marker, liveSync, getContainerRect, gridCellsX, gridCellsY, aoeSnapToGrid]
     );
 
     useEffect(() => {
+        if (!isDragging && !isRotating) {
+            return;
+        }
+
         const handleGlobalMouseMove = (e: MouseEvent) => {
             if (isRotatingRef.current) {
                 handleRotateMove(e);
@@ -433,6 +434,8 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 if (isRotatingRef.current) {
                     setIsRotating(false);
                     isRotatingRef.current = false;
+                    pendingRotationRef.current = null;
+                    setLocalRotation(null);
                     document.body.classList.remove('dragging-aoe');
                     return;
                 }
@@ -440,6 +443,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                     setIsDragging(false);
                     isDraggingRef.current = false;
                     ctrlHeldRef.current = false;
+                    pendingUpdateRef.current = null;
                     document.body.classList.remove('dragging-aoe');
                     return;
                 }
@@ -481,7 +485,16 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             window.removeEventListener('keyup', handleGlobalKeyUp);
             document.body.classList.remove('dragging-aoe');
         };
-    }, [handleMouseMove, handleMouseUp, handleRotateMove, handleRotateUp, applyDragAtClient, aoeSnapToGrid]);
+    }, [
+        isDragging,
+        isRotating,
+        handleMouseMove,
+        handleMouseUp,
+        handleRotateMove,
+        handleRotateUp,
+        applyDragAtClient,
+        aoeSnapToGrid,
+    ]);
 
     useEffect(() => {
         isDraggingRef.current = isDragging;
@@ -569,18 +582,24 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
             const delta = e.deltaY > 0 ? -5 : 5;
             const newRotation = (marker.rotation + delta) % 360;
 
-            onUpdate({
-                ...marker,
-                rotation: newRotation
-            });
+            onUpdate(
+                {
+                    ...marker,
+                    rotation: newRotation
+                },
+                { debounce: true },
+            );
         } else {
             const delta = e.deltaY > 0 ? -5 : 5;
             const newSize = Math.max(5, marker.sizeInFeet + delta);
 
-            onUpdate({
-                ...marker,
-                sizeInFeet: newSize
-            });
+            onUpdate(
+                {
+                    ...marker,
+                    sizeInFeet: newSize
+                },
+                { debounce: true },
+            );
         }
     };
 
@@ -606,7 +625,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         top: 0,
         width: effectWidth,
         height: effectHeight,
-        transform: `translate(-50%, 0) rotate(${marker.rotation}deg)`,
+        transform: `translate(-50%, 0) rotate(${displayRotation}deg)`,
         transformOrigin: '50% 0%',
     };
 
@@ -616,7 +635,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         top: -effectHeight / 2,
         width: effectWidth,
         height: effectHeight,
-        transform: `rotate(${marker.rotation}deg)`,
+        transform: `rotate(${displayRotation}deg)`,
         transformOrigin: '0% 50%',
     };
 
@@ -908,7 +927,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 <div key={highlightRippleKey}>
                     {isCone ? (
                         <svg
-                            className="animate-ripple-cone-1"
+                            className="animate-aoe-highlight-ripple-cone-1"
                             width={adjustedSizeInPixels}
                             height={adjustedSizeInPixels + 30}
                             style={{
@@ -927,7 +946,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                         </svg>
                     ) : (
                         <div
-                            className={`absolute animate-ripple-1 ${marker.shape === 'circle' || marker.shape === 'cylinder' ? 'rounded-full' : ''}`}
+                            className={`absolute animate-aoe-highlight-ripple-1 ${marker.shape === 'circle' || marker.shape === 'cylinder' ? 'rounded-full' : ''}`}
                             style={{
                                 width: `${adjustedSizeInPixels * 1.2}px`,
                                 height: marker.shape === 'line' ? `${effectiveGridSize / 2 * 1.2}px` : `${adjustedSizeInPixels * 1.2}px`,
@@ -942,7 +961,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
 
                     {isCone ? (
                         <svg
-                            className="animate-ripple-cone-2"
+                            className="animate-aoe-highlight-ripple-cone-2"
                             width={adjustedSizeInPixels}
                             height={adjustedSizeInPixels + 30}
                             style={{
@@ -961,7 +980,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                         </svg>
                     ) : (
                         <div
-                            className={`absolute animate-ripple-2 ${marker.shape === 'circle' || marker.shape === 'cylinder' ? 'rounded-full' : ''}`}
+                            className={`absolute animate-aoe-highlight-ripple-2 ${marker.shape === 'circle' || marker.shape === 'cylinder' ? 'rounded-full' : ''}`}
                             style={{
                                 width: `${adjustedSizeInPixels * 1.4}px`,
                                 height: marker.shape === 'line' ? `${effectiveGridSize / 2 * 1.4}px` : `${adjustedSizeInPixels * 1.4}px`,
@@ -976,7 +995,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
 
                     {isCone ? (
                         <svg
-                            className="animate-ripple-cone-3"
+                            className="animate-aoe-highlight-ripple-cone-3"
                             width={adjustedSizeInPixels}
                             height={adjustedSizeInPixels + 30}
                             style={{
@@ -995,7 +1014,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                         </svg>
                     ) : (
                         <div
-                            className={`absolute animate-ripple-3 ${marker.shape === 'circle' || marker.shape === 'cylinder' ? 'rounded-full' : ''}`}
+                            className={`absolute animate-aoe-highlight-ripple-3 ${marker.shape === 'circle' || marker.shape === 'cylinder' ? 'rounded-full' : ''}`}
                             style={{
                                 width: `${adjustedSizeInPixels * 1.6}px`,
                                 height: marker.shape === 'line' ? `${effectiveGridSize / 2 * 1.6}px` : `${adjustedSizeInPixels * 1.6}px`,
@@ -1036,7 +1055,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 height: isDirectional ? 0 : effectHeight,
                 transform: isDirectional
                     ? undefined
-                    : `translate(-50%, -50%) rotate(${marker.rotation}deg)`,
+                    : `translate(-50%, -50%) rotate(${displayRotation}deg)`,
                 transformOrigin: isDirectional ? undefined : 'center',
                 cursor: isActive && isAdmin
                     ? (isDragging || isRotating ? 'grabbing' : 'grab')
@@ -1098,89 +1117,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                     document.body,
                 )}
 
-            <style jsx>{`
-                @keyframes ripple-1 {
-                    0% {
-                        transform: translate(-50%, -50%) scale(1);
-                        opacity: 0.8;
-                    }
-                    100% {
-                        transform: translate(-50%, -50%) scale(1.5);
-                        opacity: 0;
-                    }
-                }
-                @keyframes ripple-2 {
-                    0% {
-                        transform: translate(-50%, -50%) scale(1);
-                        opacity: 0.6;
-                    }
-                    100% {
-                        transform: translate(-50%, -50%) scale(1.5);
-                        opacity: 0;
-                    }
-                }
-                @keyframes ripple-3 {
-                    0% {
-                        transform: translate(-50%, -50%) scale(1);
-                        opacity: 0.4;
-                    }
-                    100% {
-                        transform: translate(-50%, -50%) scale(1.5);
-                        opacity: 0;
-                    }
-                }
-                @keyframes ripple-cone-1 {
-                    0% {
-                        transform: translateX(-50%) scale(1);
-                        opacity: 0.8;
-                    }
-                    100% {
-                        transform: translateX(-50%) scale(1.5);
-                        opacity: 0;
-                    }
-                }
-                @keyframes ripple-cone-2 {
-                    0% {
-                        transform: translateX(-50%) scale(1);
-                        opacity: 0.6;
-                    }
-                    100% {
-                        transform: translateX(-50%) scale(1.5);
-                        opacity: 0;
-                    }
-                }
-                @keyframes ripple-cone-3 {
-                    0% {
-                        transform: translateX(-50%) scale(1);
-                        opacity: 0.4;
-                    }
-                    100% {
-                        transform: translateX(-50%) scale(1.5);
-                        opacity: 0;
-                    }
-                }
-                .animate-ripple-1 {
-                    animation: ripple-1 1.5s ease-out 2 forwards;
-                }
-                .animate-ripple-2 {
-                    animation: ripple-2 1.5s ease-out 0.2s 2 forwards;
-                }
-                .animate-ripple-3 {
-                    animation: ripple-3 1.5s ease-out 0.4s 2 forwards;
-                }
-                .animate-ripple-cone-1 {
-                    animation: ripple-cone-1 1.5s ease-out 2 forwards;
-                }
-                .animate-ripple-cone-2 {
-                    animation: ripple-cone-2 1.5s ease-out 0.2s 2 forwards;
-                }
-                .animate-ripple-cone-3 {
-                    animation: ripple-cone-3 1.5s ease-out 0.4s 2 forwards;
-                }
-                .highlighted-marker {
-                    z-index: 800;
-                }
-            `}</style>
         </div>
     );
-};
+});

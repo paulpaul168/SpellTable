@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, RefObject } from 'react';
+import React, { useState, useRef, useEffect, useCallback, memo, RefObject, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { InitiativeEntry } from '../types/map';
 import { getPlayAreaRect, type AoEGridSettings } from '@/utils/aoeCoordinates';
@@ -14,6 +14,7 @@ import {
     type TokenFootprint,
 } from '@/utils/tokenFootprint';
 import { cn } from '../lib/utils';
+import { createThrottledLiveSync, type LiveSyncOptions } from '@/utils/liveSync';
 
 /** Closes any other token's open context menu before opening a new one. */
 let closeOtherTokenMenus: (() => void) | null = null;
@@ -21,7 +22,7 @@ let closeOtherTokenMenus: (() => void) | null = null;
 interface CombatantTokenProps {
     entry: InitiativeEntry;
     isAdmin: boolean;
-    onUpdate: (updatedEntry: InitiativeEntry) => void;
+    onUpdate: (updatedEntry: InitiativeEntry, options?: LiveSyncOptions) => void;
     containerRef?: RefObject<HTMLElement | null>;
     gridSettings?: AoEGridSettings & {
         defaultTokenFootprint?: TokenFootprint;
@@ -31,21 +32,20 @@ interface CombatantTokenProps {
     defaultTokenFootprint?: TokenFootprint;
 }
 
-export const CombatantToken: React.FC<CombatantTokenProps> = ({
+export const CombatantToken = memo(function CombatantToken({
     entry,
     isAdmin,
     onUpdate,
     containerRef,
     gridSettings,
     defaultTokenFootprint = DEFAULT_TOKEN_FOOTPRINT,
-}) => {
+}: CombatantTokenProps) {
     const mapPosition = entry.mapPosition;
     if (!mapPosition) return null;
 
     const [isDragging, setIsDragging] = useState(false);
     const [tokenDiameter, setTokenDiameter] = useState(48);
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-    const lastUpdateRef = useRef<number>(0);
     const pendingUpdateRef = useRef<InitiativeEntry | null>(null);
     const mouseDragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     const isDraggingRef = useRef(false);
@@ -64,6 +64,8 @@ export const CombatantToken: React.FC<CombatantTokenProps> = ({
             : undefined) ??
         defaultTokenFootprint;
     const footprint = normalizeTokenFootprint(entry, sceneDefaultFootprint);
+
+    const liveSync = useMemo(() => createThrottledLiveSync(onUpdate), [onUpdate]);
 
     const getContainerRect = useCallback(() => {
         return getPlayAreaRect(containerRef?.current ?? null);
@@ -102,28 +104,6 @@ export const CombatantToken: React.FC<CombatantTokenProps> = ({
         return () => window.removeEventListener('resize', updatePosition);
     }, [mapPosition, calculatePosition]);
 
-    const throttledUpdate = useCallback(
-        (updatedEntry: InitiativeEntry) => {
-            const now = performance.now();
-            if (now - lastUpdateRef.current >= 32) {
-                onUpdate(updatedEntry);
-                lastUpdateRef.current = now;
-                pendingUpdateRef.current = null;
-            } else {
-                pendingUpdateRef.current = updatedEntry;
-                requestAnimationFrame(() => {
-                    const pending = pendingUpdateRef.current;
-                    if (pending) {
-                        onUpdate(pending);
-                        pendingUpdateRef.current = null;
-                    }
-                    lastUpdateRef.current = performance.now();
-                });
-            }
-        },
-        [onUpdate]
-    );
-
     const applyDragAtClient = useCallback(
         (clientX: number, clientY: number) => {
             const containerRect = getContainerRect();
@@ -143,9 +123,11 @@ export const CombatantToken: React.FC<CombatantTokenProps> = ({
             );
 
             setCurrentPos(displayPixels);
-            throttledUpdate({ ...entry, mapPosition: newMapPosition });
+            const updatedEntry = { ...entry, mapPosition: newMapPosition };
+            pendingUpdateRef.current = updatedEntry;
+            liveSync.throttledLive(updatedEntry);
         },
-        [entry, footprint, getContainerRect, gridCellsX, gridCellsY, throttledUpdate, tokenSnapToGrid]
+        [entry, footprint, getContainerRect, gridCellsX, gridCellsY, tokenSnapToGrid, liveSync]
     );
 
     const handleMouseMove = useCallback(
@@ -163,16 +145,23 @@ export const CombatantToken: React.FC<CombatantTokenProps> = ({
             if (!isDraggingRef.current) return;
             e.preventDefault();
             applyDragAtClient(e.clientX, e.clientY);
+            const finalEntry = pendingUpdateRef.current;
+            if (finalEntry) {
+                liveSync.commit(finalEntry);
+            }
             pendingUpdateRef.current = null;
-            lastUpdateRef.current = performance.now();
             setIsDragging(false);
             isDraggingRef.current = false;
             document.body.classList.remove('dragging-token');
         },
-        [applyDragAtClient]
+        [applyDragAtClient, liveSync]
     );
 
     useEffect(() => {
+        if (!isDragging) {
+            return;
+        }
+
         window.addEventListener('mousemove', handleMouseMove, { capture: true });
         window.addEventListener('mouseup', handleMouseUp, { capture: true });
         return () => {
@@ -180,7 +169,7 @@ export const CombatantToken: React.FC<CombatantTokenProps> = ({
             window.removeEventListener('mouseup', handleMouseUp, { capture: true });
             document.body.classList.remove('dragging-token');
         };
-    }, [handleMouseMove, handleMouseUp]);
+    }, [isDragging, handleMouseMove, handleMouseUp]);
 
     const closeThisMenu = useCallback(() => {
         setContextMenu(null);
@@ -403,4 +392,4 @@ export const CombatantToken: React.FC<CombatantTokenProps> = ({
                 )}
         </div>
     );
-};
+});

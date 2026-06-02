@@ -276,6 +276,100 @@ body {
   animation: ripple 3s ease-out 1s infinite;
 }
 
+@keyframes aoe-highlight-ripple-1 {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes aoe-highlight-ripple-2 {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes aoe-highlight-ripple-3 {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes aoe-highlight-ripple-cone-1 {
+  0% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateX(-50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes aoe-highlight-ripple-cone-2 {
+  0% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateX(-50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes aoe-highlight-ripple-cone-3 {
+  0% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateX(-50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+.animate-aoe-highlight-ripple-1 {
+  animation: aoe-highlight-ripple-1 1.5s ease-out 2 forwards;
+}
+
+.animate-aoe-highlight-ripple-2 {
+  animation: aoe-highlight-ripple-2 1.5s ease-out 0.2s 2 forwards;
+}
+
+.animate-aoe-highlight-ripple-3 {
+  animation: aoe-highlight-ripple-3 1.5s ease-out 0.4s 2 forwards;
+}
+
+.animate-aoe-highlight-ripple-cone-1 {
+  animation: aoe-highlight-ripple-cone-1 1.5s ease-out 2 forwards;
+}
+
+.animate-aoe-highlight-ripple-cone-2 {
+  animation: aoe-highlight-ripple-cone-2 1.5s ease-out 0.2s 2 forwards;
+}
+
+.animate-aoe-highlight-ripple-cone-3 {
+  animation: aoe-highlight-ripple-cone-3 1.5s ease-out 0.4s 2 forwards;
+}
+
+.highlighted-marker {
+  z-index: 800;
+}
+
 /* Combatant token turn indicator — scale from center (no translate offset) */
 @keyframes combatant-token-ripple {
   0% {

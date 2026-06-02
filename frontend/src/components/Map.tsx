@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { MapData } from '@/types/map';
 import { EyeOff } from 'lucide-react';
 import {getApiUrl} from "@/utils/api";
+import { createThrottledLiveSync, type LiveSyncOptions } from '@/utils/liveSync';
 
 interface MapProps {
     map: MapData;
     isActive: boolean;
-    onUpdate: (updatedMap: MapData) => void;
+    onUpdate: (updatedMap: MapData, options?: LiveSyncOptions) => void;
     isViewerMode: boolean;
     zIndex: number;
     scale?: number;
@@ -47,7 +48,7 @@ const getMapImageUrl = (map: MapData) => {
     return url;
 };
 
-export const Map: React.FC<MapProps> = ({
+export const Map = memo(function Map({
     map,
     isActive,
     onUpdate,
@@ -56,7 +57,7 @@ export const Map: React.FC<MapProps> = ({
     scale = 1,
     gridSettings,
     onOpenAoEPalette
-}) => {
+}: MapProps) {
     const [position, setPosition] = useState(map.data.position);
     const [rotation, setRotation] = useState(map.data.rotation || 0);
     const [mapScale, setMapScale] = useState(map.data.scale);
@@ -94,8 +95,16 @@ export const Map: React.FC<MapProps> = ({
 
     const mapsLocked = gridSettings?.mapsLocked === true;
 
+    const liveSync = useMemo(
+        () => createThrottledLiveSync(onUpdate),
+        [onUpdate],
+    );
+
     // Update local state when props change (including external updates in viewer mode)
     useEffect(() => {
+        if (isDraggingRef.current) {
+            return;
+        }
         // Check if this is a real map change using name and folder
         const isNewMap = map.name !== mapNameRef.current ||
             JSON.stringify(map.folder) !== JSON.stringify(mapFolderRef.current);
@@ -263,31 +272,33 @@ export const Map: React.FC<MapProps> = ({
         const pixelPos = gridCoordsToPixel(gridPos);
         setCurrentDisplayPos(pixelPos);
 
-        // Send grid position updates while dragging
-        onUpdate({
+        liveSync.throttledLive({
             ...map,
             data: {
                 ...map.data,
                 position: gridPos,
-                useGridCoordinates: true
-            }
+                useGridCoordinates: true,
+            },
         });
-    }, [map, pixelToGridCoords, gridCoordsToPixel, onUpdate]);
+    }, [map, pixelToGridCoords, gridCoordsToPixel, liveSync]);
 
     // When mouse is released
     const handleMouseUp = useCallback(() => {
         if (isDraggingRef.current) {
-            // Keep exact non-snapped position but ensure it's stored as grid coordinates
-            throttledUpdate({
-                position: positionRef.current,
-                useGridCoordinates: true
+            liveSync.commit({
+                ...map,
+                data: {
+                    ...map.data,
+                    position: positionRef.current,
+                    useGridCoordinates: true,
+                },
             });
 
             isDraggingRef.current = false;
             setIsMapDragging(false);
             document.body.style.cursor = 'default';
         }
-    }, [throttledUpdate]);
+    }, [map, liveSync]);
 
     // Handle escape key to cancel dragging
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -430,4 +441,4 @@ export const Map: React.FC<MapProps> = ({
 
         </>
     );
-}; 
+});

@@ -66,6 +66,7 @@ import {
     getPlayAreaRect,
     migrateAoEMarkers,
 } from '@/utils/aoeCoordinates';
+import type { LiveSyncOptions } from '@/utils/liveSync';
 import {
     DEFAULT_TOKEN_FOOTPRINT,
     normalizeTokenFootprint,
@@ -180,6 +181,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     // Remove display scale functionality, using fixed 1.0 scale
     const displayScale = 1.0;
     const playAreaRef = useRef<HTMLDivElement>(null);
+    const sceneRef = useRef(scene);
+    sceneRef.current = scene;
 
     const applySceneWithAoEMigration = useCallback(
         (nextScene: SceneType): SceneType =>
@@ -191,35 +194,25 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         websocketService.connect();
 
         const unsubscribe = websocketService.addListener((data) => {
-            console.log('Received data:', data);
             if (data.type === 'scene_update' && data.scene) {
-                // Check if this is an external update that might overwrite our local changes
                 const incomingScene = data.scene;
+                const currentActiveMapId = sceneRef.current.activeMapId;
 
-                // If we just renamed a map, we need to be careful not to lose that update
-                // Compare activeMapId to see if it's reverting to an old name
-                if (scene.activeMapId && scene.activeMapId !== incomingScene.activeMapId) {
-                    const oldMapName = incomingScene.activeMapId;
-                    const currentMapName = scene.activeMapId;
-
-                    console.log(`Detected potential map reference mismatch: 
-                        Current activeMapId: ${currentMapName} 
-                        Incoming activeMapId: ${oldMapName}`);
-
-                    // Check if the current map exists in the incoming scene
-                    const hasCurrentMapInIncoming = incomingScene.maps.some(m => m.name === currentMapName);
+                if (currentActiveMapId && currentActiveMapId !== incomingScene.activeMapId) {
+                    const hasCurrentMapInIncoming = incomingScene.maps.some(
+                        (m) => m.name === currentActiveMapId,
+                    );
 
                     if (!hasCurrentMapInIncoming) {
-                        console.log(`Warning: Incoming scene update does not contain our active map "${currentMapName}"`);
-
-                        // Try to find a map that was renamed
-                        const potentialRenamedMap = scene.maps.find(m =>
-                            !incomingScene.maps.some(im => im.name === m.name) && m.name === currentMapName);
+                        const currentScene = sceneRef.current;
+                        const potentialRenamedMap = currentScene.maps.find(
+                            (m) =>
+                                !incomingScene.maps.some((im) => im.name === m.name) &&
+                                m.name === currentActiveMapId,
+                        );
 
                         if (potentialRenamedMap) {
-                            console.log(`Detected local map rename that's not reflected in incoming data. 
-                                Preserving local state to avoid losing rename.`);
-                            return; // Skip this update to avoid losing our rename
+                            return;
                         }
                     }
                 }
@@ -238,8 +231,6 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             } else if (data.type === 'connection_status') {
                 setConnectionStatus(data.status || 'unknown');
             } else if (data.type === 'ripple_viewer_ready') {
-                // Log that a viewer is ready to receive ripple events
-                console.log('Viewer is ready to receive ripple effects');
                 toast({
                     title: "Viewer Connected",
                     description: "A viewer is ready to receive ripple effects",
@@ -257,17 +248,36 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         };
     }, []);
 
-    const handleMapUpdate = (updatedMap: MapData) => {
-        const updatedScene = {
-            ...scene,
-            maps: scene.maps.map(m => m.name === updatedMap.name ? updatedMap : m)
-        };
-        setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
-        });
-    };
+    const applyScenePatch = useCallback(
+        (buildNext: (prev: SceneType) => SceneType, options?: LiveSyncOptions) => {
+            setScene((prev) => {
+                const next = buildNext(prev);
+                websocketService.sendSceneUpdate(
+                    next,
+                    options?.debounce ? { debounce: true } : undefined,
+                );
+                return options?.live ? prev : next;
+            });
+        },
+        [],
+    );
+
+    const handleMapUpdate = useCallback(
+        (updatedMap: MapData, options?: LiveSyncOptions) => {
+            applyScenePatch(
+                (prev) => ({
+                    ...prev,
+                    maps: prev.maps.map((m) => (m.name === updatedMap.name ? updatedMap : m)),
+                }),
+                options,
+            );
+        },
+        [applyScenePatch],
+    );
+
+    const handleOpenAoEPalette = useCallback(() => {
+        setIsAoEPaletteOpen(true);
+    }, []);
 
     const createMapDataForScene = (
         mapName: string,
@@ -340,10 +350,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             };
 
             setScene(updatedScene);
-            websocketService.send({
-                type: 'scene_update',
-                scene: updatedScene,
-            });
+            websocketService.sendSceneUpdate(updatedScene);
 
             if (mapsToAppend.length > 0) {
                 toast({
@@ -377,10 +384,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 activeMapId: null,
             };
             setScene(updatedScene);
-            websocketService.send({
-                type: 'scene_update',
-                scene: updatedScene,
-            });
+            websocketService.sendSceneUpdate(updatedScene);
             return;
         }
 
@@ -506,10 +510,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 fogOfWar: sceneData.fogOfWar || []
             };
             setScene(sceneWithDefaults);
-            websocketService.send({
-                type: 'scene_update',
-                scene: sceneWithDefaults
-            });
+            websocketService.sendSceneUpdate(sceneWithDefaults);
             toast({
                 title: "Scene Loaded",
                 description: "Scene loaded successfully",
@@ -536,10 +537,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             }
         };
         setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
-        });
+        websocketService.sendSceneUpdate(updatedScene);
     };
 
     const handleUpdateGridSettings = (newGridSettings: any) => {
@@ -645,10 +643,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             }
 
             setScene(updatedScene);
-            websocketService.send({
-                type: 'scene_update',
-                scene: updatedScene
-            });
+            websocketService.sendSceneUpdate(updatedScene);
 
             toast({
                 title: "Grid System Updated",
@@ -686,10 +681,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             }
 
             setScene(updatedScene);
-            websocketService.send({
-                type: 'scene_update',
-                scene: updatedScene
-            });
+            websocketService.sendSceneUpdate(updatedScene);
 
             toast({
                 title: "Grid Size Updated",
@@ -716,10 +708,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             }
 
             setScene(updatedScene);
-            websocketService.send({
-                type: 'scene_update',
-                scene: updatedScene
-            });
+            websocketService.sendSceneUpdate(updatedScene);
         }
     };
 
@@ -733,10 +722,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             )
         };
         setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
-        });
+        websocketService.sendSceneUpdate(updatedScene);
     };
 
     const handleMapsReorder = (newMaps: MapData[]) => {
@@ -745,10 +731,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             maps: newMaps
         };
         setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
-        });
+        websocketService.sendSceneUpdate(updatedScene);
     };
 
     const handleDeleteMap = (mapName: string) => {
@@ -758,10 +741,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             activeMapId: scene.activeMapId === mapName ? null : scene.activeMapId
         };
         setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
-        });
+        websocketService.sendSceneUpdate(updatedScene);
     };
 
     const handleEncounterUpdate = (update: {
@@ -774,18 +754,23 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             ...(update.encounterHistory !== undefined && { encounterHistory: update.encounterHistory }),
         };
         setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
-        });
+        websocketService.sendSceneUpdate(updatedScene);
     };
 
-    const handleUpdateCombatantEntry = (updatedEntry: InitiativeEntry) => {
-        const entries = scene.initiativeOrder.map((e) =>
-            e.id === updatedEntry.id ? updatedEntry : e
-        );
-        handleEncounterUpdate({ entries });
-    };
+    const handleUpdateCombatantEntry = useCallback(
+        (updatedEntry: InitiativeEntry, options?: LiveSyncOptions) => {
+            applyScenePatch(
+                (prev) => ({
+                    ...prev,
+                    initiativeOrder: prev.initiativeOrder.map((e) =>
+                        e.id === updatedEntry.id ? updatedEntry : e,
+                    ),
+                }),
+                options,
+            );
+        },
+        [applyScenePatch],
+    );
 
     const handleStartPlaceEntry = (id: string) => {
         const entry = scene.initiativeOrder.find((e) => e.id === id);
@@ -858,10 +843,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             showCurrentPlayer: !scene.showCurrentPlayer
         };
         setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
-        });
+        websocketService.sendSceneUpdate(updatedScene);
     };
 
     const handleMapRefresh = async () => {
@@ -900,10 +882,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             };
 
             setScene(updatedScene);
-            websocketService.send({
-                type: 'scene_update',
-                scene: updatedScene
-            });
+            websocketService.sendSceneUpdate(updatedScene);
 
             toast({
                 title: "Maps Refreshed",
@@ -965,10 +944,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 await new Promise(resolve => setTimeout(resolve, 50));
 
                 // Send websocket update
-                websocketService.send({
-                    type: 'scene_update',
-                    scene: updatedScene
-                });
+                websocketService.sendSceneUpdate(updatedScene);
 
                 // Mark this scene as having a pending rename operation
                 const pendingRename = { oldName, newName, timestamp: Date.now() };
@@ -985,10 +961,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                         console.log("Re-applying map rename - scene has reverted to old state");
                         // If scene reverted, apply the update again
                         setScene(updatedScene);
-                        websocketService.send({
-                            type: 'scene_update',
-                            scene: updatedScene
-                        });
+                        websocketService.sendSceneUpdate(updatedScene);
                     }
                 }, 500);
 
@@ -1040,10 +1013,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         };
 
         setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
-        });
+        websocketService.sendSceneUpdate(updatedScene);
 
         toast({
             title: "Marker Added",
@@ -1052,107 +1022,117 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         });
     };
 
-    // Handler for updating an AoE marker
-    const handleUpdateAoEMarker = (updatedMarker: AoEMarkerType) => {
-        if (!scene.aoeMarkers) return;
+    const handleUpdateAoEMarker = useCallback(
+        (updatedMarker: AoEMarkerType, options?: LiveSyncOptions) => {
+            applyScenePatch(
+                (prev) => {
+                    if (!prev.aoeMarkers) return prev;
+                    return {
+                        ...prev,
+                        aoeMarkers: prev.aoeMarkers.map((marker) =>
+                            marker.id === updatedMarker.id ? updatedMarker : marker,
+                        ),
+                    };
+                },
+                options,
+            );
+        },
+        [applyScenePatch],
+    );
 
-        const updatedMarkers = scene.aoeMarkers.map(marker =>
-            marker.id === updatedMarker.id ? updatedMarker : marker
-        );
-
-        const updatedScene = {
-            ...scene,
-            aoeMarkers: updatedMarkers
-        };
-
-        setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
+    const handleDeleteAoEMarker = useCallback((markerId: string) => {
+        setScene((prev) => {
+            if (!prev.aoeMarkers) return prev;
+            const next = {
+                ...prev,
+                aoeMarkers: prev.aoeMarkers.filter((marker) => marker.id !== markerId),
+            };
+            websocketService.sendSceneUpdate(next);
+            return next;
         });
-    };
-
-    // Handler for triggering (revealing) a staged AoE marker to viewers
-    const handleTriggerAoEMarker = (markerId: string) => {
-        if (!scene.aoeMarkers) return;
-
-        const marker = scene.aoeMarkers.find(m => m.id === markerId);
-        if (!marker || marker.revealed !== false) return;
-
-        const updatedMarkers = scene.aoeMarkers.map(m =>
-            m.id === markerId ? { ...m, revealed: true } : m
-        );
-
-        const updatedScene = {
-            ...scene,
-            aoeMarkers: updatedMarkers
-        };
-
-        setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
-        });
-
-        toast({
-            title: "Marker Triggered",
-            description: marker.label || `${marker.shape} marker revealed to viewers`,
-            duration: 2000,
-        });
-    };
-
-    // Handler for resetting a staged AoE marker (hide from viewers again)
-    const handleResetAoEMarker = (markerId: string) => {
-        if (!scene.aoeMarkers) return;
-
-        const marker = scene.aoeMarkers.find(m => m.id === markerId);
-        if (!marker || marker.revealed !== true) return;
-
-        const updatedMarkers = scene.aoeMarkers.map(m =>
-            m.id === markerId ? { ...m, revealed: false } : m
-        );
-
-        const updatedScene = {
-            ...scene,
-            aoeMarkers: updatedMarkers
-        };
-
-        setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
-        });
-
-        toast({
-            title: "Marker Reset",
-            description: marker.label || `${marker.shape} marker hidden from viewers`,
-            duration: 2000,
-        });
-    };
-
-    // Handler for deleting an AoE marker
-    const handleDeleteAoEMarker = (markerId: string) => {
-        if (!scene.aoeMarkers) return;
-
-        const updatedMarkers = scene.aoeMarkers.filter(marker => marker.id !== markerId);
-
-        const updatedScene = {
-            ...scene,
-            aoeMarkers: updatedMarkers
-        };
-
-        setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
-        });
-
         toast({
             title: "Marker Deleted",
             description: "AoE marker removed",
             duration: 3000,
         });
-    };
+    }, [toast]);
+
+    const handleTriggerAoEMarker = useCallback((markerId: string) => {
+        setScene((prev) => {
+            if (!prev.aoeMarkers) return prev;
+            const marker = prev.aoeMarkers.find((m) => m.id === markerId);
+            if (!marker || marker.revealed !== false) return prev;
+            const next = {
+                ...prev,
+                aoeMarkers: prev.aoeMarkers.map((m) =>
+                    m.id === markerId ? { ...m, revealed: true } : m,
+                ),
+            };
+            websocketService.sendSceneUpdate(next);
+            toast({
+                title: "Marker Triggered",
+                description: marker.label || `${marker.shape} marker revealed to viewers`,
+                duration: 2000,
+            });
+            return next;
+        });
+    }, [toast]);
+
+    const handleResetAoEMarker = useCallback((markerId: string) => {
+        setScene((prev) => {
+            if (!prev.aoeMarkers) return prev;
+            const marker = prev.aoeMarkers.find((m) => m.id === markerId);
+            if (!marker || marker.revealed !== true) return prev;
+            const next = {
+                ...prev,
+                aoeMarkers: prev.aoeMarkers.map((m) =>
+                    m.id === markerId ? { ...m, revealed: false } : m,
+                ),
+            };
+            websocketService.sendSceneUpdate(next);
+            toast({
+                title: "Marker Reset",
+                description: marker.label || `${marker.shape} marker hidden from viewers`,
+                duration: 2000,
+            });
+            return next;
+        });
+    }, [toast]);
+
+    const handleUpdateFogOfWar = useCallback(
+        (updatedFogOfWar: FogOfWarType, options?: LiveSyncOptions) => {
+            applyScenePatch(
+                (prev) => {
+                    if (!prev.fogOfWar) return prev;
+                    return {
+                        ...prev,
+                        fogOfWar: prev.fogOfWar.map((fog) =>
+                            fog.id === updatedFogOfWar.id ? updatedFogOfWar : fog,
+                        ),
+                    };
+                },
+                options,
+            );
+        },
+        [applyScenePatch],
+    );
+
+    const handleDeleteFogOfWar = useCallback((fogOfWarId: string) => {
+        setScene((prev) => {
+            if (!prev.fogOfWar) return prev;
+            const next = {
+                ...prev,
+                fogOfWar: prev.fogOfWar.filter((fog) => fog.id !== fogOfWarId),
+            };
+            websocketService.sendSceneUpdate(next);
+            return next;
+        });
+        toast({
+            title: "Fog of War Deleted",
+            description: "Fog area removed",
+            duration: 3000,
+        });
+    }, [toast]);
 
     // Handler for adding a new fog of war
     const handleAddFogOfWar = (fogOfWarData: Omit<FogOfWarType, 'id'>) => {
@@ -1167,10 +1147,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         };
 
         setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
-        });
+        websocketService.sendSceneUpdate(updatedScene);
 
         toast({
             title: "Fog of War Added",
@@ -1179,49 +1156,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         });
     };
 
-    // Handler for updating fog of war
-    const handleUpdateFogOfWar = (updatedFogOfWar: FogOfWarType) => {
-        if (!scene.fogOfWar) return;
-
-        const updatedFogOfWarList = scene.fogOfWar.map(fog =>
-            fog.id === updatedFogOfWar.id ? updatedFogOfWar : fog
-        );
-
-        const updatedScene = {
-            ...scene,
-            fogOfWar: updatedFogOfWarList
-        };
-
-        setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
-        });
-    };
-
-    // Handler for deleting fog of war
-    const handleDeleteFogOfWar = (fogOfWarId: string) => {
-        if (!scene.fogOfWar) return;
-
-        const updatedFogOfWarList = scene.fogOfWar.filter(fog => fog.id !== fogOfWarId);
-
-        const updatedScene = {
-            ...scene,
-            fogOfWar: updatedFogOfWarList
-        };
-
-        setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
-        });
-
-        toast({
-            title: "Fog of War Deleted",
-            description: "Fog area removed",
-            duration: 3000,
-        });
-    };
+    // Handler for moving everything on the grid
 
     const handleMoveEverything = (dx: number, dy: number) => {
         const updatedScene = {
@@ -1263,10 +1198,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             }),
         };
         setScene(updatedScene);
-        websocketService.send({
-            type: 'scene_update',
-            scene: updatedScene
-        });
+        websocketService.sendSceneUpdate(updatedScene);
 
         // Show toast notification
         const direction = dx > 0 ? 'right' : dx < 0 ? 'left' : dy > 0 ? 'down' : 'up';
@@ -1377,7 +1309,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                     zIndex={zIndex}
                                     scale={displayScale}
                                     gridSettings={scene.gridSettings}
-                                    onOpenAoEPalette={() => setIsAoEPaletteOpen(true)}
+                                    onOpenAoEPalette={handleOpenAoEPalette}
                                 />
                             );
                         })}

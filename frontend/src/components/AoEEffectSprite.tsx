@@ -171,7 +171,10 @@ export const AoEEffectSprite: React.FC<AoEEffectSpriteProps> = ({
 
         if (resolvedFit === 'line-fill') {
             const tile = Math.max(24, Math.round(height));
-            const tileCount = Math.max(1, Math.ceil(width / tile));
+            const tileCount = Math.min(
+                12,
+                Math.max(1, Math.ceil(width / tile)),
+            );
             const zoom = meta.zoom ?? 2.4;
             return {
                 fit: resolvedFit,
