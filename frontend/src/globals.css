@@ -325,17 +325,37 @@ body {
 }
 
 .aoe-reveal-center {
+  transform: scale(0);
+  opacity: 0;
   animation: aoe-reveal-center 0.7s ease-out forwards;
   transform-origin: center center;
 }
 
 .aoe-reveal-cone {
+  clip-path: polygon(50% 0%, 50% 0%, 50% 0%);
+  opacity: 0;
   animation: aoe-reveal-cone 0.7s ease-out forwards;
 }
 
 .aoe-reveal-line {
+  transform: scaleX(0);
+  opacity: 0;
   animation: aoe-reveal-line 0.7s ease-out forwards;
   transform-origin: left center;
+}
+
+.aoe-reveal-label {
+  opacity: 0;
+  animation: aoe-reveal-label-fade 0.4s ease-out 0.45s forwards;
+}
+
+@keyframes aoe-reveal-label-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .animate-combatant-ripple-1 {

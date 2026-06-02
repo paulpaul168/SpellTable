@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, RefObject } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { AoEMarker as AoEMarkerType } from '../types/map';
 import {
@@ -62,6 +62,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     const [playRevealAnimation, setPlayRevealAnimation] = useState(false);
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
     const prevRevealedRef = useRef(marker.revealed);
+    const revealWaitingForEffectRef = useRef(false);
     const lastUpdateRef = useRef<number>(0);
     const pendingUpdateRef = useRef<AoEMarkerType | null>(null);
     const mouseDragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -149,7 +150,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         }
     }, [isHighlighted]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (!aoeStagedReveal) {
             prevRevealedRef.current = marker.revealed;
             return;
@@ -159,8 +160,19 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         if (wasUnrevealed && nowRevealed && !isAdmin) {
             setPlayRevealAnimation(true);
         }
+        if (marker.revealed === false) {
+            revealWaitingForEffectRef.current = false;
+            setPlayRevealAnimation(false);
+        }
         prevRevealedRef.current = marker.revealed;
     }, [marker.revealed, aoeStagedReveal, isAdmin]);
+
+    useEffect(() => {
+        if (revealWaitingForEffectRef.current && effectLoaded) {
+            revealWaitingForEffectRef.current = false;
+            setPlayRevealAnimation(false);
+        }
+    }, [effectLoaded]);
 
     const closeThisMenu = useCallback(() => {
         setContextMenu(null);
@@ -715,37 +727,69 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         );
     };
 
+    const isRevealingViewer =
+        aoeStagedReveal &&
+        !isAdmin &&
+        marker.revealed !== false &&
+        (playRevealAnimation || prevRevealedRef.current === false);
+
     const getRevealClass = (): string => {
-        if (!playRevealAnimation) return '';
+        if (!isRevealingViewer) return '';
         if (marker.shape === 'cone') return 'aoe-reveal-cone';
         if (marker.shape === 'line') return 'aoe-reveal-line';
         return 'aoe-reveal-center';
     };
 
+    const handleRevealAnimationEnd = () => {
+        const waitingForEffect =
+            Boolean(marker.effectId) &&
+            aoeEffectTheme !== 'none' &&
+            !effectLoaded;
+        if (waitingForEffect) {
+            revealWaitingForEffectRef.current = true;
+            return;
+        }
+        setPlayRevealAnimation(false);
+    };
+
     const renderShape = () => {
         const showSolid =
             aoeEffectTheme === 'none' || !marker.effectId || !effectLoaded;
-        const revealClass = getRevealClass();
-        const content = (
-            <>
-                {showSolid && renderSolidShape()}
-                {renderEffectSprite()}
-            </>
-        );
-
         return (
             <div style={shapeBoundsStyle}>
-                {revealClass ? (
-                    <div
-                        className={revealClass}
-                        style={{ width: '100%', height: '100%', position: 'relative' }}
-                        onAnimationEnd={() => setPlayRevealAnimation(false)}
-                    >
-                        {content}
-                    </div>
-                ) : (
-                    content
-                )}
+                {showSolid && renderSolidShape()}
+                {renderEffectSprite()}
+            </div>
+        );
+    };
+
+    const renderLabel = () => {
+        if (!marker.label) return null;
+        return (
+            <div
+                className={`absolute px-2 py-1 bg-black/70 text-white text-xs rounded pointer-events-none${isRevealingViewer ? ' aoe-reveal-label' : ''}`}
+                style={{
+                    whiteSpace: 'nowrap',
+                    top: `${effectHeight + 4}px`,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                }}
+            >
+                {marker.label}
+            </div>
+        );
+    };
+
+    const renderRevealWrapped = (children: React.ReactNode) => {
+        const revealClass = getRevealClass();
+        if (!revealClass) return <>{children}</>;
+        return (
+            <div
+                className={revealClass}
+                style={{ width: effectWidth, height: effectHeight, position: 'relative' }}
+                onAnimationEnd={handleRevealAnimationEnd}
+            >
+                {children}
             </div>
         );
     };
@@ -972,23 +1016,11 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 </div>
             )}
 
-            {renderShape()}
+            {renderRevealWrapped(renderShape())}
 
             {renderDirectionalRotationHandles()}
 
-            {marker.label && (
-                <div
-                    className="absolute px-2 py-1 bg-black/70 text-white text-xs rounded pointer-events-none"
-                    style={{
-                        whiteSpace: 'nowrap',
-                        top: `${effectHeight + 4}px`,
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                    }}
-                >
-                    {marker.label}
-                </div>
-            )}
+            {renderLabel()}
         </>
     );
 
