@@ -18,6 +18,7 @@ const initialScene: SceneType = {
         gridCellsY: 32
     },
     initiativeOrder: [],
+    encounterHistory: [],
     showCurrentPlayer: true,
     aoeMarkers: [],
     fogOfWar: []

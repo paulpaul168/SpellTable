@@ -38,6 +38,10 @@ class SceneData(BaseModel):
         alias="initiativeOrder",
     )
     show_current_player: bool = Field(default=True, alias="showCurrentPlayer")
+    encounter_history: list[dict[str, Any]] = Field(
+        default_factory=list,
+        alias="encounterHistory",
+    )
     images: list[SceneImage] = []
 
 

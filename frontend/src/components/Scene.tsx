@@ -52,7 +52,7 @@ import { LoadSceneDialog } from './LoadSceneDialog';
 import { MapListSidebar } from './MapListSidebar';
 import { useToast } from "@/components/ui/use-toast";
 import { InitiativeSidebar } from './InitiativeSidebar';
-import { InitiativeEntry } from '@/types/map';
+import { EncounterHistoryEntry, InitiativeEntry } from '@/types/map';
 import { SceneManagement } from './SceneManagement';
 import { Soundboard } from './Soundboard';
 import { cn } from '@/lib/utils';
@@ -136,6 +136,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             gridCellsY: 32
         },
         initiativeOrder: initialScene?.initiativeOrder || [],
+        encounterHistory: initialScene?.encounterHistory || [],
         showCurrentPlayer: true,
         aoeMarkers: initialScene?.aoeMarkers || [],
         fogOfWar: initialScene?.fogOfWar || [],
@@ -396,6 +397,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     gridSize: 50
                 },
                 initiativeOrder: scene.initiativeOrder || [],
+                encounterHistory: scene.encounterHistory || [],
                 showCurrentPlayer: scene.showCurrentPlayer ?? true,
                 aoeMarkers: scene.aoeMarkers || [],
                 fogOfWar: scene.fogOfWar || []
@@ -454,6 +456,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     gridSize: 50
                 },
                 initiativeOrder: scene.initiativeOrder || [],
+                encounterHistory: scene.encounterHistory || [],
                 showCurrentPlayer: scene.showCurrentPlayer ?? true,
                 aoeMarkers: scene.aoeMarkers || [],
                 fogOfWar: scene.fogOfWar || []
@@ -490,6 +493,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     gridSize: 50
                 },
                 initiativeOrder: sceneData.initiativeOrder || [],
+                encounterHistory: sceneData.encounterHistory || [],
                 showCurrentPlayer: sceneData.showCurrentPlayer ?? true,
                 aoeMarkers: sceneData.aoeMarkers || [],
                 fogOfWar: sceneData.fogOfWar || []
@@ -753,10 +757,14 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         });
     };
 
-    const handleInitiativeUpdate = (entries: InitiativeEntry[]) => {
+    const handleEncounterUpdate = (update: {
+        entries?: InitiativeEntry[];
+        encounterHistory?: EncounterHistoryEntry[];
+    }) => {
         const updatedScene = {
             ...scene,
-            initiativeOrder: entries
+            ...(update.entries !== undefined && { initiativeOrder: update.entries }),
+            ...(update.encounterHistory !== undefined && { encounterHistory: update.encounterHistory }),
         };
         setScene(updatedScene);
         websocketService.send({
@@ -1345,7 +1353,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     <InitiativeSidebar
                         isAdmin={isAdmin}
                         entries={scene.initiativeOrder}
-                        onUpdate={handleInitiativeUpdate}
+                        encounterHistory={scene.encounterHistory || []}
+                        onEncounterUpdate={handleEncounterUpdate}
                         showCurrentPlayer={scene.showCurrentPlayer}
                         onToggleCurrentPlayer={handleToggleCurrentPlayer}
                         onClose={() => setShowInitiative(false)}

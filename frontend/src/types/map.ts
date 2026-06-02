@@ -25,6 +25,12 @@ export interface InitiativeEntry {
     isKilled: boolean;
 }
 
+export interface EncounterHistoryEntry {
+    id: string;
+    timestamp: number;
+    text: string;
+}
+
 export interface SceneImage {
     id: string;
     name: string;
@@ -83,6 +89,7 @@ export interface Scene {
         aoeEffectTheme?: AoEEffectTheme;
     };
     initiativeOrder: InitiativeEntry[];
+    encounterHistory?: EncounterHistoryEntry[];
     showCurrentPlayer: boolean;
     aoeMarkers?: AoEMarker[];
     fogOfWar?: FogOfWar[];

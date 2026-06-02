@@ -2,8 +2,8 @@ import React, { useState, useRef } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useToast } from './ui/use-toast';
-import { Plus, Trash2, ChevronDown, ChevronUp, Eye, EyeOff, Skull, X, ChevronRight } from 'lucide-react';
-import { InitiativeEntry } from '../types/map';
+import { Plus, Trash2, ChevronDown, ChevronUp, Eye, EyeOff, Skull, X, ChevronRight, ScrollText } from 'lucide-react';
+import { EncounterHistoryEntry, InitiativeEntry } from '../types/map';
 import {
     DndContext,
     closestCenter,
@@ -25,6 +25,7 @@ import {
     Dialog,
     DialogContent,
     DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from './ui/dialog';
@@ -57,10 +58,32 @@ function createInitiativeEntry(
     };
 }
 
+function createHistoryEntry(text: string): EncounterHistoryEntry {
+    return {
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+        text,
+    };
+}
+
+function formatHistoryTime(timestamp: number): string {
+    return new Date(timestamp).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+    });
+}
+
+interface EncounterUpdate {
+    entries?: InitiativeEntry[];
+    encounterHistory?: EncounterHistoryEntry[];
+}
+
 interface InitiativeSidebarProps {
     isAdmin: boolean;
     entries: InitiativeEntry[];
-    onUpdate: (entries: InitiativeEntry[]) => void;
+    encounterHistory: EncounterHistoryEntry[];
+    onEncounterUpdate: (update: EncounterUpdate) => void;
     showCurrentPlayer: boolean;
     onToggleCurrentPlayer: () => void;
     onClose: () => void;
@@ -69,7 +92,8 @@ interface InitiativeSidebarProps {
 export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
     isAdmin,
     entries = [],
-    onUpdate,
+    encounterHistory = [],
+    onEncounterUpdate,
     showCurrentPlayer,
     onToggleCurrentPlayer,
     onClose
@@ -77,6 +101,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
     const { toast } = useToast();
     const [isVisible, setIsVisible] = useState(true);
     const [addDialogOpen, setAddDialogOpen] = useState(false);
+    const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
     const [playerName, setPlayerName] = useState('');
     const [playerInitiative, setPlayerInitiative] = useState('');
     const [enemyName, setEnemyName] = useState('');
@@ -98,11 +123,34 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
         })
     );
 
-    const addEntry = (name: string, initiative: number, isPlayer: boolean, hp?: number) => {
+    const pushEncounterUpdate = (update: EncounterUpdate) => {
+        onEncounterUpdate(update);
+    };
+
+    const updateWithLog = (newEntries: InitiativeEntry[], text: string) => {
+        pushEncounterUpdate({
+            entries: newEntries,
+            encounterHistory: [createHistoryEntry(text), ...encounterHistory],
+        });
+    };
+
+    const getAliveEntries = () => entries.filter(entry => !entry.isKilled);
+
+    const getTurnName = (entryList: InitiativeEntry[]) => {
+        const alive = entryList.filter(entry => !entry.isKilled);
+        const current = alive.find(entry => entry.isCurrentTurn) ?? alive[0];
+        return current?.name;
+    };
+
+    const addEntry = (name: string, initiative: number, isPlayer: boolean, hp?: number, logText?: string) => {
         const newEntry = createInitiativeEntry(name, initiative, isPlayer, hp);
 
         const newEntries = [...entries, newEntry].sort((a, b) => b.initiative - a.initiative);
-        onUpdate(newEntries);
+        if (logText) {
+            updateWithLog(newEntries, logText);
+        } else {
+            pushEncounterUpdate({ entries: newEntries });
+        }
 
         if (isPlayer && !playerNames.includes(name)) {
             setPlayerNames(prev => [...prev, name]);
@@ -116,8 +164,11 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
     };
 
     const removeEntry = (id: string) => {
+        const entry = entries.find(e => e.id === id);
+        if (!entry) return;
+
         const newEntries = entries.filter(entry => entry.id !== id);
-        onUpdate(newEntries);
+        updateWithLog(newEntries, `Removed ${entry.name}`);
     };
 
     const killEntry = (id: string) => {
@@ -142,7 +193,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                     entry.id === id ? { ...entry, isKilled: true, isCurrentTurn: false } : entry
                 );
 
-                onUpdate(finalEntries);
+                updateWithLog(finalEntries, `Killed ${killedEntry.name}`);
                 return;
             }
         }
@@ -151,19 +202,25 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
         const newEntries = entries.map(entry =>
             entry.id === id ? { ...entry, isKilled: true, isCurrentTurn: false } : entry
         );
-        onUpdate(newEntries);
+        updateWithLog(newEntries, `Killed ${killedEntry.name}`);
     };
 
     const reviveEntry = (id: string) => {
+        const entry = entries.find(e => e.id === id);
+        if (!entry) return;
+
         const newEntries = entries.map(entry =>
             entry.id === id ? { ...entry, isKilled: false, hp: 1 } : entry
         );
-        onUpdate(newEntries);
+        updateWithLog(newEntries, `Revived ${entry.name} (1 HP)`);
     };
 
     const clearKilledEntries = () => {
+        const killedCount = entries.filter(entry => entry.isKilled).length;
+        if (killedCount === 0) return;
+
         const newEntries = entries.filter(entry => !entry.isKilled);
-        onUpdate(newEntries);
+        updateWithLog(newEntries, `Cleared ${killedCount} killed ${killedCount === 1 ? 'entry' : 'entries'}`);
     };
 
 
@@ -177,6 +234,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
 
         const newHP = currentHP + adjustmentValue;
         const finalHP = newHP <= 0 ? newHP : Math.max(0, newHP);
+        const deltaLabel = adjustmentValue >= 0 ? `+${adjustmentValue}` : `${adjustmentValue}`;
 
         // Update HP first
         const newEntries = entries.map(entry =>
@@ -185,6 +243,8 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
 
         // Then kill if needed
         if (newHP <= 0) {
+            const logText = `${entry.name} HP ${deltaLabel} → ${finalHP}, killed`;
+
             // If the entry was the current turn, move to the next alive entry first
             if (entry.isCurrentTurn) {
                 const aliveEntries = entries.filter(entry => !entry.isKilled);
@@ -203,7 +263,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                         entry.id === id ? { ...entry, isKilled: true, isCurrentTurn: false } : entry
                     );
 
-                    onUpdate(finalEntries);
+                    updateWithLog(finalEntries, logText);
                     return;
                 }
             }
@@ -212,45 +272,57 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
             const killedEntries = newEntries.map(entry =>
                 entry.id === id ? { ...entry, isKilled: true, isCurrentTurn: false } : entry
             );
-            onUpdate(killedEntries);
+            updateWithLog(killedEntries, logText);
             return;
         }
 
-        onUpdate(newEntries);
+        updateWithLog(newEntries, `${entry.name} HP ${deltaLabel} → ${finalHP}`);
     };
 
     const moveToNextTurn = () => {
         if (entries.length === 0) return;
 
-        const aliveEntries = entries.filter(entry => !entry.isKilled);
+        const aliveEntries = getAliveEntries();
         if (aliveEntries.length === 0) return;
 
+        const fromName = getTurnName(entries);
         const currentIndex = aliveEntries.findIndex(entry => entry.isCurrentTurn);
         const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % aliveEntries.length;
+        const toName = aliveEntries[nextIndex]?.name;
 
         const newEntries = entries.map((entry) => ({
             ...entry,
             isCurrentTurn: !entry.isKilled && entry.id === aliveEntries[nextIndex].id
         }));
 
-        onUpdate(newEntries);
+        if (fromName && toName && fromName !== toName) {
+            updateWithLog(newEntries, `Turn: ${fromName} → ${toName}`);
+        } else {
+            pushEncounterUpdate({ entries: newEntries });
+        }
     };
 
     const moveToPreviousTurn = () => {
         if (entries.length === 0) return;
 
-        const aliveEntries = entries.filter(entry => !entry.isKilled);
+        const aliveEntries = getAliveEntries();
         if (aliveEntries.length === 0) return;
 
+        const fromName = getTurnName(entries);
         const currentIndex = aliveEntries.findIndex(entry => entry.isCurrentTurn);
         const prevIndex = currentIndex === -1 ? aliveEntries.length - 1 : (currentIndex - 1 + aliveEntries.length) % aliveEntries.length;
+        const toName = aliveEntries[prevIndex]?.name;
 
         const newEntries = entries.map((entry) => ({
             ...entry,
             isCurrentTurn: !entry.isKilled && entry.id === aliveEntries[prevIndex].id
         }));
 
-        onUpdate(newEntries);
+        if (fromName && toName && fromName !== toName) {
+            updateWithLog(newEntries, `Turn: ${fromName} → ${toName}`);
+        } else {
+            pushEncounterUpdate({ entries: newEntries });
+        }
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
@@ -261,8 +333,21 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
             const newIndex = entries.findIndex((entry) => entry.id === over.id);
 
             const newEntries = arrayMove(entries, oldIndex, newIndex);
-            onUpdate(newEntries);
+            updateWithLog(newEntries, 'Reordered initiative');
         }
+    };
+
+    const clearEncounterHistory = () => {
+        pushEncounterUpdate({ encounterHistory: [] });
+    };
+
+    const resetEncounter = () => {
+        if (!window.confirm('Clear all initiative entries and history? This cannot be undone.')) {
+            return;
+        }
+
+        pushEncounterUpdate({ entries: [], encounterHistory: [] });
+        setHistoryDialogOpen(false);
     };
 
     const addPlayerEntry = () => {
@@ -274,7 +359,13 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
             });
             return;
         }
-        addEntry(playerName, parseInt(playerInitiative), true);
+        addEntry(
+            playerName,
+            parseInt(playerInitiative),
+            true,
+            undefined,
+            `Added player ${playerName} (init ${parseInt(playerInitiative)})`
+        );
         setPlayerName('');
         setPlayerInitiative('');
         playerNameRef.current?.focus();
@@ -289,7 +380,16 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
             });
             return;
         }
-        addEntry(enemyName, parseInt(enemyInitiative), false, enemyHP ? parseInt(enemyHP) : undefined);
+        const initiative = parseInt(enemyInitiative);
+        const hp = enemyHP ? parseInt(enemyHP) : undefined;
+        const hpLabel = hp !== undefined ? `, HP ${hp}` : '';
+        addEntry(
+            enemyName,
+            initiative,
+            false,
+            hp,
+            `Added enemy ${enemyName} (init ${initiative}${hpLabel})`
+        );
         setEnemyName('');
         setEnemyInitiative('');
         setEnemyHP('');
@@ -353,7 +453,9 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
             return;
         }
 
-        onUpdate([...entries, ...newEntries].sort((a, b) => b.initiative - a.initiative));
+        const sortedEntries = [...entries, ...newEntries].sort((a, b) => b.initiative - a.initiative);
+        const logText = `Added ${count} ${baseName}${count === 1 ? '' : 's'} — HP: ${rolledHP.join(', ')} | Init: ${rolledInit.join(', ')}`;
+        updateWithLog(sortedEntries, logText);
 
         toast({
             title: `Added ${count} ${baseName}${count === 1 ? '' : 's'}`,
@@ -386,6 +488,17 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                     onClose={onClose}
                     headerActions={
                         <>
+                            {isAdmin && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => setHistoryDialogOpen(true)}
+                                    title="Encounter history"
+                                >
+                                    <ScrollText className="h-4 w-4" />
+                                </Button>
+                            )}
                             {isAdmin && (
                                 <Button
                                     variant="ghost"
@@ -674,6 +787,52 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                 </div>
                             </div>
                         </div>
+                    </DialogContent>
+                </Dialog>
+            )}
+
+            {isAdmin && (
+                <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Encounter history</DialogTitle>
+                            <DialogDescription>
+                                Actions during this encounter. Saved with the scene.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+                            {encounterHistory.length === 0 ? (
+                                <p className="text-sm text-muted-foreground py-4 text-center">
+                                    No events yet
+                                </p>
+                            ) : (
+                                encounterHistory.map((event) => (
+                                    <div
+                                        key={event.id}
+                                        className="flex gap-3 rounded-md border border-border/50 px-3 py-2 text-sm"
+                                    >
+                                        <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                                            {formatHistoryTime(event.timestamp)}
+                                        </span>
+                                        <span className="min-w-0">{event.text}</span>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        <DialogFooter className="gap-2 sm:gap-0">
+                            <Button
+                                variant="outline"
+                                onClick={clearEncounterHistory}
+                                disabled={encounterHistory.length === 0}
+                            >
+                                Clear log
+                            </Button>
+                            <Button variant="destructive" onClick={resetEncounter}>
+                                Reset encounter
+                            </Button>
+                        </DialogFooter>
                     </DialogContent>
                 </Dialog>
             )}
