@@ -144,6 +144,7 @@ async def get_map(path: str) -> FileResponse:
     try:
         # Make sure the path is properly constructed with OS-specific separators
         normalized_path = path.replace("/", os.path.sep).replace("\\", os.path.sep)
+        normalized_path = normalized_path.lstrip(os.path.sep)
         file_path = os.path.join(MAPS_DIR, normalized_path)
         logger.debug(f"Attempting to access file at: {file_path}")
 

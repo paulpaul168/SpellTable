@@ -363,10 +363,11 @@ export const Map: React.FC<MapProps> = ({
 
     // Get the map's URL
     const getMapUrl = () => {
-        // Handle folder structure if present
-        const folderPrefix = map.folder ? `/${map.folder.replace(/^\//, '')}` : '';
-        const API_BASE_URL = getApiUrl();
-        return `${API_BASE_URL}/maps/file/${folderPrefix}/${encodeURIComponent(map.name)}`;
+        const folder = map.folder?.replace(/^\/+/, '') ?? '';
+        const filePath = folder
+            ? `${folder}/${encodeURIComponent(map.name)}`
+            : encodeURIComponent(map.name);
+        return `${getApiUrl()}/maps/file/${filePath}`;
     };
 
 
