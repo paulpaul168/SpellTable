@@ -319,19 +319,14 @@ export const CombatantToken: React.FC<CombatantTokenProps> = ({
             title={isAdmin ? 'Right-click to change size' : undefined}
         >
             {showEnemyRipple && (
-                <div className="absolute inset-0 pointer-events-none">
-                    <div
-                        className="absolute inset-0 rounded-full border-2 border-destructive animate-ripple-1"
-                        style={{ margin: -4 }}
-                    />
-                    <div
-                        className="absolute inset-0 rounded-full border-2 border-destructive animate-ripple-2"
-                        style={{ margin: -4 }}
-                    />
-                    <div
-                        className="absolute inset-0 rounded-full border-2 border-destructive animate-ripple-3"
-                        style={{ margin: -4 }}
-                    />
+                <div
+                    key={`ripple-${footprint}-${Math.round(tokenDiameter)}`}
+                    className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-visible"
+                    aria-hidden
+                >
+                    <div className="absolute inset-0 rounded-full border-2 border-destructive animate-combatant-ripple-1" />
+                    <div className="absolute inset-0 rounded-full border-2 border-destructive animate-combatant-ripple-2" />
+                    <div className="absolute inset-0 rounded-full border-2 border-destructive animate-combatant-ripple-3" />
                 </div>
             )}
 

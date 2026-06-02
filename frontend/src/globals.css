@@ -276,6 +276,36 @@ body {
   animation: ripple 3s ease-out 1s infinite;
 }
 
+/* Combatant token turn indicator — scale from center (no translate offset) */
+@keyframes combatant-token-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1.85);
+    opacity: 0;
+  }
+}
+
+.animate-combatant-ripple-1 {
+  animation: combatant-token-ripple 3s ease-out infinite;
+  transform-origin: center center;
+}
+
+.animate-combatant-ripple-2 {
+  animation: combatant-token-ripple 3s ease-out 0.5s infinite;
+  transform-origin: center center;
+}
+
+.animate-combatant-ripple-3 {
+  animation: combatant-token-ripple 3s ease-out 1s infinite;
+  transform-origin: center center;
+}
+
 .shake-effect {
   animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
