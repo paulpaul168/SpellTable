@@ -155,7 +155,7 @@ async def _handle_scene_event(websocket: WebSocket, message: dict[str, Any]) -> 
     if not event_type:
         return
     payload: dict[str, Any] = {"type": "scene_event", "eventType": event_type}
-    for key in ("x", "y", "enabled", "brightness"):
+    for key in ("x", "y", "enabled", "brightness", "points"):
         if key in message:
             payload[key] = message[key]
     await _broadcast_to_others(websocket, payload)

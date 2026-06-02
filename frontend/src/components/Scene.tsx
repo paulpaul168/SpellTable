@@ -1447,7 +1447,10 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             {/* GameboardMenu - Only show in normal layout */}
             {!isCleanLayout && (
-                <GameboardMenu connectionStatus={connectionStatus} />
+                <GameboardMenu
+                    connectionStatus={connectionStatus}
+                    gridSettings={scene.gridSettings}
+                />
             )}
 
             {/* Viewer Status Indicator - Only show when viewer is blanked */}
