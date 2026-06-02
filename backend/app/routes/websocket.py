@@ -126,6 +126,18 @@ async def _handle_unrotate_viewer(
     await _broadcast_to_others(websocket, unrotate_message)
 
 
+async def _handle_scene_event(websocket: WebSocket, message: dict[str, Any]) -> None:
+    """Relay gameboard visual effects to other clients."""
+    event_type = message.get("eventType")
+    if not event_type:
+        return
+    payload: dict[str, Any] = {"type": "scene_event", "eventType": event_type}
+    for key in ("x", "y", "enabled", "brightness"):
+        if key in message:
+            payload[key] = message[key]
+    await _broadcast_to_others(websocket, payload)
+
+
 async def _handle_websocket_message(websocket: WebSocket, data: str) -> bool:
     """
     Handle a single websocket message.
@@ -150,6 +162,8 @@ async def _handle_websocket_message(websocket: WebSocket, data: str) -> bool:
             await _handle_rotate_viewer(websocket, message)
         elif message_type == "unrotate_viewer":
             await _handle_unrotate_viewer(websocket, message)
+        elif message_type == "scene_event":
+            await _handle_scene_event(websocket, message)
 
         return True
 

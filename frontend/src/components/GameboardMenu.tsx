@@ -83,6 +83,41 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
     const gameboardRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
+    const broadcastSceneEvent = useCallback(
+        (eventType: string, extra: Record<string, unknown> = {}) => {
+            websocketService.send({
+                type: 'scene_event',
+                eventType,
+                ...extra,
+            });
+        },
+        []
+    );
+
+    const applyMeasuringGrid = useCallback(
+        (enabled: boolean, broadcast = true) => {
+            setShowMeasuringGrid(enabled);
+            if (broadcast) {
+                broadcastSceneEvent('measuring_grid', { enabled });
+            }
+        },
+        [broadcastSceneEvent]
+    );
+
+    const applyNightMode = useCallback(
+        (enabled: boolean, nextBrightness: number, broadcast = true) => {
+            setIsDarkMode(enabled);
+            setBrightness(nextBrightness);
+            if (broadcast) {
+                broadcastSceneEvent('night_mode', {
+                    enabled,
+                    brightness: nextBrightness,
+                });
+            }
+        },
+        [broadcastSceneEvent]
+    );
+
     const createRippleEffect = useCallback((x: number, y: number, broadcast = true) => {
         setRipplePosition({ x, y });
         setShowRipple(true);
@@ -92,14 +127,9 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
         }, 3000);
 
         if (broadcast) {
-            websocketService.send({
-                type: 'scene_event',
-                eventType: 'ripple_effect',
-                x,
-                y
-            });
+            broadcastSceneEvent('ripple_effect', { x, y });
         }
-    }, []);
+    }, [broadcastSceneEvent]);
 
     const toggleLightningEffect = useCallback((broadcast = true) => {
         if (typeof document !== 'undefined') {
@@ -121,24 +151,18 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
             }, 40);
 
             if (broadcast) {
-                websocketService.send({
-                    type: 'scene_event',
-                    eventType: 'lightning_effect'
-                });
+                broadcastSceneEvent('lightning_effect');
             }
         }
-    }, []);
+    }, [broadcastSceneEvent]);
 
     const toggleShakeEffect = useCallback((broadcast = true) => {
         setIsShaking(true);
 
         if (broadcast) {
-            websocketService.send({
-                type: 'scene_event',
-                eventType: 'shake_effect'
-            });
+            broadcastSceneEvent('shake_effect');
         }
-    }, []);
+    }, [broadcastSceneEvent]);
 
     // Listen for remote ripple effects from admin
     useEffect(() => {
@@ -153,6 +177,13 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
                     toggleLightningEffect(false);
                 } else if (data.eventType === 'shake_effect') {
                     toggleShakeEffect(false);
+                } else if (data.eventType === 'measuring_grid') {
+                    applyMeasuringGrid(Boolean(data.enabled), false);
+                } else if (data.eventType === 'night_mode') {
+                    const enabled = Boolean(data.enabled);
+                    const nextBrightness =
+                        typeof data.brightness === 'number' ? data.brightness : brightness;
+                    applyNightMode(enabled, nextBrightness, false);
                 }
             }
         };
@@ -162,7 +193,14 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
         return () => {
             unsubscribe();
         };
-    }, [createRippleEffect, toggleLightningEffect, toggleShakeEffect]);
+    }, [
+        createRippleEffect,
+        toggleLightningEffect,
+        toggleShakeEffect,
+        applyMeasuringGrid,
+        applyNightMode,
+        brightness,
+    ]);
 
     // Apply shake effect to body
     useEffect(() => {
@@ -209,14 +247,6 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
             // If not a UI element, create a ripple
             if (!isUIElement) {
                 createRippleEffect(e.clientX, e.clientY);
-
-                // Broadcast the ripple effect to all viewers
-                websocketService.send({
-                    type: 'scene_event',
-                    eventType: 'ripple_effect',
-                    x: e.clientX,
-                    y: e.clientY
-                });
             }
         };
 
@@ -237,7 +267,16 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
     };
 
     const toggleDayNight = () => {
-        setIsDarkMode(!isDarkMode);
+        const nextEnabled = !isDarkMode;
+        applyNightMode(nextEnabled, brightness);
+    };
+
+    const toggleMeasuringGrid = () => {
+        applyMeasuringGrid(!showMeasuringGrid);
+    };
+
+    const handleBrightnessChange = (value: number) => {
+        applyNightMode(true, value);
     };
 
     // Check if a click is inside the menu area to prevent overlay from capturing those clicks
@@ -323,7 +362,7 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
 
                         <DropdownMenuItem
                             className={cn("text-xs cursor-pointer", showMeasuringGrid && "bg-zinc-800")}
-                            onClick={() => setShowMeasuringGrid(!showMeasuringGrid)}
+                            onClick={toggleMeasuringGrid}
                         >
                             <Ruler className="h-4 w-4 mr-2" />
                             Measuring Grid (5ft)
@@ -376,7 +415,9 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({ connectionStatus }
                                     min="10"
                                     max="100"
                                     value={brightness}
-                                    onChange={(e) => setBrightness(parseInt(e.target.value))}
+                                    onChange={(e) =>
+                                        handleBrightnessChange(parseInt(e.target.value, 10))
+                                    }
                                     className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
                                 />
                             </div>

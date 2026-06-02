@@ -104,10 +104,6 @@ export default function ViewerPage() {
                 setTimeout(() => {
                     setHighlightedMarkerId(null);
                 }, 2100); // Match the same duration used in admin view
-            } else if (data.type === 'scene_event') {
-                // Handle special visual effects
-                // The RippleViewer component will handle these events directly
-                // This ensures the viewer page also processes these events
             } else if (data.type === 'blank_viewer') {
                 console.log('Viewer received blank_viewer command');
                 setIsViewerBlanked(true);
@@ -168,6 +164,7 @@ export default function ViewerPage() {
 
     return (
         <ProtectedRoute>
+            <>
             <div
                 className="flex h-screen bg-zinc-950 overflow-hidden"
                 style={{
@@ -279,8 +276,6 @@ export default function ViewerPage() {
                             }}
                         />
                     )}
-
-                    <RippleViewer />
                 </div>
 
                 {/* Display Scale Indicator */}
@@ -317,6 +312,8 @@ export default function ViewerPage() {
                     </div>
                 )}
             </div>
+            <RippleViewer hidden={isViewerBlanked} />
+            </>
         </ProtectedRoute>
     );
 } 
