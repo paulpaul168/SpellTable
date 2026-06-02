@@ -32,6 +32,7 @@ interface AoEMarkerProps {
     isHighlighted?: boolean;
     containerRef?: RefObject<HTMLElement | null>;
     onTrigger?: (markerId: string) => void;
+    onReset?: (markerId: string) => void;
 }
 
 let closeOtherAoEMenus: (() => void) | null = null;
@@ -48,6 +49,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     isHighlighted = false,
     containerRef,
     onTrigger,
+    onReset,
 }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
@@ -97,13 +99,11 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     );
     const aoeStagedReveal = gridSettings?.aoeStagedReveal === true;
     const isHiddenFromViewer = !isAdmin && aoeStagedReveal && marker.revealed === false;
-    const isLongEffectGhost =
-        isAdmin &&
-        aoeStagedReveal &&
-        marker.revealed === false &&
-        (marker.shape === 'line' || marker.shape === 'cone');
     const canTrigger =
         isAdmin && aoeStagedReveal && marker.revealed === false && onTrigger;
+    const canReset =
+        isAdmin && aoeStagedReveal && marker.revealed === true && onReset;
+    const canOpenStagedMenu = canTrigger || canReset;
 
     const sizeInPixels = marker.sizeInFeet * effectiveGridSize / 5;
     const adjustedSizeInPixels = sizeInPixels;
@@ -532,95 +532,32 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         return 'aoe-reveal-center';
     };
 
-    const renderAnchorDot = () => (
-        <div
-            className="pointer-events-none absolute z-10 rounded-full border border-black/60 bg-white shadow-sm"
-            style={{
-                width: 8,
-                height: 8,
-                ...(marker.shape === 'cone'
-                    ? { top: 0, left: '50%', transform: 'translate(-50%, -50%)' }
-                    : { left: 0, top: '50%', transform: 'translate(-50%, -50%)' }),
-            }}
-        />
-    );
+    const renderShape = () => {
+        const showSolid =
+            aoeEffectTheme === 'none' || !marker.effectId || !effectLoaded;
+        const revealClass = getRevealClass();
+        const content = (
+            <>
+                {showSolid && renderSolidShape()}
+                {renderEffectSprite()}
+            </>
+        );
 
-    const renderGhostShape = () => {
-        const ghostOpacity = 0.35;
-        switch (marker.shape) {
-            case 'circle':
-                return (
+        return (
+            <div style={shapeBoundsStyle}>
+                {revealClass ? (
                     <div
-                        className="rounded-full border-2 border-dashed"
-                        style={{
-                            width: `${adjustedSizeInPixels}px`,
-                            height: `${adjustedSizeInPixels}px`,
-                            borderColor: marker.color,
-                            backgroundColor: `${marker.color}18`,
-                            opacity: ghostOpacity,
-                        }}
-                    />
-                );
-            case 'cone':
-                return (
-                    <svg
-                        width={adjustedSizeInPixels}
-                        height={adjustedSizeInPixels}
-                        style={{ opacity: ghostOpacity }}
-                        viewBox={`0 0 ${adjustedSizeInPixels} ${adjustedSizeInPixels}`}
+                        className={revealClass}
+                        style={{ width: '100%', height: '100%', position: 'relative' }}
+                        onAnimationEnd={() => setPlayRevealAnimation(false)}
                     >
-                        <polygon
-                            points={`${adjustedSizeInPixels / 2},0 0,${adjustedSizeInPixels} ${adjustedSizeInPixels},${adjustedSizeInPixels}`}
-                            fill={`${marker.color}18`}
-                            stroke={marker.color}
-                            strokeWidth="2"
-                            strokeDasharray="6 4"
-                        />
-                    </svg>
-                );
-            case 'line':
-                return (
-                    <div
-                        className="border-2 border-dashed"
-                        style={{
-                            width: `${adjustedSizeInPixels}px`,
-                            height: `${effectiveGridSize / 2}px`,
-                            borderColor: marker.color,
-                            backgroundColor: `${marker.color}18`,
-                            opacity: ghostOpacity,
-                        }}
-                    />
-                );
-            case 'square':
-            case 'cube':
-                return (
-                    <div
-                        className="border-2 border-dashed"
-                        style={{
-                            width: `${adjustedSizeInPixels}px`,
-                            height: `${adjustedSizeInPixels}px`,
-                            borderColor: marker.color,
-                            backgroundColor: `${marker.color}18`,
-                            opacity: ghostOpacity,
-                        }}
-                    />
-                );
-            case 'cylinder':
-                return (
-                    <div
-                        className="rounded-full border-2 border-dashed"
-                        style={{
-                            width: `${adjustedSizeInPixels}px`,
-                            height: `${adjustedSizeInPixels}px`,
-                            borderColor: marker.color,
-                            backgroundColor: `${marker.color}18`,
-                            opacity: ghostOpacity,
-                        }}
-                    />
-                );
-            default:
-                return null;
-        }
+                        {content}
+                    </div>
+                ) : (
+                    content
+                )}
+            </div>
+        );
     };
 
     const renderSolidShape = () => {
@@ -702,30 +639,6 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
         }
     };
 
-    const renderShape = () => {
-        if (isLongEffectGhost) {
-            return (
-                <div style={shapeBoundsStyle} className="relative">
-                    {renderGhostShape()}
-                    {renderAnchorDot()}
-                </div>
-            );
-        }
-
-        const showSolid =
-            aoeEffectTheme === 'none' || !marker.effectId || !effectLoaded;
-        return (
-            <div
-                style={shapeBoundsStyle}
-                className={getRevealClass()}
-                onAnimationEnd={() => setPlayRevealAnimation(false)}
-            >
-                {showSolid && renderSolidShape()}
-                {renderEffectSprite()}
-            </div>
-        );
-    };
-
     const handleDoubleClick = (e: React.MouseEvent) => {
         if (!isAdmin) return;
         e.stopPropagation();
@@ -733,7 +646,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
     };
 
     const handleContextMenu = (e: React.MouseEvent) => {
-        if (!isAdmin || !canTrigger) return;
+        if (!isAdmin || !canOpenStagedMenu) return;
         e.preventDefault();
         e.stopPropagation();
         closeOtherAoEMenus?.();
@@ -743,6 +656,11 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
 
     const handleTrigger = () => {
         onTrigger?.(marker.id);
+        setContextMenu(null);
+    };
+
+    const handleReset = () => {
+        onReset?.(marker.id);
         setContextMenu(null);
     };
 
@@ -769,7 +687,7 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                 zIndex: isDragging ? 900 : 500,
                 touchAction: 'none'
             }}
-            title={canTrigger ? 'Right-click to trigger' : undefined}
+            title={canOpenStagedMenu ? 'Right-click for trigger / reset' : undefined}
             onMouseDown={handleMouseDown}
             onContextMenu={handleContextMenu}
             onWheel={handleWheel}
@@ -905,13 +823,24 @@ export const AoEMarker: React.FC<AoEMarkerProps> = ({
                         onPointerDown={(e) => e.stopPropagation()}
                         onContextMenu={(e) => e.preventDefault()}
                     >
-                        <button
-                            type="button"
-                            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-accent"
-                            onClick={handleTrigger}
-                        >
-                            Trigger (reveal to viewers)
-                        </button>
+                        {canTrigger && (
+                            <button
+                                type="button"
+                                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-accent"
+                                onClick={handleTrigger}
+                            >
+                                Trigger (reveal to viewers)
+                            </button>
+                        )}
+                        {canReset && (
+                            <button
+                                type="button"
+                                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-accent"
+                                onClick={handleReset}
+                            >
+                                Reset (hide from viewers)
+                            </button>
+                        )}
                     </div>,
                     document.body,
                 )}

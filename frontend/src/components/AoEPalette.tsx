@@ -137,13 +137,27 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
             case 'circle':
                 return <div className="rounded-full" style={{ width: size, height: size, backgroundColor: color }} />;
             case 'cone':
-                return <Triangle className="h-4 w-4" style={{ color }} />;
+                return (
+                    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
+                        <polygon
+                            points={`${size / 2},0 0,${size} ${size},${size}`}
+                            fill={color}
+                        />
+                    </svg>
+                );
             case 'line':
-                return <Minus className="h-4 w-4" style={{ color }} />;
+                return (
+                    <div
+                        style={{
+                            width: size,
+                            height: Math.max(3, Math.round(size / 4)),
+                            backgroundColor: color,
+                        }}
+                    />
+                );
             case 'square':
-                return <Square className="h-4 w-4" style={{ color }} />;
             case 'cube':
-                return <Box className="h-4 w-4" style={{ color }} />;
+                return <Square className="h-4 w-4" style={{ color }} />;
             case 'cylinder':
                 return <CylinderIcon className="h-4 w-4" style={{ color }} />;
             default:
@@ -245,10 +259,9 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                                     className="text-xs justify-start"
                                     onClick={() => handleAddFromPreset(aoe.shape as AoEShape, aoe.size, aoe.color)}
                                 >
-                                    <div
-                                        className="w-3 h-3 mr-2 rounded-full"
-                                        style={{ backgroundColor: aoe.color }}
-                                    />
+                                    <span className="mr-2 flex w-4 shrink-0 items-center justify-center">
+                                        {renderShapePreview(aoe.shape as AoEShape, aoe.color, 12)}
+                                    </span>
                                     {aoe.name}
                                 </Button>
                             ))}
@@ -274,10 +287,9 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                                         spell.effectId,
                                     )}
                                 >
-                                    <div
-                                        className="w-3 h-3 mr-2 rounded-full"
-                                        style={{ backgroundColor: spell.color }}
-                                    />
+                                    <span className="mr-2 flex w-4 shrink-0 items-center justify-center">
+                                        {renderShapePreview(spell.shape, spell.color, 12)}
+                                    </span>
                                     {spell.name} ({spell.size}&apos;)
                                 </Button>
                             ))}
@@ -493,7 +505,7 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                                         Staged reveal (hide from viewers until triggered)
                                     </Label>
                                     <p className="text-xs text-zinc-500">
-                                        New markers show as ghost outlines on admin for lines and cones. Right-click a marker on the map to trigger it for viewers.
+                                        New markers stay hidden from viewers until you right-click them on the map and choose Trigger.
                                     </p>
                                 </div>
                             </div>

@@ -1101,6 +1101,35 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         });
     };
 
+    // Handler for resetting a staged AoE marker (hide from viewers again)
+    const handleResetAoEMarker = (markerId: string) => {
+        if (!scene.aoeMarkers) return;
+
+        const marker = scene.aoeMarkers.find(m => m.id === markerId);
+        if (!marker || marker.revealed !== true) return;
+
+        const updatedMarkers = scene.aoeMarkers.map(m =>
+            m.id === markerId ? { ...m, revealed: false } : m
+        );
+
+        const updatedScene = {
+            ...scene,
+            aoeMarkers: updatedMarkers
+        };
+
+        setScene(updatedScene);
+        websocketService.send({
+            type: 'scene_update',
+            scene: updatedScene
+        });
+
+        toast({
+            title: "Marker Reset",
+            description: marker.label || `${marker.shape} marker hidden from viewers`,
+            duration: 2000,
+        });
+    };
+
     // Handler for deleting an AoE marker
     const handleDeleteAoEMarker = (markerId: string) => {
         if (!scene.aoeMarkers) return;
@@ -1366,6 +1395,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             onUpdate={handleUpdateAoEMarker}
                             onDelete={handleDeleteAoEMarker}
                             onTrigger={handleTriggerAoEMarker}
+                            onReset={handleResetAoEMarker}
                             scale={displayScale}
                             gridSettings={scene.gridSettings}
                             isHighlighted={marker.id === highlightedMarkerId}

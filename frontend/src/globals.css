@@ -304,11 +304,11 @@ body {
 
 @keyframes aoe-reveal-cone {
   from {
-    transform: scale(0);
+    clip-path: polygon(50% 0%, 50% 0%, 50% 0%);
     opacity: 0;
   }
   to {
-    transform: scale(1);
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
     opacity: 1;
   }
 }
@@ -331,7 +331,6 @@ body {
 
 .aoe-reveal-cone {
   animation: aoe-reveal-cone 0.7s ease-out forwards;
-  transform-origin: top center;
 }
 
 .aoe-reveal-line {
