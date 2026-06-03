@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useToast } from './ui/use-toast';
-import { Plus, Trash2, ChevronDown, ChevronUp, Eye, EyeOff, Skull, X, ChevronRight, ScrollText, MapPin, MapPinOff } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, Eye, EyeOff, Skull, X, ChevronRight, ScrollText, MapPin, MapPinOff, Pencil } from 'lucide-react';
 import { EncounterHistoryEntry, InitiativeEntry } from '../types/map';
 import {
     DndContext,
@@ -121,9 +122,20 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
     const [bulkEnemyHP, setBulkEnemyHP] = useState('');
     const [bulkEnemyInitMod, setBulkEnemyInitMod] = useState('');
     const [playerNames, setPlayerNames] = useState<string[]>([]);
+    const [entryContextMenu, setEntryContextMenu] = useState<{
+        entryId: string;
+        x: number;
+        y: number;
+    } | null>(null);
+    const [editEntryId, setEditEntryId] = useState<string | null>(null);
+    const [editName, setEditName] = useState('');
+    const [editInitiative, setEditInitiative] = useState('');
+    const [editHP, setEditHP] = useState('');
+    const [editInitialHP, setEditInitialHP] = useState('');
     const playerNameRef = useRef<HTMLInputElement>(null);
     const enemyNameRef = useRef<HTMLInputElement>(null);
     const bulkEnemyNameRef = useRef<HTMLInputElement>(null);
+    const editNameRef = useRef<HTMLInputElement>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -131,6 +143,180 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
             coordinateGetter: sortableKeyboardCoordinates,
         })
     );
+
+    useEffect(() => {
+        if (!entryContextMenu) return;
+
+        const handlePointerDown = (e: PointerEvent) => {
+            if (e.button === 2) return;
+            const target = e.target as Node;
+            if (
+                target instanceof Element &&
+                target.closest('[data-initiative-context-menu]')
+            ) {
+                return;
+            }
+            setEntryContextMenu(null);
+        };
+
+        const handleScroll = () => setEntryContextMenu(null);
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setEntryContextMenu(null);
+        };
+
+        const timerId = window.setTimeout(() => {
+            document.addEventListener('pointerdown', handlePointerDown, true);
+            document.addEventListener('scroll', handleScroll, true);
+            document.addEventListener('keydown', handleKeyDown);
+        }, 0);
+
+        return () => {
+            window.clearTimeout(timerId);
+            document.removeEventListener('pointerdown', handlePointerDown, true);
+            document.removeEventListener('scroll', handleScroll, true);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [entryContextMenu]);
+
+    useEffect(() => {
+        if (editEntryId && editNameRef.current) {
+            editNameRef.current.focus();
+            editNameRef.current.select();
+        }
+    }, [editEntryId]);
+
+    const openEntryContextMenu = useCallback(
+        (entryId: string, clientX: number, clientY: number) => {
+            if (!isAdmin) return;
+            setEntryContextMenu({ entryId, x: clientX, y: clientY });
+        },
+        [isAdmin]
+    );
+
+    const openEditDialog = useCallback(
+        (entryId: string) => {
+            const entry = entries.find((e) => e.id === entryId);
+            if (!entry) return;
+
+            setEditEntryId(entryId);
+            setEditName(entry.name);
+            setEditInitiative(String(entry.initiative));
+            setEditHP(entry.hp !== undefined ? String(entry.hp) : '');
+            setEditInitialHP(
+                entry.initialHP !== undefined
+                    ? String(entry.initialHP)
+                    : entry.hp !== undefined
+                      ? String(entry.hp)
+                      : ''
+            );
+            setEntryContextMenu(null);
+        },
+        [entries]
+    );
+
+    const closeEditDialog = () => {
+        setEditEntryId(null);
+        setEditName('');
+        setEditInitiative('');
+        setEditHP('');
+        setEditInitialHP('');
+    };
+
+    const saveEditedEntry = () => {
+        const entry = entries.find((e) => e.id === editEntryId);
+        if (!entry) return;
+
+        const name = editName.trim();
+        if (!name) {
+            toast({
+                title: 'Error',
+                description: 'Name is required',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        const initiative = parseInt(editInitiative, 10);
+        if (Number.isNaN(initiative)) {
+            toast({
+                title: 'Error',
+                description: 'Initiative must be a number',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        let hp = entry.hp;
+        let initialHP = entry.initialHP;
+
+        if (!entry.isPlayer) {
+            const hpTrimmed = editHP.trim();
+            const maxTrimmed = editInitialHP.trim();
+
+            if (hpTrimmed || maxTrimmed) {
+                if (hpTrimmed) {
+                    const parsedHP = parseInt(hpTrimmed, 10);
+                    if (Number.isNaN(parsedHP)) {
+                        toast({
+                            title: 'Error',
+                            description: 'Current HP must be a number',
+                            variant: 'destructive',
+                        });
+                        return;
+                    }
+                    hp = parsedHP;
+                }
+
+                if (maxTrimmed) {
+                    const parsedMax = parseInt(maxTrimmed, 10);
+                    if (Number.isNaN(parsedMax)) {
+                        toast({
+                            title: 'Error',
+                            description: 'Max HP must be a number',
+                            variant: 'destructive',
+                        });
+                        return;
+                    }
+                    initialHP = parsedMax;
+                } else if (hpTrimmed) {
+                    initialHP = hp;
+                }
+            } else {
+                hp = undefined;
+                initialHP = undefined;
+            }
+        }
+
+        const updatedEntry: InitiativeEntry = {
+            ...entry,
+            name,
+            initiative,
+            ...(entry.isPlayer ? {} : { hp, initialHP }),
+        };
+
+        const newEntries = entries
+            .map((e) => (e.id === entry.id ? updatedEntry : e))
+            .sort((a, b) => b.initiative - a.initiative);
+
+        const changes: string[] = [];
+        if (entry.name !== name) changes.push(`name → ${name}`);
+        if (entry.initiative !== initiative) changes.push(`init → ${initiative}`);
+        if (!entry.isPlayer && entry.hp !== hp) {
+            changes.push(`HP → ${hp ?? '—'}`);
+        }
+        if (!entry.isPlayer && entry.initialHP !== initialHP) {
+            changes.push(`max HP → ${initialHP ?? '—'}`);
+        }
+
+        const logSuffix = changes.length > 0 ? ` (${changes.join(', ')})` : '';
+        updateWithLog(newEntries, `Edited ${entry.name}${logSuffix}`);
+
+        if (entry.isPlayer && !playerNames.includes(name)) {
+            setPlayerNames((prev) => [...prev, name]);
+        }
+
+        closeEditDialog();
+    };
 
     const pushEncounterUpdate = (update: EncounterUpdate) => {
         onEncounterUpdate(update);
@@ -616,8 +802,14 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                                 : 'border-transparent hover:bg-accent/10',
                                             entry.isPlayer ? 'text-foreground' : 'text-foreground',
                                             entry.isKilled && 'opacity-50',
-                                            placingEntryId === entry.id && 'ring-1 ring-primary'
+                                            placingEntryId === entry.id && 'ring-1 ring-primary',
+                                            isAdmin && 'cursor-context-menu'
                                         )}
+                                        onContextMenu={(e) => {
+                                            if (!isAdmin) return;
+                                            e.preventDefault();
+                                            openEntryContextMenu(entry.id, e.clientX, e.clientY);
+                                        }}
                                     >
                                         <div className="flex min-w-0 flex-1 items-center gap-2">
                                             {entry.isCurrentTurn && (
@@ -857,6 +1049,118 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                 </div>
                             </div>
                         </div>
+                    </DialogContent>
+                </Dialog>
+            )}
+
+            {isAdmin &&
+                entryContextMenu &&
+                createPortal(
+                    <div
+                        data-initiative-context-menu
+                        role="menu"
+                        className="fixed z-[10002] min-w-[10rem] overflow-hidden rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-lg"
+                        style={{
+                            left: entryContextMenu.x,
+                            top: entryContextMenu.y,
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onContextMenu={(e) => e.preventDefault()}
+                    >
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-accent"
+                            onClick={() => openEditDialog(entryContextMenu.entryId)}
+                        >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Edit
+                        </button>
+                    </div>,
+                    document.body
+                )}
+
+            {isAdmin && (
+                <Dialog
+                    open={editEntryId !== null}
+                    onOpenChange={(open) => {
+                        if (!open) closeEditDialog();
+                    }}
+                >
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Edit entry</DialogTitle>
+                            <DialogDescription>
+                                Update name, initiative, and HP for this combatant.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-name">Name</Label>
+                                <Input
+                                    ref={editNameRef}
+                                    id="edit-name"
+                                    type="text"
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') saveEditedEntry();
+                                    }}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-initiative">Initiative</Label>
+                                <Input
+                                    id="edit-initiative"
+                                    type="number"
+                                    value={editInitiative}
+                                    onChange={(e) => setEditInitiative(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') saveEditedEntry();
+                                    }}
+                                />
+                            </div>
+
+                            {editEntryId &&
+                                !entries.find((e) => e.id === editEntryId)?.isPlayer && (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit-hp">Current HP</Label>
+                                            <Input
+                                                id="edit-hp"
+                                                type="number"
+                                                placeholder="Optional"
+                                                value={editHP}
+                                                onChange={(e) => setEditHP(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') saveEditedEntry();
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="edit-max-hp">Max HP</Label>
+                                            <Input
+                                                id="edit-max-hp"
+                                                type="number"
+                                                placeholder="Optional"
+                                                value={editInitialHP}
+                                                onChange={(e) => setEditInitialHP(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') saveEditedEntry();
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                        </div>
+
+                        <DialogFooter className="gap-2 sm:gap-0">
+                            <Button variant="outline" onClick={closeEditDialog}>
+                                Cancel
+                            </Button>
+                            <Button onClick={saveEditedEntry}>Save</Button>
+                        </DialogFooter>
                     </DialogContent>
                 </Dialog>
             )}
