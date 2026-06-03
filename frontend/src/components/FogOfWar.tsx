@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { FogOfWar as FogOfWarType } from '../types/map';
+import { createThrottledLiveSync, type LiveSyncOptions } from '@/utils/liveSync';
 
 interface FogOfWarProps {
     fogOfWar: FogOfWarType;
@@ -7,7 +8,7 @@ interface FogOfWarProps {
     isActive: boolean;
     isAdmin: boolean;
     isViewerMode: boolean;
-    onUpdate: (updatedFogOfWar: FogOfWarType) => void;
+    onUpdate: (updatedFogOfWar: FogOfWarType, options?: LiveSyncOptions) => void;
     onDelete: (fogOfWarId: string) => void;
     scale?: number;
     gridSettings?: {
@@ -26,7 +27,7 @@ interface DragOffset {
     startPositions: Array<{ x: number; y: number }>;
 }
 
-export const FogOfWar: React.FC<FogOfWarProps> = ({
+export const FogOfWar = memo(function FogOfWar({
     fogOfWar,
     gridSize,
     isActive,
@@ -37,13 +38,13 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
     scale = 1,
     gridSettings,
     highlighted = false,
-}) => {
+}: FogOfWarProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
     const [editingPointIndex, setEditingPointIndex] = useState<number | null>(null);
     const [highlightAnimation, setHighlightAnimation] = useState(false);
     const [highlightRippleKey, setHighlightRippleKey] = useState(0);
-    const lastUpdateRef = useRef<number>(0);
+    const [dragPreviewPoints, setDragPreviewPoints] = useState<Array<{ x: number; y: number }> | null>(null);
     const pendingUpdateRef = useRef<FogOfWarType | null>(null);
     const dragOffsetRef = useRef<DragOffset>({ startX: 0, startY: 0, startPositions: [] });
     const mouseDragOffsetRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
@@ -60,6 +61,8 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
     // Calculate cell size based on viewport and grid dimensions
     const cellWidth = window.innerWidth / gridCellsX;
     const cellHeight = window.innerHeight / gridCellsY;
+
+    const liveSync = useMemo(() => createThrottledLiveSync(onUpdate), [onUpdate]);
 
     // Watch for highlight prop changes
     useEffect(() => {
@@ -124,18 +127,26 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
         });
     }, [fogOfWar.useGridCoordinates, useFixedGrid, pixelToGridCoords, gridCoordsToPixel]);
 
-    // Calculate pixel positions for rendering
-    const pixelPoints = convertPointsToPixels(fogOfWar.points);
+    const activePoints = dragPreviewPoints ?? fogOfWar.points;
 
-    // Calculate bounding box for positioning
-    const boundingBox = pixelPoints.reduce((acc, point) => {
-        return {
-            minX: Math.min(acc.minX, point.x),
-            minY: Math.min(acc.minY, point.y),
-            maxX: Math.max(acc.maxX, point.x),
-            maxY: Math.max(acc.maxY, point.y)
-        };
-    }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+    const pixelPoints = useMemo(
+        () => convertPointsToPixels(activePoints),
+        [activePoints, convertPointsToPixels],
+    );
+
+    const boundingBox = useMemo(
+        () =>
+            pixelPoints.reduce(
+                (acc, point) => ({
+                    minX: Math.min(acc.minX, point.x),
+                    minY: Math.min(acc.minY, point.y),
+                    maxX: Math.max(acc.maxX, point.x),
+                    maxY: Math.max(acc.maxY, point.y),
+                }),
+                { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity },
+            ),
+        [pixelPoints],
+    );
 
     const centerX = (boundingBox.minX + boundingBox.maxX) / 2;
     const centerY = (boundingBox.minY + boundingBox.maxY) / 2;
@@ -178,33 +189,20 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
         return cleanedPoints.length >= 3 ? cleanedPoints : points;
     }, []);
 
-    // Throttle updates with automatic point cleanup
-    const throttledUpdate = useCallback((newFogOfWar: FogOfWarType) => {
-        // Clean up duplicate points before updating
-        const cleanedFogOfWar = {
-            ...newFogOfWar,
-            points: cleanupDuplicatePoints(newFogOfWar.points)
-        };
-
-        const now = performance.now();
-        if (now - lastUpdateRef.current >= 32) { // ~30fps
-            onUpdate(cleanedFogOfWar);
-            lastUpdateRef.current = now;
-            pendingUpdateRef.current = null;
-        } else {
+    const commitPendingFog = useCallback(
+        (newFogOfWar: FogOfWarType, syncLive = false) => {
+            const cleanedFogOfWar = {
+                ...newFogOfWar,
+                points: cleanupDuplicatePoints(newFogOfWar.points),
+            };
             pendingUpdateRef.current = cleanedFogOfWar;
-            if (!lastUpdateRef.current) {
-                requestAnimationFrame(() => {
-                    const pendingFogOfWar = pendingUpdateRef.current;
-                    if (pendingFogOfWar) {
-                        onUpdate(pendingFogOfWar);
-                        pendingUpdateRef.current = null;
-                    }
-                    lastUpdateRef.current = performance.now();
-                });
+            setDragPreviewPoints(cleanedFogOfWar.points);
+            if (syncLive) {
+                liveSync.throttledLive(cleanedFogOfWar);
             }
-        }
-    }, [onUpdate, cleanupDuplicatePoints]);
+        },
+        [cleanupDuplicatePoints, liveSync],
+    );
 
     // Handle mouse movement for dragging entire polygon
     const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -243,11 +241,14 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
                     index === editingPointIndex ? newPosition : point
                 );
 
-                throttledUpdate({
-                    ...fogOfWar,
-                    points: updatedPoints,
-                    useGridCoordinates: true
-                });
+                commitPendingFog(
+                    {
+                        ...fogOfWar,
+                        points: updatedPoints,
+                        useGridCoordinates: true,
+                    },
+                    true,
+                );
             }
         } else if (isDraggingRef.current) {
             // Drag entire polygon
@@ -274,32 +275,48 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
                 }
             });
 
-            throttledUpdate({
-                ...fogOfWar,
-                points: updatedPoints,
-                useGridCoordinates: true
-            });
+            commitPendingFog(
+                {
+                    ...fogOfWar,
+                    points: updatedPoints,
+                    useGridCoordinates: true,
+                },
+                true,
+            );
         }
-    }, [fogOfWar, cellWidth, cellHeight, throttledUpdate, editingPointIndex]);
+    }, [fogOfWar, cellWidth, cellHeight, commitPendingFog, editingPointIndex]);
 
     // Handle mouse up - end dragging
     const handleMouseUp = useCallback((e: MouseEvent) => {
         if (isDraggingRef.current || isEditingPointRef.current) {
             e.preventDefault();
+            if (pendingUpdateRef.current) {
+                liveSync.commit(pendingUpdateRef.current);
+            }
+            pendingUpdateRef.current = null;
+            setDragPreviewPoints(null);
             setIsDragging(false);
             setEditingPointIndex(null);
             isDraggingRef.current = false;
             isEditingPointRef.current = false;
             document.body.classList.remove('dragging-fog');
         }
-    }, []);
+    }, [liveSync]);
 
-    // Set up global drag event handling
+    const isInteracting = isDragging || editingPointIndex !== null;
+
+    // Set up global drag event handling while interacting
     useEffect(() => {
+        if (!isInteracting) {
+            return;
+        }
+
         const handleGlobalMouseMove = (e: MouseEvent) => handleMouseMove(e);
         const handleGlobalMouseUp = (e: MouseEvent) => handleMouseUp(e);
         const handleGlobalKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && (isDraggingRef.current || isEditingPointRef.current)) {
+                pendingUpdateRef.current = null;
+                setDragPreviewPoints(null);
                 setIsDragging(false);
                 setEditingPointIndex(null);
                 isDraggingRef.current = false;
@@ -318,7 +335,7 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
             window.removeEventListener('keydown', handleGlobalKeyDown);
             document.body.classList.remove('dragging-fog');
         };
-    }, [handleMouseMove, handleMouseUp]);
+    }, [isInteracting, handleMouseMove, handleMouseUp]);
 
     // Update isDraggingRef when isDragging changes
     useEffect(() => {
@@ -619,4 +636,4 @@ export const FogOfWar: React.FC<FogOfWarProps> = ({
             `}</style>
         </div>
     );
-}; 
+});

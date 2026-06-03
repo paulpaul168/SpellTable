@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { MapData } from '../types/map';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
-import { Eye, EyeOff, Trash2, GripVertical, FolderPlus } from 'lucide-react';
+import { Eye, EyeOff, Trash2, GripVertical, FolderPlus, Lock, LockOpen } from 'lucide-react';
 import {
     DndContext,
     closestCenter,
@@ -29,6 +29,7 @@ interface MapListItemProps {
     onSelect: () => void;
     onVisibilityToggle: () => void;
     onDelete: () => void;
+    mapsLocked?: boolean;
 }
 
 const MapListItem: React.FC<MapListItemProps> = ({
@@ -37,6 +38,7 @@ const MapListItem: React.FC<MapListItemProps> = ({
     onSelect,
     onVisibilityToggle,
     onDelete,
+    mapsLocked = false,
 }) => {
     const {
         attributes,
@@ -44,7 +46,7 @@ const MapListItem: React.FC<MapListItemProps> = ({
         setNodeRef,
         transform,
         transition,
-    } = useSortable({ id: map.name });
+    } = useSortable({ id: map.name, disabled: mapsLocked });
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -64,9 +66,13 @@ const MapListItem: React.FC<MapListItemProps> = ({
             )}
         >
             <div
-                className="cursor-grab rounded p-1 hover:bg-accent/20"
-                {...attributes}
-                {...listeners}
+                className={cn(
+                    'rounded p-1',
+                    mapsLocked
+                        ? 'cursor-not-allowed opacity-40'
+                        : 'cursor-grab hover:bg-accent/20',
+                )}
+                {...(mapsLocked ? {} : { ...attributes, ...listeners })}
             >
                 <GripVertical className="h-3 w-3 text-muted-foreground" />
             </div>
@@ -122,6 +128,8 @@ interface MapListSidebarProps {
     onMapRename?: (oldName: string, newName: string) => void;
     hideInvisibleMaps: boolean;
     onToggleHideInvisibleMaps: () => void;
+    mapsLocked?: boolean;
+    onToggleMapsLocked?: () => void;
 }
 
 export const MapListSidebar: React.FC<MapListSidebarProps> = ({
@@ -136,6 +144,8 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
     hideInvisibleMaps,
     onToggleHideInvisibleMaps,
     onMapsReorder,
+    mapsLocked = false,
+    onToggleMapsLocked,
 }) => {
     const [isMapManagementOpen, setIsMapManagementOpen] = useState(false);
 
@@ -158,6 +168,7 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
     );
 
     const handleDragEnd = (event: DragEndEvent) => {
+        if (mapsLocked) return;
         const { active, over } = event;
         if (over && active.id !== over.id) {
             const oldIndex = scene.maps.findIndex((map: MapData) => map.name === active.id);
@@ -174,19 +185,36 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
                 edge="right"
                 onClose={onClose}
                 headerActions={
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={onToggleHideInvisibleMaps}
-                        title={hideInvisibleMaps ? 'Show hidden maps' : 'Hide hidden maps'}
-                    >
-                        {hideInvisibleMaps ? (
-                            <Eye className="h-4 w-4" />
-                        ) : (
-                            <EyeOff className="h-4 w-4" />
+                    <>
+                        {onToggleMapsLocked && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className={cn('h-7 w-7', mapsLocked && 'text-amber-400')}
+                                onClick={onToggleMapsLocked}
+                                title={mapsLocked ? 'Unlock maps (allow move/scale/rotate)' : 'Lock maps in place'}
+                            >
+                                {mapsLocked ? (
+                                    <Lock className="h-4 w-4" />
+                                ) : (
+                                    <LockOpen className="h-4 w-4" />
+                                )}
+                            </Button>
                         )}
-                    </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={onToggleHideInvisibleMaps}
+                            title={hideInvisibleMaps ? 'Show hidden maps' : 'Hide hidden maps'}
+                        >
+                            {hideInvisibleMaps ? (
+                                <Eye className="h-4 w-4" />
+                            ) : (
+                                <EyeOff className="h-4 w-4" />
+                            )}
+                        </Button>
+                    </>
                 }
                 footer={
                     <Button
@@ -220,6 +248,7 @@ export const MapListSidebar: React.FC<MapListSidebarProps> = ({
                                         onMapVisibilityToggle(map.name)
                                     }
                                     onDelete={() => onMapDelete(map.name)}
+                                    mapsLocked={mapsLocked}
                                 />
                             ))}
                         </div>

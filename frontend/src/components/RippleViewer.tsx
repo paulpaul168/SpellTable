@@ -1,5 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { websocketService } from '../services/websocket';
+import type { Scene } from '@/types/map';
+import { MeasureOverlay } from './MeasureOverlay';
+import {
+    getGridCellDimensions,
+    pathLengthFeet,
+    type MeasurePoint,
+} from '@/utils/measureDistance';
 
 // Add keyframe animations to the global stylesheet
 if (typeof document !== 'undefined') {
@@ -42,15 +49,29 @@ if (typeof document !== 'undefined') {
 
 interface RippleViewerProps {
     hidden?: boolean;
+    gridSettings: Scene['gridSettings'];
 }
 
-export const RippleViewer: React.FC<RippleViewerProps> = ({ hidden = false }) => {
+export const RippleViewer: React.FC<RippleViewerProps> = ({
+    hidden = false,
+    gridSettings,
+}) => {
     const [showRipple, setShowRipple] = useState(false);
     const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
     const [isShaking, setIsShaking] = useState(false);
-    const [showMeasuringGrid, setShowMeasuringGrid] = useState(false);
+    const [measurePoints, setMeasurePoints] = useState<MeasurePoint[]>([]);
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [brightness, setBrightness] = useState(100);
+
+    const cellDims = useMemo(
+        () => getGridCellDimensions(gridSettings),
+        [gridSettings]
+    );
+
+    const totalMeasureFeet = useMemo(
+        () => pathLengthFeet(measurePoints, cellDims),
+        [measurePoints, cellDims]
+    );
 
     const createRippleEffect = useCallback((x: number, y: number) => {
         setRipplePosition({ x, y });
@@ -86,16 +107,11 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({ hidden = false }) =>
         setIsShaking(true);
     }, []);
 
-    const applyMeasuringGrid = useCallback((enabled: boolean) => {
-        setShowMeasuringGrid(enabled);
-    }, []);
-
     const applyNightMode = useCallback((enabled: boolean, nextBrightness: number) => {
         setIsDarkMode(enabled);
         setBrightness(nextBrightness);
     }, []);
 
-    // Listen for gameboard effects from admin
     useEffect(() => {
         const handleRemoteEvents = (data: {
             type?: string;
@@ -104,6 +120,7 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({ hidden = false }) =>
             y?: number;
             enabled?: boolean;
             brightness?: number;
+            points?: MeasurePoint[];
             event?: { type?: string; x?: number; y?: number };
         }) => {
             if (data.type === 'scene_update' && data.event) {
@@ -121,8 +138,12 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({ hidden = false }) =>
                     createLightningEffect();
                 } else if (data.eventType === 'shake_effect') {
                     createShakeEffect();
-                } else if (data.eventType === 'measuring_grid') {
-                    applyMeasuringGrid(Boolean(data.enabled));
+                } else if (data.eventType === 'measure_update') {
+                    if (Array.isArray(data.points)) {
+                        setMeasurePoints(data.points);
+                    }
+                } else if (data.eventType === 'measure_clear') {
+                    setMeasurePoints([]);
                 } else if (data.eventType === 'night_mode') {
                     const enabled = Boolean(data.enabled);
                     const nextBrightness =
@@ -141,11 +162,9 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({ hidden = false }) =>
         createRippleEffect,
         createLightningEffect,
         createShakeEffect,
-        applyMeasuringGrid,
         applyNightMode,
     ]);
 
-    // Apply shake effect to body
     useEffect(() => {
         if (isShaking && typeof document !== 'undefined') {
             document.body.classList.add('shake-effect');
@@ -168,21 +187,11 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({ hidden = false }) =>
 
     return (
         <>
-            {showMeasuringGrid && (
-                <div
-                    className="fixed inset-0 pointer-events-none z-[900]"
-                    style={{
-                        backgroundImage: `
-                            linear-gradient(to right, rgba(255, 255, 255, 0.15) 1px, transparent 1px),
-                            linear-gradient(to bottom, rgba(255, 255, 255, 0.15) 1px, transparent 1px)
-                        `,
-                        backgroundSize: '50px 50px',
-                    }}
-                >
-                    <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
-                        5ft per square
-                    </div>
-                </div>
+            {measurePoints.length > 0 && (
+                <MeasureOverlay
+                    points={measurePoints}
+                    totalFeet={totalMeasureFeet}
+                />
             )}
 
             {isDarkMode && (

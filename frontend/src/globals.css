@@ -276,6 +276,197 @@ body {
   animation: ripple 3s ease-out 1s infinite;
 }
 
+@keyframes aoe-highlight-ripple-1 {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes aoe-highlight-ripple-2 {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes aoe-highlight-ripple-3 {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes aoe-highlight-ripple-cone-1 {
+  0% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateX(-50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes aoe-highlight-ripple-cone-2 {
+  0% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateX(-50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes aoe-highlight-ripple-cone-3 {
+  0% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateX(-50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+.animate-aoe-highlight-ripple-1 {
+  animation: aoe-highlight-ripple-1 1.5s ease-out 2 forwards;
+}
+
+.animate-aoe-highlight-ripple-2 {
+  animation: aoe-highlight-ripple-2 1.5s ease-out 0.2s 2 forwards;
+}
+
+.animate-aoe-highlight-ripple-3 {
+  animation: aoe-highlight-ripple-3 1.5s ease-out 0.4s 2 forwards;
+}
+
+.animate-aoe-highlight-ripple-cone-1 {
+  animation: aoe-highlight-ripple-cone-1 1.5s ease-out 2 forwards;
+}
+
+.animate-aoe-highlight-ripple-cone-2 {
+  animation: aoe-highlight-ripple-cone-2 1.5s ease-out 0.2s 2 forwards;
+}
+
+.animate-aoe-highlight-ripple-cone-3 {
+  animation: aoe-highlight-ripple-cone-3 1.5s ease-out 0.4s 2 forwards;
+}
+
+.highlighted-marker {
+  z-index: 800;
+}
+
+/* Combatant token turn indicator — scale from center (no translate offset) */
+@keyframes combatant-token-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1.85);
+    opacity: 0;
+  }
+}
+
+@keyframes aoe-reveal-center {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes aoe-reveal-cone {
+  from {
+    clip-path: polygon(50% 0%, 50% 0%, 50% 0%);
+    opacity: 0;
+  }
+  to {
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+    opacity: 1;
+  }
+}
+
+@keyframes aoe-reveal-line {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+.aoe-reveal-center {
+  transform: scale(0);
+  opacity: 0;
+  animation: aoe-reveal-center 0.7s ease-out forwards;
+  transform-origin: center center;
+}
+
+.aoe-reveal-cone {
+  clip-path: polygon(50% 0%, 50% 0%, 50% 0%);
+  opacity: 0;
+  animation: aoe-reveal-cone 0.7s ease-out forwards;
+}
+
+.aoe-reveal-line {
+  transform: scaleX(0);
+  opacity: 0;
+  animation: aoe-reveal-line 0.7s ease-out forwards;
+  transform-origin: left center;
+}
+
+.aoe-reveal-label {
+  opacity: 0;
+  animation: aoe-reveal-label-fade 0.4s ease-out 0.45s forwards;
+}
+
+@keyframes aoe-reveal-label-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-combatant-ripple-1 {
+  animation: combatant-token-ripple 3s ease-out infinite;
+  transform-origin: center center;
+}
+
+.animate-combatant-ripple-2 {
+  animation: combatant-token-ripple 3s ease-out 0.5s infinite;
+  transform-origin: center center;
+}
+
+.animate-combatant-ripple-3 {
+  animation: combatant-token-ripple 3s ease-out 1s infinite;
+  transform-origin: center center;
+}
+
 .shake-effect {
   animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }

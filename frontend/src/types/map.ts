@@ -14,6 +14,12 @@ export interface MapData {
     };
 }
 
+export interface MapPosition {
+    x: number;
+    y: number;
+    useGridCoordinates?: boolean;
+}
+
 export interface InitiativeEntry {
     id: string;
     name: string;
@@ -23,6 +29,17 @@ export interface InitiativeEntry {
     hp?: number;
     initialHP?: number;
     isKilled: boolean;
+    mapPosition?: MapPosition;
+    /** Grid footprint (cells per side): 1 = Medium 5ft, 2 = Large 10ft, 3 = Huge 15ft. */
+    tokenFootprint?: 1 | 2 | 3;
+    /** @deprecated Legacy pixel diameter — use tokenFootprint; values 1–3 treated as footprint. */
+    tokenSize?: number;
+}
+
+export interface EncounterHistoryEntry {
+    id: string;
+    timestamp: number;
+    text: string;
 }
 
 export interface SceneImage {
@@ -50,6 +67,8 @@ export interface AoEMarker {
     label?: string;
     /** Key under /aoe-effects/{id}/ for animated sprite sheet */
     effectId?: string;
+    /** When aoeStagedReveal is on: false hides from viewers until triggered. Undefined = already revealed. */
+    revealed?: boolean;
 }
 
 export interface FogOfWar {
@@ -79,10 +98,21 @@ export interface Scene {
         gridCellsY?: number;
         /** When false, AoE markers use pixel coordinates and move freely (no cell snapping). Default true. */
         aoeSnapToGrid?: boolean;
+        /** When false, combatant tokens use free placement (no cell snapping). Default true. */
+        tokenSnapToGrid?: boolean;
         /** Visual style for spell AoE animations (synced to viewers). Default pixel. */
         aoeEffectTheme?: AoEEffectTheme;
+        /** When true, new AoE markers stay hidden from viewers until admin triggers them. Default false. */
+        aoeStagedReveal?: boolean;
+        /** When true, maps cannot be moved, scaled, or rotated on the play area. Default false. */
+        mapsLocked?: boolean;
+        /** Default token grid footprint when entry.tokenFootprint is unset. */
+        defaultTokenFootprint?: 1 | 2 | 3;
+        /** @deprecated Use defaultTokenFootprint */
+        defaultTokenSize?: number;
     };
     initiativeOrder: InitiativeEntry[];
+    encounterHistory?: EncounterHistoryEntry[];
     showCurrentPlayer: boolean;
     aoeMarkers?: AoEMarker[];
     fogOfWar?: FogOfWar[];

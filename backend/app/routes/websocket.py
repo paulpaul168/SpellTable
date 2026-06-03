@@ -19,6 +19,10 @@ router = APIRouter()
 clients: set[WebSocket] = set()
 # Lock for thread-safe operations
 clients_lock = asyncio.Lock()
+# Debounced scene persistence
+_pending_scene_save: dict[str, Any] | None = None
+_scene_save_task: asyncio.Task[None] | None = None
+SCENE_SAVE_DEBOUNCE_SEC = 1.0
 
 
 async def broadcast_scene_update(scene_data: dict[str, Any]) -> None:
@@ -81,11 +85,30 @@ async def _save_scene_data(scene_data: dict[str, Any]) -> None:
         logger.exception(f"Error saving scene: {e}")
 
 
-async def _handle_scene_update(message: dict[str, Any]) -> None:
+async def _schedule_scene_save(scene_data: dict[str, Any]) -> None:
+    """Persist scene to disk after a quiet period to avoid write storms during drag."""
+    global _pending_scene_save, _scene_save_task
+    _pending_scene_save = scene_data
+    if _scene_save_task and not _scene_save_task.done():
+        _scene_save_task.cancel()
+        try:
+            await _scene_save_task
+        except asyncio.CancelledError:
+            pass
+
+    async def _debounced_save() -> None:
+        await asyncio.sleep(SCENE_SAVE_DEBOUNCE_SEC)
+        if _pending_scene_save is not None:
+            await _save_scene_data(_pending_scene_save)
+
+    _scene_save_task = asyncio.create_task(_debounced_save())
+
+
+async def _handle_scene_update(websocket: WebSocket, message: dict[str, Any]) -> None:
     """Handle scene update messages."""
     scene_data = message.get("scene", {})
-    await _save_scene_data(scene_data)
-    await broadcast_scene_update(scene_data)
+    await _schedule_scene_save(scene_data)
+    await _broadcast_to_others(websocket, {"type": "scene_update", "scene": scene_data})
 
 
 async def _handle_highlight_marker(
@@ -132,7 +155,7 @@ async def _handle_scene_event(websocket: WebSocket, message: dict[str, Any]) -> 
     if not event_type:
         return
     payload: dict[str, Any] = {"type": "scene_event", "eventType": event_type}
-    for key in ("x", "y", "enabled", "brightness"):
+    for key in ("x", "y", "enabled", "brightness", "points"):
         if key in message:
             payload[key] = message[key]
     await _broadcast_to_others(websocket, payload)
@@ -151,7 +174,7 @@ async def _handle_websocket_message(websocket: WebSocket, data: str) -> bool:
 
         message_type = message.get("type")
         if message_type == "scene_update":
-            await _handle_scene_update(message)
+            await _handle_scene_update(websocket, message)
         elif message_type == "highlight_marker":
             await _handle_highlight_marker(websocket, message)
         elif message_type == "blank_viewer":

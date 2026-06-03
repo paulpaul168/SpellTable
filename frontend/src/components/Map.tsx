@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { MapData } from '@/types/map';
 import { EyeOff } from 'lucide-react';
 import {getApiUrl} from "@/utils/api";
+import { createThrottledLiveSync, type LiveSyncOptions } from '@/utils/liveSync';
 
 interface MapProps {
     map: MapData;
     isActive: boolean;
-    onUpdate: (updatedMap: MapData) => void;
+    onUpdate: (updatedMap: MapData, options?: LiveSyncOptions) => void;
     isViewerMode: boolean;
     zIndex: number;
     scale?: number;
@@ -16,6 +17,7 @@ interface MapProps {
         useFixedGrid?: boolean;
         gridCellsX?: number;
         gridCellsY?: number;
+        mapsLocked?: boolean;
     };
     onOpenAoEPalette?: () => void;
 }
@@ -46,7 +48,7 @@ const getMapImageUrl = (map: MapData) => {
     return url;
 };
 
-export const Map: React.FC<MapProps> = ({
+export const Map = memo(function Map({
     map,
     isActive,
     onUpdate,
@@ -55,7 +57,7 @@ export const Map: React.FC<MapProps> = ({
     scale = 1,
     gridSettings,
     onOpenAoEPalette
-}) => {
+}: MapProps) {
     const [position, setPosition] = useState(map.data.position);
     const [rotation, setRotation] = useState(map.data.rotation || 0);
     const [mapScale, setMapScale] = useState(map.data.scale);
@@ -91,8 +93,18 @@ export const Map: React.FC<MapProps> = ({
     // Calculate the grid scaling factor (how much the current grid differs from base)
     const gridScaleFactor = cellWidth / baseGridSize;
 
+    const mapsLocked = gridSettings?.mapsLocked === true;
+
+    const liveSync = useMemo(
+        () => createThrottledLiveSync(onUpdate),
+        [onUpdate],
+    );
+
     // Update local state when props change (including external updates in viewer mode)
     useEffect(() => {
+        if (isDraggingRef.current) {
+            return;
+        }
         // Check if this is a real map change using name and folder
         const isNewMap = map.name !== mapNameRef.current ||
             JSON.stringify(map.folder) !== JSON.stringify(mapFolderRef.current);
@@ -260,31 +272,33 @@ export const Map: React.FC<MapProps> = ({
         const pixelPos = gridCoordsToPixel(gridPos);
         setCurrentDisplayPos(pixelPos);
 
-        // Send grid position updates while dragging
-        onUpdate({
+        liveSync.throttledLive({
             ...map,
             data: {
                 ...map.data,
                 position: gridPos,
-                useGridCoordinates: true
-            }
+                useGridCoordinates: true,
+            },
         });
-    }, [map, pixelToGridCoords, gridCoordsToPixel, onUpdate]);
+    }, [map, pixelToGridCoords, gridCoordsToPixel, liveSync]);
 
     // When mouse is released
     const handleMouseUp = useCallback(() => {
         if (isDraggingRef.current) {
-            // Keep exact non-snapped position but ensure it's stored as grid coordinates
-            throttledUpdate({
-                position: positionRef.current,
-                useGridCoordinates: true
+            liveSync.commit({
+                ...map,
+                data: {
+                    ...map.data,
+                    position: positionRef.current,
+                    useGridCoordinates: true,
+                },
             });
 
             isDraggingRef.current = false;
             setIsMapDragging(false);
             document.body.style.cursor = 'default';
         }
-    }, [throttledUpdate]);
+    }, [map, liveSync]);
 
     // Handle escape key to cancel dragging
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -313,7 +327,7 @@ export const Map: React.FC<MapProps> = ({
 
     // Start dragging on mouse down
     const handleMouseDown = (e: React.MouseEvent) => {
-        if (!isActive || isViewerMode) return;
+        if (!isActive || isViewerMode || mapsLocked) return;
 
         e.preventDefault();
         e.stopPropagation();
@@ -336,7 +350,7 @@ export const Map: React.FC<MapProps> = ({
 
     // Handle wheel events for scaling and rotation
     const handleWheel = (e: React.WheelEvent) => {
-        if (!isActive || isViewerMode) return;
+        if (!isActive || isViewerMode || mapsLocked) return;
 
         e.preventDefault();
 
@@ -363,10 +377,11 @@ export const Map: React.FC<MapProps> = ({
 
     // Get the map's URL
     const getMapUrl = () => {
-        // Handle folder structure if present
-        const folderPrefix = map.folder ? `/${map.folder.replace(/^\//, '')}` : '';
-        const API_BASE_URL = getApiUrl();
-        return `${API_BASE_URL}/maps/file/${folderPrefix}/${encodeURIComponent(map.name)}`;
+        const folder = map.folder?.replace(/^\/+/, '') ?? '';
+        const filePath = folder
+            ? `${folder}/${encodeURIComponent(map.name)}`
+            : encodeURIComponent(map.name);
+        return `${getApiUrl()}/maps/file/${filePath}`;
     };
 
 
@@ -399,11 +414,12 @@ export const Map: React.FC<MapProps> = ({
         <>
             <div
                 ref={dragRef}
-                className={`absolute ${isActive ? 'cursor-grab' : ''} ${isMapDragging ? 'cursor-grabbing' : ''}`}
+                className={`absolute ${isActive && !mapsLocked ? 'cursor-grab' : ''} ${isMapDragging ? 'cursor-grabbing' : ''}`}
                 style={getImageStyle()}
                 onMouseDown={handleMouseDown}
                 onWheel={handleWheel}
                 onDoubleClick={handleDoubleClick}
+                title={mapsLocked && isActive ? 'Maps are locked' : undefined}
             >
                 <img
                     ref={imageRef}
@@ -425,4 +441,4 @@ export const Map: React.FC<MapProps> = ({
 
         </>
     );
-}; 
+});

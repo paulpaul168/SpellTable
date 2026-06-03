@@ -6,6 +6,11 @@ export type AoEGridSettings = {
     gridCellsY?: number;
 };
 
+export type PositionedOnMap = {
+    position: { x: number; y: number };
+    useGridCoordinates?: boolean;
+};
+
 export function getPlayAreaRect(container: HTMLElement | null): DOMRect {
     if (container) {
         return container.getBoundingClientRect();
@@ -13,14 +18,21 @@ export function getPlayAreaRect(container: HTMLElement | null): DOMRect {
     return new DOMRect(0, 0, window.innerWidth, window.innerHeight);
 }
 
-export function isGridAoE(
-    marker: AoEMarker,
+export function isGridPosition(
+    item: PositionedOnMap,
     gridSettings?: AoEGridSettings
 ): boolean {
     if (gridSettings?.aoeSnapToGrid === false) {
         return false;
     }
-    return marker.useGridCoordinates === true;
+    return item.useGridCoordinates === true;
+}
+
+export function isGridAoE(
+    marker: AoEMarker,
+    gridSettings?: AoEGridSettings
+): boolean {
+    return isGridPosition(marker, gridSettings);
 }
 
 export function gridCoordsToPixel(
@@ -37,20 +49,20 @@ export function gridCoordsToPixel(
     };
 }
 
-/** Container-relative pixel position for rendering (marker parent is the play area). */
+/** Container-relative pixel position for rendering (parent is the play area). */
 export function toDisplayPixels(
-    marker: AoEMarker,
+    item: PositionedOnMap,
     gridSettings: AoEGridSettings | undefined,
     containerRect: DOMRect,
     gridCellsX: number,
     gridCellsY: number
 ): { x: number; y: number } {
-    if (isGridAoE(marker, gridSettings)) {
-        return gridCoordsToPixel(marker.position, containerRect, gridCellsX, gridCellsY);
+    if (isGridPosition(item, gridSettings)) {
+        return gridCoordsToPixel(item.position, containerRect, gridCellsX, gridCellsY);
     }
     return {
-        x: marker.position.x * containerRect.width,
-        y: marker.position.y * containerRect.height,
+        x: item.position.x * containerRect.width,
+        y: item.position.y * containerRect.height,
     };
 }
 
