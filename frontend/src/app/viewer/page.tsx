@@ -9,10 +9,13 @@ import { AoEMarker } from '../../components/AoEMarker';
 import { FogOfWar } from '../../components/FogOfWar';
 import { CombatantToken } from '../../components/CombatantToken';
 import { RippleViewer } from '../../components/RippleViewer';
+import { NightModeOverlay } from '../../components/NightModeOverlay';
 import { ProtectedRoute } from '../../components/ProtectedRoute';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/button';
 import { getPlayAreaRect, migrateAoEMarkers } from '@/utils/aoeCoordinates';
+import { useNightMode } from '@/hooks/useNightMode';
+import { playAreaLayerZIndex } from '@/utils/playAreaLayers';
 
 function withMigratedAoEMarkers(
     scene: SceneType,
@@ -54,6 +57,7 @@ export default function ViewerPage() {
     // Use fixed 1.0 scale to match admin view exactly
     const displayScale = 1.0;
     const playAreaRef = useRef<HTMLDivElement>(null);
+    const { isDarkMode, brightness } = useNightMode({ broadcast: false });
 
     const applySceneWithAoEMigration = useCallback(
         (nextScene: SceneType): SceneType =>
@@ -219,8 +223,14 @@ export default function ViewerPage() {
                             ))}
                     </div>
 
+                    <NightModeOverlay
+                        enabled={isDarkMode}
+                        brightness={brightness}
+                        zIndex={playAreaLayerZIndex(scene.maps?.length ?? 0, 'night')}
+                    />
+
                     {/* AoE Markers - View Only - Ensure they're above maps but below UI */}
-                    <div style={{ zIndex: (scene.maps?.length || 0) + 100 }}>
+                    <div style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'aoe') }}>
                         {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
                             <AoEMarker
                                 key={marker.id}
@@ -239,7 +249,7 @@ export default function ViewerPage() {
                     </div>
 
                     {/* Fog of War - View Only - Renders as opaque black to hide content */}
-                    <div style={{ zIndex: (scene.maps?.length || 0) + 150 }}>
+                    <div style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'fog') }}>
                         {scene.fogOfWar && scene.fogOfWar.map((fog) => (
                             <FogOfWar
                                 key={fog.id}
@@ -259,7 +269,7 @@ export default function ViewerPage() {
                     {/* Combatant tokens */}
                     <div
                         className="absolute inset-0 pointer-events-none [&>*]:pointer-events-none"
-                        style={{ zIndex: (scene.maps?.length || 0) + 210 }}
+                        style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'tokens') }}
                     >
                         {scene.initiativeOrder
                             .filter((e) => e.mapPosition && !e.isKilled)
@@ -289,7 +299,7 @@ export default function ViewerPage() {
                                     ? `calc(100% / ${scene.gridSettings.gridCellsX || 25}) calc(100% / ${scene.gridSettings.gridCellsY || 13})`
                                     : `${scene.gridSettings?.gridSize}px ${scene.gridSettings?.gridSize}px`,
                                 opacity: scene.gridSettings.gridOpacity || 0.5,
-                                zIndex: (scene.maps?.length || 0) + 200,
+                                zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'grid'),
                             }}
                         />
                     )}

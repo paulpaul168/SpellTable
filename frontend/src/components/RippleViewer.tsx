@@ -60,8 +60,6 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({
     const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
     const [isShaking, setIsShaking] = useState(false);
     const [measurePoints, setMeasurePoints] = useState<MeasurePoint[]>([]);
-    const [isDarkMode, setIsDarkMode] = useState(false);
-    const [brightness, setBrightness] = useState(100);
 
     const cellDims = useMemo(
         () => getGridCellDimensions(gridSettings),
@@ -107,11 +105,6 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({
         setIsShaking(true);
     }, []);
 
-    const applyNightMode = useCallback((enabled: boolean, nextBrightness: number) => {
-        setIsDarkMode(enabled);
-        setBrightness(nextBrightness);
-    }, []);
-
     useEffect(() => {
         const handleRemoteEvents = (data: {
             type?: string;
@@ -144,11 +137,6 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({
                     }
                 } else if (data.eventType === 'measure_clear') {
                     setMeasurePoints([]);
-                } else if (data.eventType === 'night_mode') {
-                    const enabled = Boolean(data.enabled);
-                    const nextBrightness =
-                        typeof data.brightness === 'number' ? data.brightness : 100;
-                    applyNightMode(enabled, nextBrightness);
                 }
             }
         };
@@ -162,7 +150,6 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({
         createRippleEffect,
         createLightningEffect,
         createShakeEffect,
-        applyNightMode,
     ]);
 
     useEffect(() => {
@@ -191,13 +178,6 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({
                 <MeasureOverlay
                     points={measurePoints}
                     totalFeet={totalMeasureFeet}
-                />
-            )}
-
-            {isDarkMode && (
-                <div
-                    className="fixed inset-0 bg-black pointer-events-none z-[900] transition-opacity duration-500"
-                    style={{ opacity: 1 - brightness / 100 }}
                 />
             )}
 
