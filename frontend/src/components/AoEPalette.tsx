@@ -14,9 +14,25 @@ import {
     X,
     Trash2,
     EyeIcon,
+    Settings,
 } from 'lucide-react';
 import { Slider } from './ui/slider';
 import { Checkbox } from './ui/checkbox';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import type { AoEEffectTheme } from '@/types/aoeEffect';
+import { AOE_EFFECT_THEMES, DEFAULT_AOE_EFFECT_THEME } from '@/types/aoeEffect';
+
+const AOE_THEME_LABELS: Record<AoEEffectTheme, string> = {
+    pixel: 'Pixel',
+    realistic: 'Hyper-realistic',
+    none: 'No animations',
+};
 
 interface AoEPaletteProps {
     isOpen: boolean;
@@ -24,6 +40,8 @@ interface AoEPaletteProps {
     onAddMarker: (marker: Omit<AoEMarker, 'id' | 'position'>) => void;
     aoeStagedReveal?: boolean;
     onStagedRevealChange?: (enabled: boolean) => void;
+    aoeEffectTheme?: AoEEffectTheme;
+    onAoeEffectThemeChange?: (theme: AoEEffectTheme) => void;
     activeMarkers?: AoEMarker[];
     onDeleteMarker?: (id: string) => void;
     onHighlightMarker?: (id: string) => void;
@@ -89,11 +107,14 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
     onAddMarker,
     aoeStagedReveal = false,
     onStagedRevealChange,
+    aoeEffectTheme = DEFAULT_AOE_EFFECT_THEME,
+    onAoeEffectThemeChange,
     activeMarkers = [],
     onDeleteMarker,
     onHighlightMarker,
 }) => {
-    const [activeTab, setActiveTab] = useState<'shapes' | 'spells' | 'custom' | 'markers' | 'settings'>('shapes');
+    const [activeTab, setActiveTab] = useState<'shapes' | 'spells' | 'custom' | 'markers'>('shapes');
+    const [showSettings, setShowSettings] = useState(false);
     const [customShape, setCustomShape] = useState<AoEShape>('circle');
     const [customSize, setCustomSize] = useState(20);
     const [customColor, setCustomColor] = useState('#FF5A5A');
@@ -173,6 +194,17 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
             <div className="glass-panel-header flex items-center justify-between py-2">
                 <h3 className="text-sm font-medium text-foreground">AoE Markers</h3>
                 <div className="flex gap-1 ml-auto">
+                    {(onStagedRevealChange || onAoeEffectThemeChange) && (
+                        <Button
+                            variant={showSettings ? 'default' : 'ghost'}
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => setShowSettings((prev) => !prev)}
+                            title="Settings"
+                        >
+                            <Settings className="h-4 w-4" />
+                        </Button>
+                    )}
                     <Button
                         variant="ghost"
                         size="sm"
@@ -187,6 +219,7 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
             {/* Content */}
             <div>
                 {/* Tabs */}
+                {!showSettings && (
                 <div className="flex items-center border-b border-border/50 p-2">
                     <Button
                         variant={activeTab === 'shapes' ? 'default' : 'ghost'}
@@ -220,18 +253,11 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                     >
                         Markers
                     </Button>
-                    <Button
-                        variant={activeTab === 'settings' ? 'default' : 'ghost'}
-                        size="sm"
-                        className="text-xs flex-1"
-                        onClick={() => setActiveTab('settings')}
-                    >
-                        Settings
-                    </Button>
                 </div>
+                )}
 
                 {/* Opacity control - common to shape tabs only */}
-                {activeTab !== 'markers' && activeTab !== 'settings' && (
+                {!showSettings && activeTab !== 'markers' && (
                     <div className="px-3 pt-2">
                         <div className="flex items-center justify-between">
                             <Label className="text-xs text-muted-foreground">Opacity: {Math.round(opacity * 100)}%</Label>
@@ -248,7 +274,7 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                 )}
 
                 {/* Shapes Tab */}
-                {activeTab === 'shapes' && (
+                {!showSettings && activeTab === 'shapes' && (
                     <div className="max-h-80 overflow-y-auto p-2">
                         <div className="grid grid-cols-2 gap-2">
                             {commonAoEs.map((aoe, index) => (
@@ -270,7 +296,7 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                 )}
 
                 {/* Spells Tab */}
-                {activeTab === 'spells' && (
+                {!showSettings && activeTab === 'spells' && (
                     <div className="max-h-80 overflow-y-auto p-2">
                         <div className="grid grid-cols-1 gap-2">
                             {commonSpells.map((spell, index) => (
@@ -298,7 +324,7 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                 )}
 
                 {/* Custom Tab */}
-                {activeTab === 'custom' && (
+                {!showSettings && activeTab === 'custom' && (
                     <div className="p-2 space-y-3">
                         <div>
                             <Label className="text-xs text-zinc-400">Shape</Label>
@@ -444,7 +470,7 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                 )}
 
                 {/* Markers Tab - List of active markers */}
-                {activeTab === 'markers' && (
+                {!showSettings && activeTab === 'markers' && (
                     <div className="max-h-80 overflow-y-auto p-2">
                         {activeMarkers.length === 0 ? (
                             <div className="text-center py-4 text-zinc-500 text-sm">
@@ -490,9 +516,29 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                     </div>
                 )}
 
-                {/* Settings Tab */}
-                {activeTab === 'settings' && (
-                    <div className="p-3 space-y-3">
+                {/* Settings panel */}
+                {showSettings && (
+                    <div className="p-3 space-y-4">
+                        {onAoeEffectThemeChange && (
+                            <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">Animation theme</Label>
+                                <Select
+                                    value={aoeEffectTheme}
+                                    onValueChange={(v) => onAoeEffectThemeChange(v as AoEEffectTheme)}
+                                >
+                                    <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {AOE_EFFECT_THEMES.map((theme) => (
+                                            <SelectItem key={theme} value={theme} className="text-xs">
+                                                {AOE_THEME_LABELS[theme]}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
                         {onStagedRevealChange && (
                             <div className="flex items-start space-x-2">
                                 <Checkbox
