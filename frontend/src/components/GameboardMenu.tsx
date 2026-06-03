@@ -26,6 +26,9 @@ interface GameboardMenuProps {
     gridSettings: Scene['gridSettings'];
     isViewerBlanked: boolean;
     onToggleViewerBlank: () => void;
+    isDarkMode: boolean;
+    brightness: number;
+    applyNightMode: (enabled: boolean, brightness: number) => void;
 }
 
 function isClickOnUiElement(target: HTMLElement): boolean {
@@ -47,10 +50,11 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
     gridSettings,
     isViewerBlanked,
     onToggleViewerBlank,
+    isDarkMode,
+    brightness,
+    applyNightMode,
 }) => {
     const [activeTool, setActiveTool] = useState<string>('pointer');
-    const [isDarkMode, setIsDarkMode] = useState(false);
-    const [brightness, setBrightness] = useState(100);
     const [showRipple, setShowRipple] = useState(false);
     const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
     const [measurePoints, setMeasurePoints] = useState<MeasurePoint[]>([]);
@@ -96,20 +100,6 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
             setMeasurePoints(points);
             if (broadcast) {
                 broadcastSceneEvent('measure_update', { points });
-            }
-        },
-        [broadcastSceneEvent]
-    );
-
-    const applyNightMode = useCallback(
-        (enabled: boolean, nextBrightness: number, broadcast = true) => {
-            setIsDarkMode(enabled);
-            setBrightness(nextBrightness);
-            if (broadcast) {
-                broadcastSceneEvent('night_mode', {
-                    enabled,
-                    brightness: nextBrightness,
-                });
             }
         },
         [broadcastSceneEvent]
@@ -184,11 +174,6 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
                     }
                 } else if (data.eventType === 'measure_clear') {
                     clearMeasurePoints(false);
-                } else if (data.eventType === 'night_mode') {
-                    const enabled = Boolean(data.enabled);
-                    const nextBrightness =
-                        typeof data.brightness === 'number' ? data.brightness : brightness;
-                    applyNightMode(enabled, nextBrightness, false);
                 }
             }
         };
@@ -204,8 +189,6 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
         toggleShakeEffect,
         applyMeasurePoints,
         clearMeasurePoints,
-        applyNightMode,
-        brightness,
     ]);
 
     useEffect(() => {
@@ -491,13 +474,6 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
                     points={measurePoints}
                     totalFeet={totalMeasureFeet}
                     showEmptyHint={activeTool === 'measure'}
-                />
-            )}
-
-            {isDarkMode && (
-                <div
-                    className="fixed inset-0 bg-black pointer-events-none z-[900] transition-opacity duration-500"
-                    style={{ opacity: 1 - (brightness / 100) }}
                 />
             )}
 

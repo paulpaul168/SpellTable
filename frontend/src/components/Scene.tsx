@@ -76,6 +76,9 @@ import { FogOfWarPalette } from './FogOfWarPalette';
 import { DisplayCalculator } from './DisplayCalculator';
 import { BackupDialog } from './BackupDialog';
 import { GameboardMenu } from './GameboardMenu';
+import { NightModeOverlay } from './NightModeOverlay';
+import { useNightMode } from '@/hooks/useNightMode';
+import { playAreaLayerZIndex } from '@/utils/playAreaLayers';
 import { MoveEverythingDialog } from './MoveEverythingDialog';
 import { UserManagementDialog } from './UserManagementDialog';
 import { useAuth } from '@/contexts/AuthContext';
@@ -177,6 +180,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
     const [isMonsterManagementOpen, setIsMonsterManagementOpen] = useState(false);
     const [placingEntryId, setPlacingEntryId] = useState<string | null>(null);
+    const { isDarkMode, brightness, applyNightMode } = useNightMode();
 
     // Remove display scale functionality, using fixed 1.0 scale
     const displayScale = 1.0;
@@ -1313,8 +1317,14 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                         })}
                 </div>
 
+                <NightModeOverlay
+                    enabled={isDarkMode}
+                    brightness={brightness}
+                    zIndex={playAreaLayerZIndex(scene.maps?.length ?? 0, 'night')}
+                />
+
                 {/* AoE Markers - Ensure they're above maps but below UI */}
-                <div style={{ zIndex: (scene.maps?.length || 0) + 100 }}>
+                <div style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'aoe') }}>
                     {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
                         <AoEMarker
                             key={marker.id}
@@ -1335,7 +1345,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 </div>
 
                 {/* Fog of War - Above AoE markers but below grid */}
-                <div style={{ zIndex: (scene.maps?.length || 0) + 150 }}>
+                <div style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'fog') }}>
                     {scene.fogOfWar && scene.fogOfWar.map((fog) => (
                         <FogOfWar
                             key={fog.id}
@@ -1356,7 +1366,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 {/* Combatant tokens - above fog/grid so viewers see them */}
                 <div
                     className="absolute inset-0 pointer-events-none [&>*]:pointer-events-auto"
-                    style={{ zIndex: (scene.maps?.length || 0) + 210 }}
+                    style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'tokens') }}
                 >
                     {placedCombatants.map((entry) => (
                         <CombatantToken
@@ -1404,7 +1414,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 ? `calc(100% / ${scene.gridSettings.gridCellsX || 25}) calc(100% / ${scene.gridSettings.gridCellsY || 13})`
                                 : `${scene.gridSettings?.gridSize}px ${scene.gridSettings?.gridSize}px`,
                             opacity: scene.gridSettings.gridOpacity || 0.5,
-                            zIndex: (scene.maps?.length || 0) + 200,
+                            zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'grid'),
                         }}
                     />
                 )}
@@ -1450,6 +1460,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     gridSettings={scene.gridSettings}
                     isViewerBlanked={isViewerBlanked}
                     onToggleViewerBlank={handleToggleViewerBlank}
+                    isDarkMode={isDarkMode}
+                    brightness={brightness}
+                    applyNightMode={applyNightMode}
                 />
             )}
 
