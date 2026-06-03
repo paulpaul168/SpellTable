@@ -18,7 +18,7 @@ A modern, local web-based virtual tabletop for in-person D&D sessions with a phy
 
 ![Admin View](screenshots/screenshot_admin.png)
 
-*Admin UI with initiative, AoE tools, soundboard, map management, and live preview.*
+*Admin UI with initiative, gameboard dock, AoE tools, soundboard, map management, and live preview.*
 
 ### Clean admin interface
 
@@ -30,7 +30,7 @@ A modern, local web-based virtual tabletop for in-person D&D sessions with a phy
 
 ![Initiative Order](screenshots/screenshot_ini.png)
 
-*Sortable initiative list for creatures and PCs.*
+*Initiative sidebar with combatant tokens, HP tracking, and encounter history.*
 
 ## Table of contents
 
@@ -49,13 +49,31 @@ A modern, local web-based virtual tabletop for in-person D&D sessions with a phy
 
 - **Grid-aligned maps** on a large display with precise pan, zoom, and positioning
 - **Dual views**: admin (full controls + preview) and **player** full-screen viewer
-- **Initiative tracker** with a sortable list and dedicated `/initiative` page
-- **Area of effect** markers (cones, circles, custom shapes) synced in real time
-- **Fog of war** polygons on the map (author on admin, reveal on the player view)
-- **Soundboard** for ambient tracks and one-shots
 - **Map management**: upload, folders, scale, position, layers, and z-order
+- **Maps lock** to prevent accidental moves while running combat
 - **Hide / reveal** maps and overlays for dramatic pacing
+- **Fog of war** polygons on the map (author on admin, reveal on the player view)
 - **Real-time sync** over Socket.IO so admin changes appear immediately on the viewer
+
+### Combat and initiative
+
+- **Initiative tracker** sorted by roll, with turn advancement and kill/remove actions
+- **Combatant tokens** on the map—place, drag, and resize footprints (Medium / Large / Huge) with optional grid snap
+- **Enemy HP** tracking on the admin side; **health pips** (no numbers) on the player `/initiative` display
+- **Bulk enemy add** with rolled HP and initiative from dice expressions (e.g. `3d8+10`, `+3`)
+- **Encounter history** log for combat events (adds, kills, turn changes, etc.)
+- **Dedicated `/initiative` page** for a table-side display: active turn hero, next up, auto-scrolling list
+- **Current-turn indicator** overlay on the main viewer when enabled
+
+### Area of effect and tools
+
+- **AoE markers** (cones, circles, lines, cubes, cylinders) synced in real time with rotation
+- **Staged reveal**: hide new markers from viewers until the DM triggers them; reset to hidden again
+- **Animated spell effects** on markers (theme selectable in grid settings)
+- **AoE snap-to-grid** toggle for free placement when needed
+- **Gameboard dock** (admin): pointer, ripple markers, **distance measurement** (feet along a path), lightning flash, board shake, night mode with brightness slider
+- **Viewer blanking** to black out the table display during breaks or surprises
+- **Soundboard** for ambient tracks and one-shots
 
 ### Campaigns and accounts
 
@@ -67,20 +85,22 @@ A modern, local web-based virtual tabletop for in-person D&D sessions with a phy
 
 ### Planned / roadmap ideas
 
-- Distance measurement and on-map rulers
 - Camera-based mini tracking
-- Richer animated effects (fire, fog, magic circles)
+- Additional animated effect themes and assets
 - Standalone player journal app
-- Deeper combat automation
+- Deeper combat automation (conditions, saves, etc.)
 
 ## Project status
 
 ### VTT core (stable)
 
-- [x] Maps: upload, scale, position, layers, grid overlay
-- [x] Initiative tracker with live updates
+- [x] Maps: upload, scale, position, layers, grid overlay, maps lock
+- [x] Initiative tracker with live updates, HP, encounter history, and bulk enemy add
+- [x] Combatant tokens with grid snap and footprint sizes
+- [x] Dedicated `/initiative` viewer page with health pips
 - [x] Admin and player views with Socket.IO sync
-- [x] AoE markers
+- [x] AoE markers with rotation, staged reveal, and animated effects
+- [x] Gameboard tools: measure, ripple, lightning, shake, night mode, viewer blank
 - [x] Soundboard
 - [x] Fog of war regions on maps
 
@@ -91,7 +111,7 @@ A modern, local web-based virtual tabletop for in-person D&D sessions with a phy
 - [x] Campaign diary, notes, images, and tavern mechanics
 - [x] Docker Compose layout for local or server deployment
 
-Enhancements in progress or planned include UI polish for touch tables, measuring tools, and the items listed under [Planned](#planned--roadmap-ideas).
+Enhancements in progress or planned include UI polish for touch tables and the items listed under [Planned](#planned--roadmap-ideas).
 
 ## Getting started
 
@@ -143,7 +163,7 @@ Enhancements in progress or planned include UI polish for touch tables, measurin
    | [http://localhost:3000/initiative](http://localhost:3000/initiative) | Initiative-only page |
    | [http://localhost:8010](http://localhost:8010) | Backend API (`/health`, `/docs`) |
 
-**Tip:** Keep the admin UI on the DM machine and `/viewer` on the table display.
+**Tip:** Keep the admin UI on the DM machine, `/viewer` on the table display, and optionally `/initiative` on a second screen for turn order.
 
 ### Manual setup
 
