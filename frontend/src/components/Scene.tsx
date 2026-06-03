@@ -1590,7 +1590,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
                             <DropdownMenuSeparator />
 
-                            {/* Grid and AoE Settings */}
+                            {/* Grid Settings */}
                             <div className="px-2 py-1">
                                 <div className="flex items-center gap-2 px-2 py-1">
                                     <Grid className="h-4 w-4 text-muted-foreground" />
@@ -1613,7 +1613,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                         onClick={() => setIsGridSettingsOpen(true)}
                                     >
                                         <Settings className="h-4 w-4 mr-2" />
-                                        Grid and AoE Settings
+                                        Grid Settings
                                     </DropdownMenuItem>
                                 </div>
                             </div>
@@ -1782,6 +1782,10 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 aoeStagedReveal={scene.gridSettings.aoeStagedReveal === true}
                 onStagedRevealChange={(enabled) =>
                     handleUpdateGridSettings({ ...scene.gridSettings, aoeStagedReveal: enabled })
+                }
+                aoeEffectTheme={scene.gridSettings.aoeEffectTheme}
+                onAoeEffectThemeChange={(theme) =>
+                    handleUpdateGridSettings({ ...scene.gridSettings, aoeEffectTheme: theme })
                 }
                 activeMarkers={scene.aoeMarkers || []}
                 onDeleteMarker={handleDeleteAoEMarker}
