@@ -8,6 +8,7 @@ import {
     Ruler,
     Target,
     CloudLightning,
+    EyeOff,
     X,
 } from 'lucide-react';
 import { GameboardDock } from '@/components/gameboard/GameboardDock';
@@ -23,6 +24,8 @@ import {
 interface GameboardMenuProps {
     connectionStatus: string;
     gridSettings: Scene['gridSettings'];
+    isViewerBlanked: boolean;
+    onToggleViewerBlank: () => void;
 }
 
 function isClickOnUiElement(target: HTMLElement): boolean {
@@ -42,6 +45,8 @@ function isClickOnUiElement(target: HTMLElement): boolean {
 export const GameboardMenu: React.FC<GameboardMenuProps> = ({
     connectionStatus,
     gridSettings,
+    isViewerBlanked,
+    onToggleViewerBlank,
 }) => {
     const [activeTool, setActiveTool] = useState<string>('pointer');
     const [isDarkMode, setIsDarkMode] = useState(false);
@@ -367,8 +372,15 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
                 icon: <ZapIcon className="h-4 w-4" />,
                 onClick: () => toggleShakeEffect(),
             },
+            {
+                id: 'blank-viewer',
+                label: isViewerBlanked ? 'Unblank viewer' : 'Blank viewer',
+                icon: <EyeOff className="h-4 w-4" />,
+                active: isViewerBlanked,
+                onClick: onToggleViewerBlank,
+            },
         ],
-        [toggleLightningEffect, toggleShakeEffect]
+        [toggleLightningEffect, toggleShakeEffect, isViewerBlanked, onToggleViewerBlank]
     );
 
     const nightDockItems = useMemo(
