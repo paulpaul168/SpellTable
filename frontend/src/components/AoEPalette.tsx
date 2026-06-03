@@ -82,7 +82,7 @@ const commonSpells: SpellPreset[] = [
     { name: 'Cloudkill', shape: 'circle', size: 20, color: '#C9E265', effectId: 'cloudkill' },
     { name: 'Spirit Guardians', shape: 'circle', size: 15, color: '#CC5AFF', effectId: 'spirit-guardians' },
     {
-        name: 'Spirit Guardians (Nekrotisch)',
+        name: 'Spirit Guardians (Necrotic)',
         shape: 'circle',
         size: 15,
         color: '#3D5C2E',
