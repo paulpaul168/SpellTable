@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback, memo, RefObject, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { InitiativeEntry } from '../types/map';
+import { InitiativeEntry, MapPosition } from '../types/map';
 import { getPlayAreaRect, type AoEGridSettings } from '@/utils/aoeCoordinates';
 import {
     DEFAULT_TOKEN_FOOTPRINT,
+    displayPixelsToMeasurePoint,
     getTokenDiameterPixels,
     normalizeTokenFootprint,
     pointerToTokenPosition,
@@ -16,6 +17,7 @@ import {
 import { cn } from '../lib/utils';
 import { createThrottledLiveSync, type LiveSyncOptions } from '@/utils/liveSync';
 import { COMBATANT_TOKEN_Z_INDEX } from '@/utils/playAreaLayers';
+import type { MeasurePoint } from '@/utils/measureDistance';
 
 /** Closes any other token's open context menu before opening a new one. */
 let closeOtherTokenMenus: (() => void) | null = null;
@@ -31,6 +33,10 @@ interface CombatantTokenProps {
         tokenSnapToGrid?: boolean;
     };
     defaultTokenFootprint?: TokenFootprint;
+    movementPath?: MapPosition[];
+    onMovementStop?: (position: MapPosition) => void;
+    onResetMovement?: () => void;
+    onMovementPreviewChange?: (point: MeasurePoint | null) => void;
 }
 
 export const CombatantToken = memo(function CombatantToken({
@@ -40,6 +46,10 @@ export const CombatantToken = memo(function CombatantToken({
     containerRef,
     gridSettings,
     defaultTokenFootprint = DEFAULT_TOKEN_FOOTPRINT,
+    movementPath,
+    onMovementStop,
+    onResetMovement,
+    onMovementPreviewChange,
 }: CombatantTokenProps) {
     const mapPosition = entry.mapPosition;
     if (!mapPosition) return null;
@@ -149,13 +159,16 @@ export const CombatantToken = memo(function CombatantToken({
             const finalEntry = pendingUpdateRef.current;
             if (finalEntry) {
                 liveSync.commit(finalEntry);
+                if (finalEntry.mapPosition) {
+                    onMovementStop?.(finalEntry.mapPosition);
+                }
             }
             pendingUpdateRef.current = null;
             setIsDragging(false);
             isDraggingRef.current = false;
             document.body.classList.remove('dragging-token');
         },
-        [applyDragAtClient, liveSync]
+        [applyDragAtClient, liveSync, onMovementStop]
     );
 
     useEffect(() => {
@@ -253,11 +266,48 @@ export const CombatantToken = memo(function CombatantToken({
         }
     };
 
+    useEffect(() => {
+        if (!onMovementPreviewChange || !entry.isCurrentTurn) {
+            return;
+        }
+        if (isDragging && movementPath?.length) {
+            onMovementPreviewChange(
+                displayPixelsToMeasurePoint(currentPos, getContainerRect())
+            );
+        } else {
+            onMovementPreviewChange(null);
+        }
+    }, [
+        isDragging,
+        currentPos,
+        movementPath,
+        onMovementPreviewChange,
+        entry.isCurrentTurn,
+        getContainerRect,
+    ]);
+
     const openContextMenu = (clientX: number, clientY: number) => {
         closeOtherTokenMenus?.();
         closeOtherTokenMenus = closeThisMenu;
         setContextMenu({ x: clientX, y: clientY });
     };
+
+    const resetToTurnStart = () => {
+        if (!movementPath?.length) {
+            return;
+        }
+        const start = structuredClone(movementPath[0]);
+        const updatedEntry = { ...entry, mapPosition: start };
+        onUpdate(updatedEntry);
+        liveSync.commit(updatedEntry);
+        onResetMovement?.();
+        setContextMenu(null);
+        if (closeOtherTokenMenus === closeThisMenu) {
+            closeOtherTokenMenus = null;
+        }
+    };
+
+    const canResetMovement = Boolean(movementPath && movementPath.length > 1);
 
     const handleContextMenu = (e: React.MouseEvent) => {
         if (!isAdmin) return;
@@ -317,7 +367,7 @@ export const CombatantToken = memo(function CombatantToken({
             onMouseDown={handleMouseDown}
             onContextMenu={handleContextMenu}
             onClick={(e) => e.stopPropagation()}
-            title={isAdmin ? 'Right-click to change size' : undefined}
+            title={isAdmin ? 'Right-click for token options' : undefined}
         >
             {showTurnRipple && (
                 <div
@@ -395,6 +445,21 @@ export const CombatantToken = memo(function CombatantToken({
                                 </span>
                             </button>
                         ))}
+                        {canResetMovement && (
+                            <>
+                                <div className="my-1 h-px bg-border" />
+                                <p className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                    Movement
+                                </p>
+                                <button
+                                    type="button"
+                                    className="flex w-full px-3 py-1.5 text-left text-sm hover:bg-accent"
+                                    onClick={resetToTurnStart}
+                                >
+                                    Reset to turn start
+                                </button>
+                            </>
+                        )}
                     </div>,
                     document.body
                 )}

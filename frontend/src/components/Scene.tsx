@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Scene as SceneType, MapData, AoEMarker as AoEMarkerType, FogOfWar as FogOfWarType } from '../types/map';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Scene as SceneType, MapData, AoEMarker as AoEMarkerType, FogOfWar as FogOfWarType, MapPosition } from '../types/map';
 import { Map } from './Map';
 import { websocketService } from '@/services/websocket';
 import { UploadDialog } from './UploadDialog';
@@ -69,9 +69,18 @@ import {
 import type { LiveSyncOptions } from '@/utils/liveSync';
 import {
     DEFAULT_TOKEN_FOOTPRINT,
+    getTokenDiameterPixels,
+    mapPositionsEqual,
+    mapPositionsToMeasurePoints,
     normalizeTokenFootprint,
     pointerToTokenPosition,
 } from '@/utils/tokenFootprint';
+import { TokenMovementTrail } from './TokenMovementTrail';
+import type { MeasurePoint } from '@/utils/measureDistance';
+import {
+    pathLengthFeet,
+    segmentLengthFeet,
+} from '@/utils/measureDistance';
 import { FogOfWarPalette } from './FogOfWarPalette';
 import { DisplayCalculator } from './DisplayCalculator';
 import { BackupDialog } from './BackupDialog';
@@ -186,11 +195,128 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const isToolCaptureMode =
         gameboardActiveTool === 'measure' || gameboardActiveTool === 'marker';
 
-    // Remove display scale functionality, using fixed 1.0 scale
     const displayScale = 1.0;
     const playAreaRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef(scene);
     sceneRef.current = scene;
+
+    const currentTurnEntryId = scene.initiativeOrder.find(
+        (e) => e.isCurrentTurn && !e.isKilled
+    )?.id;
+
+    const [movementPath, setMovementPath] = useState<MapPosition[]>([]);
+
+    useEffect(() => {
+        if (!currentTurnEntryId) {
+            setMovementPath([]);
+            return;
+        }
+        const entry = sceneRef.current.initiativeOrder.find(
+            (e) => e.id === currentTurnEntryId
+        );
+        if (entry?.mapPosition) {
+            setMovementPath([structuredClone(entry.mapPosition)]);
+        } else {
+            setMovementPath([]);
+        }
+    }, [currentTurnEntryId]);
+
+    const appendMovementStop = useCallback((position: MapPosition) => {
+        setMovementPath((prev) => {
+            if (prev.length === 0) {
+                return [structuredClone(position)];
+            }
+            const last = prev[prev.length - 1];
+            if (mapPositionsEqual(last, position)) {
+                return prev;
+            }
+            return [...prev, structuredClone(position)];
+        });
+    }, []);
+
+    const resetMovementPath = useCallback(() => {
+        setMovementPath((prev) => {
+            if (prev.length === 0) {
+                return prev;
+            }
+            return [structuredClone(prev[0])];
+        });
+    }, []);
+
+    const [movementPreviewPoint, setMovementPreviewPoint] = useState<MeasurePoint | null>(
+        null
+    );
+
+    useEffect(() => {
+        if (!currentTurnEntryId) {
+            setMovementPreviewPoint(null);
+        }
+    }, [currentTurnEntryId]);
+
+    const movementMeasurePoints = useMemo(() => {
+        if (movementPath.length === 0) {
+            return [];
+        }
+        const rect = getPlayAreaRect(playAreaRef.current);
+        const gridCellsX = scene.gridSettings.gridCellsX ?? 25;
+        const gridCellsY = scene.gridSettings.gridCellsY ?? 13;
+        return mapPositionsToMeasurePoints(
+            movementPath,
+            rect,
+            gridCellsX,
+            gridCellsY
+        );
+    }, [movementPath, scene.gridSettings.gridCellsX, scene.gridSettings.gridCellsY]);
+
+    const movementTotalFeet = useMemo(() => {
+        if (movementMeasurePoints.length === 0) {
+            return 0;
+        }
+        const rect = getPlayAreaRect(playAreaRef.current);
+        let feet = pathLengthFeet(
+            movementMeasurePoints,
+            scene.gridSettings,
+            rect
+        );
+        if (movementPreviewPoint && movementMeasurePoints.length > 0) {
+            feet += segmentLengthFeet(
+                movementMeasurePoints[movementMeasurePoints.length - 1],
+                movementPreviewPoint,
+                scene.gridSettings,
+                rect
+            );
+        }
+        return feet;
+    }, [movementMeasurePoints, movementPreviewPoint, scene.gridSettings]);
+
+    const currentTurnTokenRadius = useMemo(() => {
+        if (!currentTurnEntryId) {
+            return 28;
+        }
+        const entry = scene.initiativeOrder.find((e) => e.id === currentTurnEntryId);
+        if (!entry?.mapPosition) {
+            return 28;
+        }
+        const rect = getPlayAreaRect(playAreaRef.current);
+        const footprint = normalizeTokenFootprint(
+            entry,
+            scene.gridSettings.defaultTokenFootprint ?? DEFAULT_TOKEN_FOOTPRINT
+        );
+        return (
+            getTokenDiameterPixels(
+                footprint,
+                rect,
+                scene.gridSettings.gridCellsX ?? 25,
+                scene.gridSettings.gridCellsY ?? 13
+            ) / 2
+        );
+    }, [
+        currentTurnEntryId,
+        scene.initiativeOrder,
+        scene.gridSettings,
+        movementPreviewPoint,
+        movementPath,
+    ]);
 
     const applySceneWithAoEMigration = useCallback(
         (nextScene: SceneType): SceneType =>
@@ -1399,9 +1525,51 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             containerRef={playAreaRef}
                             gridSettings={scene.gridSettings}
                             defaultTokenFootprint={scene.gridSettings.defaultTokenFootprint}
+                            movementPath={
+                                entry.id === currentTurnEntryId
+                                    ? movementPath
+                                    : undefined
+                            }
+                            onMovementStop={
+                                entry.id === currentTurnEntryId
+                                    ? appendMovementStop
+                                    : undefined
+                            }
+                            onResetMovement={
+                                entry.id === currentTurnEntryId
+                                    ? resetMovementPath
+                                    : undefined
+                            }
+                            onMovementPreviewChange={
+                                entry.id === currentTurnEntryId
+                                    ? setMovementPreviewPoint
+                                    : undefined
+                            }
                         />
                     ))}
                 </div>
+
+                {isAdmin &&
+                    currentTurnEntryId &&
+                    movementPath.length > 0 && (
+                        <div
+                            className="absolute inset-0 pointer-events-none"
+                            style={{
+                                zIndex: playAreaLayerZIndex(
+                                    scene.maps?.length ?? 0,
+                                    'movementTrail'
+                                ),
+                            }}
+                        >
+                            <TokenMovementTrail
+                                points={movementMeasurePoints}
+                                previewPoint={movementPreviewPoint}
+                                totalFeet={movementTotalFeet}
+                                containerRef={playAreaRef}
+                                tokenRadius={currentTurnTokenRadius}
+                            />
+                        </div>
+                    )}
 
                 {placingEntryId && isAdmin && (
                     <div

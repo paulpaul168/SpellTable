@@ -4,6 +4,8 @@ export const PLAY_AREA_LAYER = {
     aoe: 100,
     fog: 150,
     grid: 200,
+    /** Above AoE/fog/grid; below token icons. */
+    movementTrail: 945,
     /** Above AoE marker max (900 while dragging). */
     tokens: 950,
 } as const;
