@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { websocketService } from '../services/websocket';
 import type { Scene } from '@/types/map';
 import { MeasureOverlay } from './MeasureOverlay';
+import { getPlayAreaRect } from '@/utils/aoeCoordinates';
 import {
-    getGridCellDimensions,
+    isLegacyMeasurePoint,
+    legacyMeasurePointToNormalized,
+    measurePointToContainerPixels,
+    migrateMeasurePoints,
     pathLengthFeet,
     type MeasurePoint,
 } from '@/utils/measureDistance';
@@ -50,35 +55,62 @@ if (typeof document !== 'undefined') {
 interface RippleViewerProps {
     hidden?: boolean;
     gridSettings: Scene['gridSettings'];
+    playAreaRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export const RippleViewer: React.FC<RippleViewerProps> = ({
     hidden = false,
     gridSettings,
+    playAreaRef,
 }) => {
     const [showRipple, setShowRipple] = useState(false);
-    const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
+    const [ripplePosition, setRipplePosition] = useState<MeasurePoint>({ x: 0, y: 0 });
     const [isShaking, setIsShaking] = useState(false);
     const [measurePoints, setMeasurePoints] = useState<MeasurePoint[]>([]);
+    const [layoutTick, setLayoutTick] = useState(0);
 
-    const cellDims = useMemo(
-        () => getGridCellDimensions(gridSettings),
-        [gridSettings]
+    useEffect(() => {
+        const handleResize = () => setLayoutTick((n) => n + 1);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    useEffect(() => {
+        setLayoutTick((n) => n + 1);
+    }, [playAreaRef]);
+
+    const playAreaRect = useMemo(
+        () => getPlayAreaRect(playAreaRef.current),
+        [playAreaRef, layoutTick]
     );
 
     const totalMeasureFeet = useMemo(
-        () => pathLengthFeet(measurePoints, cellDims),
-        [measurePoints, cellDims]
+        () => pathLengthFeet(measurePoints, gridSettings, playAreaRect),
+        [measurePoints, gridSettings, playAreaRect]
     );
 
-    const createRippleEffect = useCallback((x: number, y: number) => {
-        setRipplePosition({ x, y });
-        setShowRipple(true);
+    const rippleDisplayPosition = useMemo(
+        () => measurePointToContainerPixels(ripplePosition, playAreaRect),
+        [ripplePosition, playAreaRect]
+    );
 
-        setTimeout(() => {
-            setShowRipple(false);
-        }, 3000);
-    }, []);
+    const createRippleEffect = useCallback(
+        (point: MeasurePoint) => {
+            const normalized = isLegacyMeasurePoint(point)
+                ? legacyMeasurePointToNormalized(
+                      point,
+                      getPlayAreaRect(playAreaRef.current)
+                  )
+                : point;
+            setRipplePosition(normalized);
+            setShowRipple(true);
+
+            setTimeout(() => {
+                setShowRipple(false);
+            }, 3000);
+        },
+        [playAreaRef]
+    );
 
     const createLightningEffect = useCallback(() => {
         if (typeof document !== 'undefined') {
@@ -118,7 +150,10 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({
         }) => {
             if (data.type === 'scene_update' && data.event) {
                 if (data.event.type === 'ripple_effect') {
-                    createRippleEffect(data.event.x ?? 0, data.event.y ?? 0);
+                    createRippleEffect({
+                        x: data.event.x ?? 0,
+                        y: data.event.y ?? 0,
+                    });
                 } else if (data.event.type === 'lightning_effect') {
                     createLightningEffect();
                 } else if (data.event.type === 'shake_effect') {
@@ -126,14 +161,19 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({
                 }
             } else if (data.type === 'scene_event') {
                 if (data.eventType === 'ripple_effect') {
-                    createRippleEffect(data.x ?? 0, data.y ?? 0);
+                    createRippleEffect({ x: data.x ?? 0, y: data.y ?? 0 });
                 } else if (data.eventType === 'lightning_effect') {
                     createLightningEffect();
                 } else if (data.eventType === 'shake_effect') {
                     createShakeEffect();
                 } else if (data.eventType === 'measure_update') {
                     if (Array.isArray(data.points)) {
-                        setMeasurePoints(data.points);
+                        setMeasurePoints(
+                            migrateMeasurePoints(
+                                data.points,
+                                getPlayAreaRect(playAreaRef.current)
+                            )
+                        );
                     }
                 } else if (data.eventType === 'measure_clear') {
                     setMeasurePoints([]);
@@ -150,6 +190,7 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({
         createRippleEffect,
         createLightningEffect,
         createShakeEffect,
+        playAreaRef,
     ]);
 
     useEffect(() => {
@@ -172,19 +213,29 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({
         return null;
     }
 
-    return (
+    const playAreaPortalTarget = playAreaRef.current;
+
+    if (!playAreaPortalTarget) {
+        return null;
+    }
+
+    return createPortal(
         <>
             {measurePoints.length > 0 && (
                 <MeasureOverlay
                     points={measurePoints}
                     totalFeet={totalMeasureFeet}
+                    containerRef={playAreaRef}
                 />
             )}
 
             {showRipple && (
                 <div
-                    className="fixed pointer-events-none z-[900]"
-                    style={{ left: ripplePosition.x, top: ripplePosition.y }}
+                    className="absolute pointer-events-none z-[900]"
+                    style={{
+                        left: rippleDisplayPosition.x,
+                        top: rippleDisplayPosition.y,
+                    }}
                 >
                     <div
                         className="absolute rounded-full animate-ripple-1"
@@ -220,6 +271,7 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({
                     />
                 </div>
             )}
-        </>
+        </>,
+        playAreaPortalTarget
     );
 };

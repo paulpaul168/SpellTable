@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Scene as SceneType, MapData, AoEMarker as AoEMarkerType, FogOfWar as FogOfWarType } from '../types/map';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Scene as SceneType, MapData, AoEMarker as AoEMarkerType, FogOfWar as FogOfWarType, MapPosition } from '../types/map';
 import { Map } from './Map';
 import { websocketService } from '@/services/websocket';
 import { UploadDialog } from './UploadDialog';
@@ -69,9 +69,13 @@ import {
 import type { LiveSyncOptions } from '@/utils/liveSync';
 import {
     DEFAULT_TOKEN_FOOTPRINT,
+    mapPositionsEqual,
     normalizeTokenFootprint,
     pointerToTokenPosition,
 } from '@/utils/tokenFootprint';
+import { TokenMovementTrail } from './TokenMovementTrail';
+import type { MeasurePoint } from '@/utils/measureDistance';
+import { computeTurnMovementTrail } from '@/utils/turnMovementTrail';
 import { FogOfWarPalette } from './FogOfWarPalette';
 import { DisplayCalculator } from './DisplayCalculator';
 import { BackupDialog } from './BackupDialog';
@@ -180,13 +184,52 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
     const [isMonsterManagementOpen, setIsMonsterManagementOpen] = useState(false);
     const [placingEntryId, setPlacingEntryId] = useState<string | null>(null);
+    const [gameboardActiveTool, setGameboardActiveTool] = useState('pointer');
     const { isDarkMode, brightness, applyNightMode } = useNightMode();
 
-    // Remove display scale functionality, using fixed 1.0 scale
+    const isToolCaptureMode =
+        gameboardActiveTool === 'measure' || gameboardActiveTool === 'marker';
+
     const displayScale = 1.0;
     const playAreaRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef(scene);
     sceneRef.current = scene;
+
+    const currentTurnEntryId = scene.initiativeOrder.find(
+        (e) => e.isCurrentTurn && !e.isKilled
+    )?.id;
+
+    const currentTurnEntry = scene.initiativeOrder.find(
+        (e) => e.id === currentTurnEntryId
+    );
+    const movementPath = currentTurnEntry?.turnMovementPath ?? [];
+
+    const [movementPreviewPoint, setMovementPreviewPoint] = useState<MeasurePoint | null>(
+        null
+    );
+
+    useEffect(() => {
+        if (!currentTurnEntryId) {
+            setMovementPreviewPoint(null);
+        }
+    }, [currentTurnEntryId]);
+
+    const movementTrail = useMemo(
+        () =>
+            computeTurnMovementTrail({
+                path: movementPath,
+                previewPoint: movementPreviewPoint,
+                gridSettings: scene.gridSettings,
+                containerRef: playAreaRef.current,
+                entry: currentTurnEntry,
+            }),
+        [
+            movementPath,
+            movementPreviewPoint,
+            scene.gridSettings,
+            currentTurnEntry,
+        ]
+    );
 
     const applySceneWithAoEMigration = useCallback(
         (nextScene: SceneType): SceneType =>
@@ -776,6 +819,109 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         [applyScenePatch],
     );
 
+    const appendMovementStop = useCallback(
+        (position: MapPosition) => {
+            if (!currentTurnEntryId) {
+                return;
+            }
+            applyScenePatch((prev) => {
+                const entry = prev.initiativeOrder.find(
+                    (e) => e.id === currentTurnEntryId
+                );
+                if (!entry) {
+                    return prev;
+                }
+                const pathPrev =
+                    entry.turnMovementPath ??
+                    (entry.mapPosition ? [entry.mapPosition] : []);
+                if (pathPrev.length === 0) {
+                    return {
+                        ...prev,
+                        initiativeOrder: prev.initiativeOrder.map((e) =>
+                            e.id === currentTurnEntryId
+                                ? {
+                                      ...e,
+                                      turnMovementPath: [structuredClone(position)],
+                                  }
+                                : e
+                        ),
+                    };
+                }
+                const last = pathPrev[pathPrev.length - 1];
+                if (mapPositionsEqual(last, position)) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    initiativeOrder: prev.initiativeOrder.map((e) =>
+                        e.id === currentTurnEntryId
+                            ? {
+                                  ...e,
+                                  turnMovementPath: [
+                                      ...pathPrev,
+                                      structuredClone(position),
+                                  ],
+                              }
+                            : e
+                    ),
+                };
+            });
+        },
+        [currentTurnEntryId, applyScenePatch],
+    );
+
+    const resetMovementPath = useCallback(() => {
+        if (!currentTurnEntryId) {
+            return;
+        }
+        applyScenePatch((prev) => {
+            const entry = prev.initiativeOrder.find(
+                (e) => e.id === currentTurnEntryId
+            );
+            if (!entry?.turnMovementPath?.length) {
+                return prev;
+            }
+            return {
+                ...prev,
+                initiativeOrder: prev.initiativeOrder.map((e) =>
+                    e.id === currentTurnEntryId
+                        ? {
+                              ...e,
+                              turnMovementPath: [
+                                  structuredClone(entry.turnMovementPath![0]),
+                              ],
+                          }
+                        : e
+                ),
+            };
+        });
+    }, [currentTurnEntryId, applyScenePatch]);
+
+    useEffect(() => {
+        if (!currentTurnEntryId) {
+            return;
+        }
+        applyScenePatch((prev) => {
+            const entry = prev.initiativeOrder.find(
+                (e) => e.id === currentTurnEntryId
+            );
+            if (!entry?.mapPosition || entry.turnMovementPath?.length) {
+                return prev;
+            }
+            return {
+                ...prev,
+                initiativeOrder: prev.initiativeOrder.map((e) =>
+                    e.id === currentTurnEntryId
+                        ? {
+                              ...e,
+                              turnMovementPath: [structuredClone(entry.mapPosition!)],
+                          }
+                        : e
+                ),
+            };
+        });
+    }, [currentTurnEntryId, applyScenePatch]);
+
     const handleStartPlaceEntry = (id: string) => {
         const entry = scene.initiativeOrder.find((e) => e.id === id);
         if (!entry) return;
@@ -797,6 +943,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     };
 
     const handlePlayAreaClick = (e: React.MouseEvent) => {
+        if (isToolCaptureMode) return;
         if (!isAdmin || !placingEntryId) return;
         if ((e.target as HTMLElement).closest('[data-gameboard-ui]')) return;
 
@@ -837,9 +984,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         });
     };
 
-    const placedCombatants = scene.initiativeOrder.filter(
-        (e) => e.mapPosition && !e.isKilled
-    );
+    const placedCombatants = scene.initiativeOrder
+        .filter((e) => e.mapPosition && !e.isKilled)
+        .sort((a, b) => Number(a.isCurrentTurn) - Number(b.isCurrentTurn));
 
     const handleToggleCurrentPlayer = () => {
         const updatedScene = {
@@ -1188,14 +1335,26 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 }))
             })),
             initiativeOrder: scene.initiativeOrder.map((entry) => {
-                if (!entry.mapPosition) return entry;
+                if (!entry.mapPosition) {
+                    return entry;
+                }
+                const shiftedPosition = {
+                    ...entry.mapPosition,
+                    x: entry.mapPosition.x + dx,
+                    y: entry.mapPosition.y + dy,
+                };
                 return {
                     ...entry,
-                    mapPosition: {
-                        ...entry.mapPosition,
-                        x: entry.mapPosition.x + dx,
-                        y: entry.mapPosition.y + dy,
-                    },
+                    mapPosition: shiftedPosition,
+                    ...(entry.turnMovementPath?.length
+                        ? {
+                              turnMovementPath: entry.turnMovementPath.map((point) => ({
+                                  ...point,
+                                  x: point.x + dx,
+                                  y: point.y + dy,
+                              })),
+                          }
+                        : {}),
                 };
             }),
         };
@@ -1261,7 +1420,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 ref={playAreaRef}
                 className={cn(
                     'flex-1 relative w-full h-full overflow-hidden',
-                    placingEntryId && isAdmin && 'cursor-crosshair'
+                    (placingEntryId && isAdmin || isToolCaptureMode) && 'cursor-crosshair'
                 )}
                 style={{ height: '100%', width: '100%', margin: 0, padding: 0 }}
                 onClick={handlePlayAreaClick}
@@ -1292,7 +1451,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     </div>
                 )}
                 {/* Maps Container - Allow individual map z-indices based on their order */}
-                <div className="absolute inset-0">
+                <div className={cn('absolute inset-0', isToolCaptureMode && 'pointer-events-none')}>
                     {scene.maps && scene.maps
                         .filter(map => !hideInvisibleMaps || !map.data.isHidden)
                         .map((map, index) => {
@@ -1323,8 +1482,14 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     zIndex={playAreaLayerZIndex(scene.maps?.length ?? 0, 'night')}
                 />
 
-                {/* AoE Markers - Ensure they're above maps but below UI */}
-                <div style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'aoe') }}>
+                {/* AoE Markers - Ensure they're above maps but below tokens */}
+                <div
+                    className={cn(
+                        'absolute inset-0',
+                        isToolCaptureMode && 'pointer-events-none'
+                    )}
+                    style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'aoe') }}
+                >
                     {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
                         <AoEMarker
                             key={marker.id}
@@ -1344,8 +1509,14 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     ))}
                 </div>
 
-                {/* Fog of War - Above AoE markers but below grid */}
-                <div style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'fog') }}>
+                {/* Fog of War - Above AoE markers but below tokens */}
+                <div
+                    className={cn(
+                        'absolute inset-0',
+                        isToolCaptureMode && 'pointer-events-none'
+                    )}
+                    style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'fog') }}
+                >
                     {scene.fogOfWar && scene.fogOfWar.map((fog) => (
                         <FogOfWar
                             key={fog.id}
@@ -1365,7 +1536,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
                 {/* Combatant tokens - above fog/grid so viewers see them */}
                 <div
-                    className="absolute inset-0 pointer-events-none [&>*]:pointer-events-auto"
+                    className={cn(
+                        'absolute inset-0 pointer-events-none',
+                        isToolCaptureMode
+                            ? '[&>*]:pointer-events-none'
+                            : '[&>*]:pointer-events-auto'
+                    )}
                     style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'tokens') }}
                 >
                     {placedCombatants.map((entry) => (
@@ -1377,9 +1553,49 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             containerRef={playAreaRef}
                             gridSettings={scene.gridSettings}
                             defaultTokenFootprint={scene.gridSettings.defaultTokenFootprint}
+                            movementPath={
+                                entry.id === currentTurnEntryId
+                                    ? movementPath
+                                    : undefined
+                            }
+                            onMovementStop={
+                                entry.id === currentTurnEntryId
+                                    ? appendMovementStop
+                                    : undefined
+                            }
+                            onResetMovement={
+                                entry.id === currentTurnEntryId
+                                    ? resetMovementPath
+                                    : undefined
+                            }
+                            onMovementPreviewChange={
+                                entry.id === currentTurnEntryId
+                                    ? setMovementPreviewPoint
+                                    : undefined
+                            }
                         />
                     ))}
                 </div>
+
+                {currentTurnEntryId && movementPath.length > 0 && (
+                        <div
+                            className="absolute inset-0 pointer-events-none"
+                            style={{
+                                zIndex: playAreaLayerZIndex(
+                                    scene.maps?.length ?? 0,
+                                    'movementTrail'
+                                ),
+                            }}
+                        >
+                            <TokenMovementTrail
+                                points={movementTrail.measurePoints}
+                                previewPoint={movementPreviewPoint}
+                                totalFeet={movementTrail.totalFeet}
+                                containerRef={playAreaRef}
+                                tokenRadius={movementTrail.tokenRadius}
+                            />
+                        </div>
+                    )}
 
                 {placingEntryId && isAdmin && (
                     <div
@@ -1458,11 +1674,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 <GameboardMenu
                     connectionStatus={connectionStatus}
                     gridSettings={scene.gridSettings}
+                    playAreaRef={playAreaRef}
                     isViewerBlanked={isViewerBlanked}
                     onToggleViewerBlank={handleToggleViewerBlank}
                     isDarkMode={isDarkMode}
                     brightness={brightness}
                     applyNightMode={applyNightMode}
+                    onActiveToolChange={setGameboardActiveTool}
                 />
             )}
 

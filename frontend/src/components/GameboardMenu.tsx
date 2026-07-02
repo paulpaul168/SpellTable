@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import {
     MousePointer,
@@ -15,63 +16,99 @@ import { GameboardDock } from '@/components/gameboard/GameboardDock';
 import { websocketService } from '../services/websocket';
 import type { Scene } from '@/types/map';
 import { MeasureOverlay } from './MeasureOverlay';
+import { getPlayAreaRect } from '@/utils/aoeCoordinates';
 import {
-    getGridCellDimensions,
+    isLegacyMeasurePoint,
+    legacyMeasurePointToNormalized,
+    measurePointToContainerPixels,
+    migrateMeasurePoints,
     pathLengthFeet,
+    pointerToMeasurePoint,
     type MeasurePoint,
 } from '@/utils/measureDistance';
 
 interface GameboardMenuProps {
     connectionStatus: string;
     gridSettings: Scene['gridSettings'];
+    playAreaRef: React.RefObject<HTMLDivElement | null>;
     isViewerBlanked: boolean;
     onToggleViewerBlank: () => void;
     isDarkMode: boolean;
     brightness: number;
     applyNightMode: (enabled: boolean, brightness: number) => void;
+    onActiveToolChange?: (tool: string) => void;
+}
+
+function isClickInPlayArea(
+    target: HTMLElement,
+    playAreaRef: React.RefObject<HTMLDivElement | null>
+): boolean {
+    return playAreaRef.current?.contains(target) ?? false;
 }
 
 function isClickOnUiElement(target: HTMLElement): boolean {
     return Boolean(
         target.closest('button') ||
             target.closest('[role="button"]') ||
+            target.closest('[role="menu"]') ||
+            target.closest('[role="menuitem"]') ||
             target.closest('.dropdown') ||
             target.closest('input') ||
             target.closest('select') ||
             target.closest('a') ||
             target.closest('menu') ||
             target.closest('label') ||
-            target.closest('[data-ui-element="true"]')
+            target.closest('[data-ui-element="true"]') ||
+            target.closest('[data-gameboard-ui]') ||
+            target.closest('[data-radix-popper-content-wrapper]')
     );
 }
 
 export const GameboardMenu: React.FC<GameboardMenuProps> = ({
     connectionStatus,
     gridSettings,
+    playAreaRef,
     isViewerBlanked,
     onToggleViewerBlank,
     isDarkMode,
     brightness,
     applyNightMode,
+    onActiveToolChange,
 }) => {
     const [activeTool, setActiveTool] = useState<string>('pointer');
     const [showRipple, setShowRipple] = useState(false);
-    const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
+    const [ripplePosition, setRipplePosition] = useState<MeasurePoint>({ x: 0, y: 0 });
     const [measurePoints, setMeasurePoints] = useState<MeasurePoint[]>([]);
     const [isShaking, setIsShaking] = useState(false);
     const [justActivatedMarker, setJustActivatedMarker] = useState(false);
     const [justActivatedMeasure, setJustActivatedMeasure] = useState(false);
+    const [layoutTick, setLayoutTick] = useState(0);
 
     const menuRef = useRef<HTMLDivElement>(null);
 
-    const cellDims = useMemo(
-        () => getGridCellDimensions(gridSettings),
-        [gridSettings]
+    useEffect(() => {
+        const handleResize = () => setLayoutTick((n) => n + 1);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    useEffect(() => {
+        setLayoutTick((n) => n + 1);
+    }, [playAreaRef]);
+
+    const playAreaRect = useMemo(
+        () => getPlayAreaRect(playAreaRef.current),
+        [playAreaRef, layoutTick]
     );
 
     const totalMeasureFeet = useMemo(
-        () => pathLengthFeet(measurePoints, cellDims),
-        [measurePoints, cellDims]
+        () => pathLengthFeet(measurePoints, gridSettings, playAreaRect),
+        [measurePoints, gridSettings, playAreaRect]
+    );
+
+    const rippleDisplayPosition = useMemo(
+        () => measurePointToContainerPixels(ripplePosition, playAreaRect),
+        [ripplePosition, playAreaRect]
     );
 
     const broadcastSceneEvent = useCallback(
@@ -97,26 +134,42 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
 
     const applyMeasurePoints = useCallback(
         (points: MeasurePoint[], broadcast = true) => {
-            setMeasurePoints(points);
+            const normalized = migrateMeasurePoints(
+                points,
+                getPlayAreaRect(playAreaRef.current)
+            );
+            setMeasurePoints(normalized);
             if (broadcast) {
-                broadcastSceneEvent('measure_update', { points });
+                broadcastSceneEvent('measure_update', { points: normalized });
             }
         },
-        [broadcastSceneEvent]
+        [broadcastSceneEvent, playAreaRef]
     );
 
-    const createRippleEffect = useCallback((x: number, y: number, broadcast = true) => {
-        setRipplePosition({ x, y });
-        setShowRipple(true);
+    const createRippleEffect = useCallback(
+        (point: MeasurePoint, broadcast = true) => {
+            const normalized = isLegacyMeasurePoint(point)
+                ? legacyMeasurePointToNormalized(
+                      point,
+                      getPlayAreaRect(playAreaRef.current)
+                  )
+                : point;
+            setRipplePosition(normalized);
+            setShowRipple(true);
 
-        setTimeout(() => {
-            setShowRipple(false);
-        }, 3000);
+            setTimeout(() => {
+                setShowRipple(false);
+            }, 3000);
 
-        if (broadcast) {
-            broadcastSceneEvent('ripple_effect', { x, y });
-        }
-    }, [broadcastSceneEvent]);
+            if (broadcast) {
+                broadcastSceneEvent('ripple_effect', {
+                    x: normalized.x,
+                    y: normalized.y,
+                });
+            }
+        },
+        [broadcastSceneEvent, playAreaRef]
+    );
 
     const toggleLightningEffect = useCallback((broadcast = true) => {
         if (typeof document !== 'undefined') {
@@ -163,7 +216,10 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
         }) => {
             if (data.type === 'scene_event') {
                 if (data.eventType === 'ripple_effect') {
-                    createRippleEffect(data.x ?? 0, data.y ?? 0, false);
+                    createRippleEffect(
+                        { x: data.x ?? 0, y: data.y ?? 0 },
+                        false
+                    );
                 } else if (data.eventType === 'lightning_effect') {
                     toggleLightningEffect(false);
                 } else if (data.eventType === 'shake_effect') {
@@ -208,6 +264,10 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
     }, [isShaking]);
 
     useEffect(() => {
+        onActiveToolChange?.(activeTool);
+    }, [activeTool, onActiveToolChange]);
+
+    useEffect(() => {
         const handleDocumentClick = (e: MouseEvent) => {
             if (activeTool !== 'marker') return;
 
@@ -217,8 +277,13 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
             }
 
             const target = e.target as HTMLElement;
-            if (!isClickOnUiElement(target)) {
-                createRippleEffect(e.clientX, e.clientY);
+            if (
+                isClickInPlayArea(target, playAreaRef) &&
+                !isClickOnUiElement(target)
+            ) {
+                const rect = getPlayAreaRect(playAreaRef.current);
+                createRippleEffect(pointerToMeasurePoint(e.clientX, e.clientY, rect));
+                e.stopPropagation();
             }
         };
 
@@ -233,7 +298,7 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
                 document.body.style.cursor = '';
             }
         };
-    }, [activeTool, justActivatedMarker, createRippleEffect]);
+    }, [activeTool, justActivatedMarker, createRippleEffect, playAreaRef]);
 
     useEffect(() => {
         const handleDocumentClick = (e: MouseEvent) => {
@@ -245,13 +310,18 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
             }
 
             const target = e.target as HTMLElement;
-            if (!isClickOnUiElement(target)) {
-                const nextPoint = { x: e.clientX, y: e.clientY };
+            if (
+                isClickInPlayArea(target, playAreaRef) &&
+                !isClickOnUiElement(target)
+            ) {
+                const rect = getPlayAreaRect(playAreaRef.current);
+                const nextPoint = pointerToMeasurePoint(e.clientX, e.clientY, rect);
                 setMeasurePoints((prev) => {
                     const next = [...prev, nextPoint];
                     broadcastSceneEvent('measure_update', { points: next });
                     return next;
                 });
+                e.stopPropagation();
             }
         };
 
@@ -266,7 +336,7 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
                 document.body.style.cursor = '';
             }
         };
-    }, [activeTool, justActivatedMeasure, broadcastSceneEvent]);
+    }, [activeTool, justActivatedMeasure, broadcastSceneEvent, playAreaRef]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -386,6 +456,67 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
     const showMeasureOverlay =
         activeTool === 'measure' || measurePoints.length > 0;
 
+    const playAreaPortalTarget = playAreaRef.current;
+
+    const playAreaEffects =
+        playAreaPortalTarget &&
+        createPortal(
+            <>
+                {showMeasureOverlay && (
+                    <MeasureOverlay
+                        points={measurePoints}
+                        totalFeet={totalMeasureFeet}
+                        containerRef={playAreaRef}
+                        showEmptyHint={activeTool === 'measure'}
+                    />
+                )}
+
+                {showRipple && (
+                    <div
+                        className="absolute pointer-events-none z-[900]"
+                        style={{
+                            left: rippleDisplayPosition.x,
+                            top: rippleDisplayPosition.y,
+                        }}
+                    >
+                        <div
+                            className="absolute rounded-full animate-ripple-1"
+                            style={{
+                                width: '80px',
+                                height: '80px',
+                                border: '2px solid #4ade80',
+                                transform: 'translate(-50%, -50%)',
+                                opacity: 0.9,
+                            }}
+                        />
+                        <div
+                            className="absolute rounded-full animate-ripple-2"
+                            style={{
+                                width: '110px',
+                                height: '110px',
+                                border: '2px solid #4ade80',
+                                transform: 'translate(-50%, -50%)',
+                                opacity: 0.7,
+                                animationDelay: '0.5s',
+                            }}
+                        />
+                        <div
+                            className="absolute rounded-full animate-ripple-3"
+                            style={{
+                                width: '140px',
+                                height: '140px',
+                                border: '2px solid #4ade80',
+                                transform: 'translate(-50%, -50%)',
+                                opacity: 0.5,
+                                animationDelay: '1s',
+                            }}
+                        />
+                    </div>
+                )}
+            </>,
+            playAreaPortalTarget
+        );
+
     return (
         <>
             <div
@@ -469,50 +600,7 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
                 </div>
             )}
 
-            {showMeasureOverlay && (
-                <MeasureOverlay
-                    points={measurePoints}
-                    totalFeet={totalMeasureFeet}
-                    showEmptyHint={activeTool === 'measure'}
-                />
-            )}
-
-            {showRipple && (
-                <div className="fixed pointer-events-none z-[900]" style={{ left: ripplePosition.x, top: ripplePosition.y }}>
-                    <div
-                        className="absolute rounded-full animate-ripple-1"
-                        style={{
-                            width: '80px',
-                            height: '80px',
-                            border: '2px solid #4ade80',
-                            transform: 'translate(-50%, -50%)',
-                            opacity: 0.9,
-                        }}
-                    />
-                    <div
-                        className="absolute rounded-full animate-ripple-2"
-                        style={{
-                            width: '110px',
-                            height: '110px',
-                            border: '2px solid #4ade80',
-                            transform: 'translate(-50%, -50%)',
-                            opacity: 0.7,
-                            animationDelay: '0.5s',
-                        }}
-                    />
-                    <div
-                        className="absolute rounded-full animate-ripple-3"
-                        style={{
-                            width: '140px',
-                            height: '140px',
-                            border: '2px solid #4ade80',
-                            transform: 'translate(-50%, -50%)',
-                            opacity: 0.5,
-                            animationDelay: '1s',
-                        }}
-                    />
-                </div>
-            )}
+            {playAreaEffects}
         </>
     );
 };

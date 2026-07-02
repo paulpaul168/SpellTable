@@ -4,7 +4,18 @@ export const PLAY_AREA_LAYER = {
     aoe: 100,
     fog: 150,
     grid: 200,
-    tokens: 210,
+    /** Above AoE/fog/grid; below token icons. */
+    movementTrail: 945,
+    /** Above AoE marker max (900 while dragging). */
+    tokens: 950,
+} as const;
+
+/** Per-token z-index within the tokens layer (relative ordering only). */
+export const COMBATANT_TOKEN_Z_INDEX = {
+    default: 1,
+    currentTurn: 10,
+    dragging: 20,
+    currentTurnDragging: 30,
 } as const;
 
 export function playAreaLayerZIndex(

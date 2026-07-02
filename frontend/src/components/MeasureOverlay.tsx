@@ -1,11 +1,16 @@
-import React from 'react';
+import React, { useEffect, useState, type RefObject } from 'react';
 import { cn } from '@/lib/utils';
+import { getPlayAreaRect } from '@/utils/aoeCoordinates';
 import type { MeasurePoint } from '@/utils/measureDistance';
-import { formatMeasureFeet } from '@/utils/measureDistance';
+import {
+    formatMeasureFeet,
+    measurePointToContainerPixels,
+} from '@/utils/measureDistance';
 
 interface MeasureOverlayProps {
     points: MeasurePoint[];
     totalFeet: number;
+    containerRef: RefObject<HTMLElement | null>;
     className?: string;
     showEmptyHint?: boolean;
 }
@@ -13,11 +18,25 @@ interface MeasureOverlayProps {
 export const MeasureOverlay: React.FC<MeasureOverlayProps> = ({
     points,
     totalFeet,
+    containerRef,
     className,
     showEmptyHint = false,
 }) => {
-    const polylinePoints = points.map((p) => `${p.x},${p.y}`).join(' ');
-    const last = points[points.length - 1];
+    const [, setResizeTick] = useState(0);
+
+    useEffect(() => {
+        const handleResize = () => setResizeTick((n) => n + 1);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    const containerRect = getPlayAreaRect(containerRef.current);
+    const displayPoints = points.map((p) =>
+        measurePointToContainerPixels(p, containerRect)
+    );
+
+    const polylinePoints = displayPoints.map((p) => `${p.x},${p.y}`).join(' ');
+    const last = displayPoints[displayPoints.length - 1];
     const labelText =
         points.length >= 2
             ? formatMeasureFeet(totalFeet)
@@ -31,12 +50,12 @@ export const MeasureOverlay: React.FC<MeasureOverlayProps> = ({
     return (
         <div
             className={cn(
-                'fixed inset-0 pointer-events-none z-[900]',
+                'absolute inset-0 pointer-events-none z-[900]',
                 className
             )}
         >
             <svg className="h-full w-full">
-                {points.length >= 2 && (
+                {displayPoints.length >= 2 && (
                     <polyline
                         points={polylinePoints}
                         fill="none"
@@ -46,7 +65,7 @@ export const MeasureOverlay: React.FC<MeasureOverlayProps> = ({
                         strokeLinejoin="round"
                     />
                 )}
-                {points.map((p, i) => (
+                {displayPoints.map((p, i) => (
                     <circle
                         key={i}
                         cx={p.x}

@@ -5,6 +5,7 @@ import { Input } from './ui/input';
 import { useToast } from './ui/use-toast';
 import { Plus, Trash2, ChevronDown, ChevronUp, Eye, EyeOff, Skull, X, ChevronRight, ScrollText, MapPin, MapPinOff, Pencil } from 'lucide-react';
 import { EncounterHistoryEntry, InitiativeEntry } from '../types/map';
+import { applyTurnChangeToEntries } from '@/utils/turnMovementTrail';
 import {
     DndContext,
     closestCenter,
@@ -376,16 +377,18 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
             if (aliveEntries.length > 0) {
                 const currentIndex = aliveEntries.findIndex(entry => entry.id === id);
                 const nextIndex = (currentIndex + 1) % aliveEntries.length;
+                const newCurrentId = aliveEntries[nextIndex].id;
 
-                // First update the current turn
-                const updatedEntries = entries.map((entry) => ({
-                    ...entry,
-                    isCurrentTurn: !entry.isKilled && entry.id === aliveEntries[nextIndex].id
-                }));
-
-                // Then mark as killed
-                const finalEntries = updatedEntries.map(entry =>
-                    entry.id === id ? { ...entry, isKilled: true, isCurrentTurn: false } : entry
+                let finalEntries = applyTurnChangeToEntries(entries, newCurrentId);
+                finalEntries = finalEntries.map((entry) =>
+                    entry.id === id
+                        ? {
+                              ...entry,
+                              isKilled: true,
+                              isCurrentTurn: false,
+                              turnMovementPath: undefined,
+                          }
+                        : entry
                 );
 
                 updateWithLog(finalEntries, `Killed ${killedEntry.name}`);
@@ -446,16 +449,18 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                 if (aliveEntries.length > 0) {
                     const currentIndex = aliveEntries.findIndex(e => e.id === id);
                     const nextIndex = (currentIndex + 1) % aliveEntries.length;
+                    const newCurrentId = aliveEntries[nextIndex].id;
 
-                    // First update the current turn
-                    const updatedEntries = newEntries.map((entry) => ({
-                        ...entry,
-                        isCurrentTurn: !entry.isKilled && entry.id === aliveEntries[nextIndex].id
-                    }));
-
-                    // Then mark as killed
-                    const finalEntries = updatedEntries.map(entry =>
-                        entry.id === id ? { ...entry, isKilled: true, isCurrentTurn: false } : entry
+                    let finalEntries = applyTurnChangeToEntries(newEntries, newCurrentId);
+                    finalEntries = finalEntries.map((entry) =>
+                        entry.id === id
+                            ? {
+                                  ...entry,
+                                  isKilled: true,
+                                  isCurrentTurn: false,
+                                  turnMovementPath: undefined,
+                              }
+                            : entry
                     );
 
                     updateWithLog(finalEntries, logText);
@@ -485,10 +490,10 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
         const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % aliveEntries.length;
         const toName = aliveEntries[nextIndex]?.name;
 
-        const newEntries = entries.map((entry) => ({
-            ...entry,
-            isCurrentTurn: !entry.isKilled && entry.id === aliveEntries[nextIndex].id
-        }));
+        const newEntries = applyTurnChangeToEntries(
+            entries,
+            aliveEntries[nextIndex].id
+        );
 
         if (fromName && toName && fromName !== toName) {
             updateWithLog(newEntries, `Turn: ${fromName} → ${toName}`);
@@ -508,10 +513,10 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
         const prevIndex = currentIndex === -1 ? aliveEntries.length - 1 : (currentIndex - 1 + aliveEntries.length) % aliveEntries.length;
         const toName = aliveEntries[prevIndex]?.name;
 
-        const newEntries = entries.map((entry) => ({
-            ...entry,
-            isCurrentTurn: !entry.isKilled && entry.id === aliveEntries[prevIndex].id
-        }));
+        const newEntries = applyTurnChangeToEntries(
+            entries,
+            aliveEntries[prevIndex].id
+        );
 
         if (fromName && toName && fromName !== toName) {
             updateWithLog(newEntries, `Turn: ${fromName} → ${toName}`);

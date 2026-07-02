@@ -6,6 +6,7 @@ import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from './ui/checkbox';
 import { toast } from '@/components/ui/use-toast';
+import type { DndDiagonalRule, DistanceMode } from '@/utils/measureDistance';
 
 // Using divs instead of RadioGroup and Slider since those components might need extra setup
 interface DisplayCalculatorProps {
@@ -23,6 +24,9 @@ interface DisplayCalculatorProps {
         useFixedGrid?: boolean;
         aoeSnapToGrid?: boolean;
         tokenSnapToGrid?: boolean;
+        distanceMode?: DistanceMode;
+        dndDiagonalRule?: DndDiagonalRule;
+        showMovementTrailToPlayers?: boolean;
     };
     onUpdateGridSettings?: (settings: any) => void;
 }
@@ -57,6 +61,15 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
     const [gridCellsY, setGridCellsY] = useState(gridSettings?.gridCellsY || 13);
     const [aoeSnapToGrid, setAoeSnapToGrid] = useState(gridSettings?.aoeSnapToGrid !== false);
     const [tokenSnapToGrid, setTokenSnapToGrid] = useState(gridSettings?.tokenSnapToGrid !== false);
+    const [distanceMode, setDistanceMode] = useState<DistanceMode>(
+        gridSettings?.distanceMode === 'euclidean' ? 'euclidean' : 'dnd'
+    );
+    const [dndDiagonalRule, setDndDiagonalRule] = useState<DndDiagonalRule>(
+        gridSettings?.dndDiagonalRule === 'alternating' ? 'alternating' : 'tenFeet'
+    );
+    const [showMovementTrailToPlayers, setShowMovementTrailToPlayers] = useState(
+        gridSettings?.showMovementTrailToPlayers !== false
+    );
 
     // Active tab state
     const [activeTab, setActiveTab] = useState("settings");
@@ -74,6 +87,15 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 setGridCellsY(gridSettings.gridCellsY || 13);
                 setAoeSnapToGrid(gridSettings.aoeSnapToGrid !== false);
                 setTokenSnapToGrid(gridSettings.tokenSnapToGrid !== false);
+                setDistanceMode(
+                    gridSettings.distanceMode === 'euclidean' ? 'euclidean' : 'dnd'
+                );
+                setDndDiagonalRule(
+                    gridSettings.dndDiagonalRule === 'alternating' ? 'alternating' : 'tenFeet'
+                );
+                setShowMovementTrailToPlayers(
+                    gridSettings.showMovementTrailToPlayers !== false
+                );
             }
         });
     }, [currentGridSize, gridSettings]);
@@ -165,6 +187,9 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 gridCellsY,
                 aoeSnapToGrid,
                 tokenSnapToGrid,
+                distanceMode,
+                dndDiagonalRule,
+                showMovementTrailToPlayers,
             });
 
             // When we apply new grid settings, show a message about existing elements
@@ -191,6 +216,9 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 gridCellsY,
                 aoeSnapToGrid,
                 tokenSnapToGrid,
+                distanceMode,
+                dndDiagonalRule,
+                showMovementTrailToPlayers,
             });
         } else {
             onApplyGridSize(useFixedGrid ? calculatedGridSize : gridSize);
@@ -330,6 +358,90 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                         </div>
                         <p className="text-xs text-zinc-500 -mt-1 pl-6">
                             Turn off to place and drag player/enemy tokens freely.
+                        </p>
+
+                        <div className="space-y-2 pt-3 border-t border-zinc-800">
+                            <Label className="text-sm">Distance calculation</Label>
+                            <div className="space-y-2">
+                                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="distance-mode"
+                                        checked={distanceMode === 'dnd'}
+                                        onChange={() => setDistanceMode('dnd')}
+                                        className="accent-blue-600"
+                                    />
+                                    D&amp;D grid
+                                </label>
+                                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="distance-mode"
+                                        checked={distanceMode === 'euclidean'}
+                                        onChange={() => setDistanceMode('euclidean')}
+                                        className="accent-blue-600"
+                                    />
+                                    Euclidean (as-the-crow-flies)
+                                </label>
+                            </div>
+                            <p className="text-xs text-zinc-500">
+                                {distanceMode === 'dnd'
+                                    ? 'Orthogonal squares cost 5 ft; diagonals follow the rule below.'
+                                    : 'Straight-line distance; one diagonal square is about 7 ft on a 5 ft grid.'}
+                            </p>
+                        </div>
+
+                        {distanceMode === 'dnd' && (
+                            <div className="space-y-2 pl-2">
+                                <Label className="text-sm">Diagonal rule</Label>
+                                <div className="space-y-2">
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="dnd-diagonal-rule"
+                                            checked={dndDiagonalRule === 'tenFeet'}
+                                            onChange={() => setDndDiagonalRule('tenFeet')}
+                                            className="accent-blue-600"
+                                        />
+                                        10 ft per diagonal square
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="dnd-diagonal-rule"
+                                            checked={dndDiagonalRule === 'alternating'}
+                                            onChange={() => setDndDiagonalRule('alternating')}
+                                            className="accent-blue-600"
+                                        />
+                                        Alternating 5 ft / 10 ft (DMG)
+                                    </label>
+                                </div>
+                                <p className="text-xs text-zinc-500">
+                                    {dndDiagonalRule === 'tenFeet'
+                                        ? 'Each diagonal square counts as 10 ft of movement.'
+                                        : 'Along a measured path, diagonals alternate 5 ft, 10 ft, 5 ft, 10 ft, and so on.'}
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="flex items-center space-x-2 pt-3 border-t border-zinc-800">
+                            <Checkbox
+                                id="movement-trail-players-toggle"
+                                checked={showMovementTrailToPlayers}
+                                onCheckedChange={(c) =>
+                                    setShowMovementTrailToPlayers(c === true)
+                                }
+                            />
+                            <Label
+                                htmlFor="movement-trail-players-toggle"
+                                className="text-sm font-normal cursor-pointer"
+                            >
+                                Show movement trail to players
+                            </Label>
+                        </div>
+                        <p className="text-xs text-zinc-500 -mt-1 pl-6">
+                            Players see the active turn movement path and distance on their
+                            screens.
                         </p>
 
                         <div className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg mt-4">

@@ -1,5 +1,6 @@
 import type { InitiativeEntry, MapPosition } from '@/types/map';
 import { gridCoordsToPixel } from '@/utils/aoeCoordinates';
+import type { MeasurePoint } from '@/utils/measureDistance';
 
 /** Grid cells per side: 1 = Medium (5×5 ft), 2 = Large (10×10 ft), 3 = Huge (15×15 ft). */
 export const TOKEN_FOOTPRINTS = [1, 2, 3] as const;
@@ -170,4 +171,57 @@ export function tokenMapPositionToDisplayPixels(
         x: mapPosition.x * containerRect.width,
         y: mapPosition.y * containerRect.height,
     };
+}
+
+const MAP_POSITION_EPS = 1e-4;
+
+export function mapPositionsEqual(a: MapPosition, b: MapPosition): boolean {
+    const aGrid = a.useGridCoordinates !== false;
+    const bGrid = b.useGridCoordinates !== false;
+    if (aGrid !== bGrid) {
+        return false;
+    }
+    return (
+        Math.abs(a.x - b.x) < MAP_POSITION_EPS &&
+        Math.abs(a.y - b.y) < MAP_POSITION_EPS
+    );
+}
+
+export function mapPositionToMeasurePoint(
+    mapPosition: MapPosition,
+    containerRect: DOMRect,
+    gridCellsX: number,
+    gridCellsY: number
+): MeasurePoint {
+    const px = tokenMapPositionToDisplayPixels(
+        mapPosition,
+        containerRect,
+        gridCellsX,
+        gridCellsY
+    );
+    return {
+        x: px.x / containerRect.width,
+        y: px.y / containerRect.height,
+    };
+}
+
+export function displayPixelsToMeasurePoint(
+    px: { x: number; y: number },
+    containerRect: DOMRect
+): MeasurePoint {
+    return {
+        x: px.x / containerRect.width,
+        y: px.y / containerRect.height,
+    };
+}
+
+export function mapPositionsToMeasurePoints(
+    positions: MapPosition[],
+    containerRect: DOMRect,
+    gridCellsX: number,
+    gridCellsY: number
+): MeasurePoint[] {
+    return positions.map((p) =>
+        mapPositionToMeasurePoint(p, containerRect, gridCellsX, gridCellsY)
+    );
 }

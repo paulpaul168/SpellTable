@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Scene as SceneType } from '../../types/map';
 import { Map } from '../../components/Map';
 import { websocketService } from '../../services/websocket';
@@ -8,6 +8,7 @@ import { InitiativeIndicator } from '../../components/InitiativeIndicator';
 import { AoEMarker } from '../../components/AoEMarker';
 import { FogOfWar } from '../../components/FogOfWar';
 import { CombatantToken } from '../../components/CombatantToken';
+import { TokenMovementTrail } from '../../components/TokenMovementTrail';
 import { RippleViewer } from '../../components/RippleViewer';
 import { NightModeOverlay } from '../../components/NightModeOverlay';
 import { ProtectedRoute } from '../../components/ProtectedRoute';
@@ -16,6 +17,7 @@ import { Button } from '../../components/ui/button';
 import { getPlayAreaRect, migrateAoEMarkers } from '@/utils/aoeCoordinates';
 import { useNightMode } from '@/hooks/useNightMode';
 import { playAreaLayerZIndex } from '@/utils/playAreaLayers';
+import { computeTurnMovementTrail, getLiveMovementPreviewPoint } from '@/utils/turnMovementTrail';
 
 function withMigratedAoEMarkers(
     scene: SceneType,
@@ -163,6 +165,52 @@ export default function ViewerPage() {
 
     const currentPlayer = scene.initiativeOrder?.find(entry => entry.isCurrentTurn);
 
+    const currentTurnEntry = scene.initiativeOrder.find(
+        (entry) => entry.isCurrentTurn && !entry.isKilled
+    );
+    const movementPath = currentTurnEntry?.turnMovementPath ?? [];
+    const showMovementTrail =
+        scene.gridSettings.showMovementTrailToPlayers !== false &&
+        movementPath.length > 0;
+
+    const movementPreviewPoint = useMemo(() => {
+        if (typeof window === 'undefined' || !showMovementTrail) {
+            return null;
+        }
+        return getLiveMovementPreviewPoint(
+            movementPath,
+            currentTurnEntry?.mapPosition,
+            playAreaRef.current,
+            scene.gridSettings.gridCellsX ?? 25,
+            scene.gridSettings.gridCellsY ?? 13
+        );
+    }, [
+        movementPath,
+        currentTurnEntry?.mapPosition,
+        showMovementTrail,
+        scene.gridSettings.gridCellsX,
+        scene.gridSettings.gridCellsY,
+    ]);
+
+    const movementTrail = useMemo(() => {
+        if (typeof window === 'undefined' || !showMovementTrail || !currentTurnEntry) {
+            return { measurePoints: [], totalFeet: 0, tokenRadius: 28 };
+        }
+        return computeTurnMovementTrail({
+            path: movementPath,
+            previewPoint: movementPreviewPoint,
+            gridSettings: scene.gridSettings,
+            containerRef: playAreaRef.current,
+            entry: currentTurnEntry,
+        });
+    }, [
+        movementPath,
+        movementPreviewPoint,
+        scene.gridSettings,
+        currentTurnEntry,
+        showMovementTrail,
+    ]);
+
     const handleLogout = () => {
         logout();
     };
@@ -229,8 +277,11 @@ export default function ViewerPage() {
                         zIndex={playAreaLayerZIndex(scene.maps?.length ?? 0, 'night')}
                     />
 
-                    {/* AoE Markers - View Only - Ensure they're above maps but below UI */}
-                    <div style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'aoe') }}>
+                    {/* AoE Markers - View Only - Ensure they're above maps but below tokens */}
+                    <div
+                        className="absolute inset-0"
+                        style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'aoe') }}
+                    >
                         {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
                             <AoEMarker
                                 key={marker.id}
@@ -249,7 +300,10 @@ export default function ViewerPage() {
                     </div>
 
                     {/* Fog of War - View Only - Renders as opaque black to hide content */}
-                    <div style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'fog') }}>
+                    <div
+                        className="absolute inset-0"
+                        style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'fog') }}
+                    >
                         {scene.fogOfWar && scene.fogOfWar.map((fog) => (
                             <FogOfWar
                                 key={fog.id}
@@ -273,6 +327,7 @@ export default function ViewerPage() {
                     >
                         {scene.initiativeOrder
                             .filter((e) => e.mapPosition && !e.isKilled)
+                            .sort((a, b) => Number(a.isCurrentTurn) - Number(b.isCurrentTurn))
                             .map((entry) => (
                                 <CombatantToken
                                     key={entry.id}
@@ -285,6 +340,26 @@ export default function ViewerPage() {
                                 />
                             ))}
                     </div>
+
+                    {showMovementTrail && currentTurnEntry && (
+                        <div
+                            className="absolute inset-0 pointer-events-none"
+                            style={{
+                                zIndex: playAreaLayerZIndex(
+                                    scene.maps?.length ?? 0,
+                                    'movementTrail'
+                                ),
+                            }}
+                        >
+                            <TokenMovementTrail
+                                points={movementTrail.measurePoints}
+                                previewPoint={movementPreviewPoint}
+                                totalFeet={movementTrail.totalFeet}
+                                containerRef={playAreaRef}
+                                tokenRadius={movementTrail.tokenRadius}
+                            />
+                        </div>
+                    )}
 
                     {/* Grid Overlay - above maps/markers, below initiative UI */}
                     {scene.gridSettings?.showGrid && (
@@ -345,7 +420,11 @@ export default function ViewerPage() {
                     </div>
                 )}
             </div>
-            <RippleViewer hidden={isViewerBlanked} gridSettings={scene.gridSettings} />
+            <RippleViewer
+                hidden={isViewerBlanked}
+                gridSettings={scene.gridSettings}
+                playAreaRef={playAreaRef}
+            />
             </>
         </ProtectedRoute>
     );
