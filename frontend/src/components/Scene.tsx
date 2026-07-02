@@ -80,6 +80,8 @@ import type { MeasurePoint } from '@/utils/measureDistance';
 import {
     pathLengthFeet,
     segmentLengthFeet,
+    getDndDiagonalIndexAfterPath,
+    FEET_PER_CELL,
 } from '@/utils/measureDistance';
 import { FogOfWarPalette } from './FogOfWarPalette';
 import { DisplayCalculator } from './DisplayCalculator';
@@ -279,11 +281,17 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             rect
         );
         if (movementPreviewPoint && movementMeasurePoints.length > 0) {
+            const diagonalIndex = getDndDiagonalIndexAfterPath(
+                movementMeasurePoints,
+                scene.gridSettings
+            );
             feet += segmentLengthFeet(
                 movementMeasurePoints[movementMeasurePoints.length - 1],
                 movementPreviewPoint,
                 scene.gridSettings,
-                rect
+                rect,
+                FEET_PER_CELL,
+                diagonalIndex
             );
         }
         return feet;

@@ -110,6 +110,10 @@ export interface Scene {
         defaultTokenFootprint?: 1 | 2 | 3;
         /** @deprecated Use defaultTokenFootprint */
         defaultTokenSize?: number;
+        /** Distance calculation for measure tool and movement trails. Default dnd. */
+        distanceMode?: 'dnd' | 'euclidean';
+        /** Diagonal cost rule when distanceMode is dnd. Default tenFeet. */
+        dndDiagonalRule?: 'tenFeet' | 'alternating';
     };
     initiativeOrder: InitiativeEntry[];
     encounterHistory?: EncounterHistoryEntry[];
