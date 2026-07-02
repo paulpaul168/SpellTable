@@ -345,7 +345,11 @@ export default function ViewerPage() {
                     </div>
                 )}
             </div>
-            <RippleViewer hidden={isViewerBlanked} gridSettings={scene.gridSettings} />
+            <RippleViewer
+                hidden={isViewerBlanked}
+                gridSettings={scene.gridSettings}
+                playAreaRef={playAreaRef}
+            />
             </>
         </ProtectedRoute>
     );
