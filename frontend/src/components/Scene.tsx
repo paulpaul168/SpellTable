@@ -180,7 +180,11 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
     const [isMonsterManagementOpen, setIsMonsterManagementOpen] = useState(false);
     const [placingEntryId, setPlacingEntryId] = useState<string | null>(null);
+    const [gameboardActiveTool, setGameboardActiveTool] = useState('pointer');
     const { isDarkMode, brightness, applyNightMode } = useNightMode();
+
+    const isToolCaptureMode =
+        gameboardActiveTool === 'measure' || gameboardActiveTool === 'marker';
 
     // Remove display scale functionality, using fixed 1.0 scale
     const displayScale = 1.0;
@@ -797,6 +801,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     };
 
     const handlePlayAreaClick = (e: React.MouseEvent) => {
+        if (isToolCaptureMode) return;
         if (!isAdmin || !placingEntryId) return;
         if ((e.target as HTMLElement).closest('[data-gameboard-ui]')) return;
 
@@ -1261,7 +1266,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 ref={playAreaRef}
                 className={cn(
                     'flex-1 relative w-full h-full overflow-hidden',
-                    placingEntryId && isAdmin && 'cursor-crosshair'
+                    (placingEntryId && isAdmin || isToolCaptureMode) && 'cursor-crosshair'
                 )}
                 style={{ height: '100%', width: '100%', margin: 0, padding: 0 }}
                 onClick={handlePlayAreaClick}
@@ -1292,7 +1297,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     </div>
                 )}
                 {/* Maps Container - Allow individual map z-indices based on their order */}
-                <div className="absolute inset-0">
+                <div className={cn('absolute inset-0', isToolCaptureMode && 'pointer-events-none')}>
                     {scene.maps && scene.maps
                         .filter(map => !hideInvisibleMaps || !map.data.isHidden)
                         .map((map, index) => {
@@ -1324,7 +1329,10 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 />
 
                 {/* AoE Markers - Ensure they're above maps but below UI */}
-                <div style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'aoe') }}>
+                <div
+                    className={cn(isToolCaptureMode && 'pointer-events-none')}
+                    style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'aoe') }}
+                >
                     {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
                         <AoEMarker
                             key={marker.id}
@@ -1345,7 +1353,10 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 </div>
 
                 {/* Fog of War - Above AoE markers but below grid */}
-                <div style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'fog') }}>
+                <div
+                    className={cn(isToolCaptureMode && 'pointer-events-none')}
+                    style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'fog') }}
+                >
                     {scene.fogOfWar && scene.fogOfWar.map((fog) => (
                         <FogOfWar
                             key={fog.id}
@@ -1365,7 +1376,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
                 {/* Combatant tokens - above fog/grid so viewers see them */}
                 <div
-                    className="absolute inset-0 pointer-events-none [&>*]:pointer-events-auto"
+                    className={cn(
+                        'absolute inset-0 pointer-events-none',
+                        isToolCaptureMode
+                            ? '[&>*]:pointer-events-none'
+                            : '[&>*]:pointer-events-auto'
+                    )}
                     style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'tokens') }}
                 >
                     {placedCombatants.map((entry) => (
@@ -1464,6 +1480,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     isDarkMode={isDarkMode}
                     brightness={brightness}
                     applyNightMode={applyNightMode}
+                    onActiveToolChange={setGameboardActiveTool}
                 />
             )}
 

@@ -36,19 +36,31 @@ interface GameboardMenuProps {
     isDarkMode: boolean;
     brightness: number;
     applyNightMode: (enabled: boolean, brightness: number) => void;
+    onActiveToolChange?: (tool: string) => void;
+}
+
+function isClickInPlayArea(
+    target: HTMLElement,
+    playAreaRef: React.RefObject<HTMLDivElement | null>
+): boolean {
+    return playAreaRef.current?.contains(target) ?? false;
 }
 
 function isClickOnUiElement(target: HTMLElement): boolean {
     return Boolean(
         target.closest('button') ||
             target.closest('[role="button"]') ||
+            target.closest('[role="menu"]') ||
+            target.closest('[role="menuitem"]') ||
             target.closest('.dropdown') ||
             target.closest('input') ||
             target.closest('select') ||
             target.closest('a') ||
             target.closest('menu') ||
             target.closest('label') ||
-            target.closest('[data-ui-element="true"]')
+            target.closest('[data-ui-element="true"]') ||
+            target.closest('[data-gameboard-ui]') ||
+            target.closest('[data-radix-popper-content-wrapper]')
     );
 }
 
@@ -61,6 +73,7 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
     isDarkMode,
     brightness,
     applyNightMode,
+    onActiveToolChange,
 }) => {
     const [activeTool, setActiveTool] = useState<string>('pointer');
     const [showRipple, setShowRipple] = useState(false);
@@ -251,6 +264,10 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
     }, [isShaking]);
 
     useEffect(() => {
+        onActiveToolChange?.(activeTool);
+    }, [activeTool, onActiveToolChange]);
+
+    useEffect(() => {
         const handleDocumentClick = (e: MouseEvent) => {
             if (activeTool !== 'marker') return;
 
@@ -260,9 +277,13 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
             }
 
             const target = e.target as HTMLElement;
-            if (!isClickOnUiElement(target)) {
+            if (
+                isClickInPlayArea(target, playAreaRef) &&
+                !isClickOnUiElement(target)
+            ) {
                 const rect = getPlayAreaRect(playAreaRef.current);
                 createRippleEffect(pointerToMeasurePoint(e.clientX, e.clientY, rect));
+                e.stopPropagation();
             }
         };
 
@@ -289,7 +310,10 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
             }
 
             const target = e.target as HTMLElement;
-            if (!isClickOnUiElement(target)) {
+            if (
+                isClickInPlayArea(target, playAreaRef) &&
+                !isClickOnUiElement(target)
+            ) {
                 const rect = getPlayAreaRect(playAreaRef.current);
                 const nextPoint = pointerToMeasurePoint(e.clientX, e.clientY, rect);
                 setMeasurePoints((prev) => {
@@ -297,6 +321,7 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
                     broadcastSceneEvent('measure_update', { points: next });
                     return next;
                 });
+                e.stopPropagation();
             }
         };
 
