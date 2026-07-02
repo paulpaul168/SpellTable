@@ -229,8 +229,11 @@ export default function ViewerPage() {
                         zIndex={playAreaLayerZIndex(scene.maps?.length ?? 0, 'night')}
                     />
 
-                    {/* AoE Markers - View Only - Ensure they're above maps but below UI */}
-                    <div style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'aoe') }}>
+                    {/* AoE Markers - View Only - Ensure they're above maps but below tokens */}
+                    <div
+                        className="absolute inset-0"
+                        style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'aoe') }}
+                    >
                         {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
                             <AoEMarker
                                 key={marker.id}
@@ -249,7 +252,10 @@ export default function ViewerPage() {
                     </div>
 
                     {/* Fog of War - View Only - Renders as opaque black to hide content */}
-                    <div style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'fog') }}>
+                    <div
+                        className="absolute inset-0"
+                        style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'fog') }}
+                    >
                         {scene.fogOfWar && scene.fogOfWar.map((fog) => (
                             <FogOfWar
                                 key={fog.id}
@@ -273,6 +279,7 @@ export default function ViewerPage() {
                     >
                         {scene.initiativeOrder
                             .filter((e) => e.mapPosition && !e.isKilled)
+                            .sort((a, b) => Number(a.isCurrentTurn) - Number(b.isCurrentTurn))
                             .map((entry) => (
                                 <CombatantToken
                                     key={entry.id}

@@ -842,9 +842,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         });
     };
 
-    const placedCombatants = scene.initiativeOrder.filter(
-        (e) => e.mapPosition && !e.isKilled
-    );
+    const placedCombatants = scene.initiativeOrder
+        .filter((e) => e.mapPosition && !e.isKilled)
+        .sort((a, b) => Number(a.isCurrentTurn) - Number(b.isCurrentTurn));
 
     const handleToggleCurrentPlayer = () => {
         const updatedScene = {
@@ -1328,9 +1328,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     zIndex={playAreaLayerZIndex(scene.maps?.length ?? 0, 'night')}
                 />
 
-                {/* AoE Markers - Ensure they're above maps but below UI */}
+                {/* AoE Markers - Ensure they're above maps but below tokens */}
                 <div
-                    className={cn(isToolCaptureMode && 'pointer-events-none')}
+                    className={cn(
+                        'absolute inset-0',
+                        isToolCaptureMode && 'pointer-events-none'
+                    )}
                     style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'aoe') }}
                 >
                     {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
@@ -1352,9 +1355,12 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     ))}
                 </div>
 
-                {/* Fog of War - Above AoE markers but below grid */}
+                {/* Fog of War - Above AoE markers but below tokens */}
                 <div
-                    className={cn(isToolCaptureMode && 'pointer-events-none')}
+                    className={cn(
+                        'absolute inset-0',
+                        isToolCaptureMode && 'pointer-events-none'
+                    )}
                     style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'fog') }}
                 >
                     {scene.fogOfWar && scene.fogOfWar.map((fog) => (

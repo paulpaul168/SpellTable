@@ -15,6 +15,7 @@ import {
 } from '@/utils/tokenFootprint';
 import { cn } from '../lib/utils';
 import { createThrottledLiveSync, type LiveSyncOptions } from '@/utils/liveSync';
+import { COMBATANT_TOKEN_Z_INDEX } from '@/utils/playAreaLayers';
 
 /** Closes any other token's open context menu before opening a new one. */
 let closeOtherTokenMenus: (() => void) | null = null;
@@ -291,20 +292,27 @@ export const CombatantToken = memo(function CombatantToken({
 
     const half = tokenDiameter / 2;
 
+    const zIndex = isDragging
+        ? entry.isCurrentTurn
+            ? COMBATANT_TOKEN_Z_INDEX.currentTurnDragging
+            : COMBATANT_TOKEN_Z_INDEX.dragging
+        : entry.isCurrentTurn
+          ? COMBATANT_TOKEN_Z_INDEX.currentTurn
+          : COMBATANT_TOKEN_Z_INDEX.default;
+
     return (
         <div
             ref={tokenRef}
             className={cn(
                 'absolute select-none',
-                isAdmin && 'cursor-grab active:cursor-grabbing',
-                isDragging && 'z-[950]'
+                isAdmin && 'cursor-grab active:cursor-grabbing'
             )}
             style={{
                 left: currentPos.x - half,
                 top: currentPos.y - half,
                 width: tokenDiameter,
                 height: tokenDiameter,
-                zIndex: isDragging ? 950 : 905,
+                zIndex,
             }}
             onMouseDown={handleMouseDown}
             onContextMenu={handleContextMenu}
