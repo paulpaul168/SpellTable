@@ -34,6 +34,8 @@ export interface InitiativeEntry {
     tokenFootprint?: 1 | 2 | 3;
     /** @deprecated Legacy pixel diameter — use tokenFootprint; values 1–3 treated as footprint. */
     tokenSize?: number;
+    /** Grid cell-center stops accumulated during this combatant's current turn. */
+    turnMovementPath?: MapPosition[];
 }
 
 export interface EncounterHistoryEntry {
@@ -114,6 +116,8 @@ export interface Scene {
         distanceMode?: 'dnd' | 'euclidean';
         /** Diagonal cost rule when distanceMode is dnd. Default tenFeet. */
         dndDiagonalRule?: 'tenFeet' | 'alternating';
+        /** When false, movement trail is hidden on viewer screens. Default true. */
+        showMovementTrailToPlayers?: boolean;
     };
     initiativeOrder: InitiativeEntry[];
     encounterHistory?: EncounterHistoryEntry[];

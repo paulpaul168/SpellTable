@@ -26,6 +26,7 @@ interface DisplayCalculatorProps {
         tokenSnapToGrid?: boolean;
         distanceMode?: DistanceMode;
         dndDiagonalRule?: DndDiagonalRule;
+        showMovementTrailToPlayers?: boolean;
     };
     onUpdateGridSettings?: (settings: any) => void;
 }
@@ -66,6 +67,9 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
     const [dndDiagonalRule, setDndDiagonalRule] = useState<DndDiagonalRule>(
         gridSettings?.dndDiagonalRule === 'alternating' ? 'alternating' : 'tenFeet'
     );
+    const [showMovementTrailToPlayers, setShowMovementTrailToPlayers] = useState(
+        gridSettings?.showMovementTrailToPlayers !== false
+    );
 
     // Active tab state
     const [activeTab, setActiveTab] = useState("settings");
@@ -88,6 +92,9 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 );
                 setDndDiagonalRule(
                     gridSettings.dndDiagonalRule === 'alternating' ? 'alternating' : 'tenFeet'
+                );
+                setShowMovementTrailToPlayers(
+                    gridSettings.showMovementTrailToPlayers !== false
                 );
             }
         });
@@ -182,6 +189,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 tokenSnapToGrid,
                 distanceMode,
                 dndDiagonalRule,
+                showMovementTrailToPlayers,
             });
 
             // When we apply new grid settings, show a message about existing elements
@@ -210,6 +218,7 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                 tokenSnapToGrid,
                 distanceMode,
                 dndDiagonalRule,
+                showMovementTrailToPlayers,
             });
         } else {
             onApplyGridSize(useFixedGrid ? calculatedGridSize : gridSize);
@@ -414,6 +423,26 @@ export const DisplayCalculator: React.FC<DisplayCalculatorProps> = ({
                                 </p>
                             </div>
                         )}
+
+                        <div className="flex items-center space-x-2 pt-3 border-t border-zinc-800">
+                            <Checkbox
+                                id="movement-trail-players-toggle"
+                                checked={showMovementTrailToPlayers}
+                                onCheckedChange={(c) =>
+                                    setShowMovementTrailToPlayers(c === true)
+                                }
+                            />
+                            <Label
+                                htmlFor="movement-trail-players-toggle"
+                                className="text-sm font-normal cursor-pointer"
+                            >
+                                Show movement trail to players
+                            </Label>
+                        </div>
+                        <p className="text-xs text-zinc-500 -mt-1 pl-6">
+                            Players see the active turn movement path and distance on their
+                            screens.
+                        </p>
 
                         <div className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg mt-4">
                             <div className="flex items-center mb-2">

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Scene as SceneType } from '../../types/map';
 import { Map } from '../../components/Map';
 import { websocketService } from '../../services/websocket';
@@ -8,6 +8,7 @@ import { InitiativeIndicator } from '../../components/InitiativeIndicator';
 import { AoEMarker } from '../../components/AoEMarker';
 import { FogOfWar } from '../../components/FogOfWar';
 import { CombatantToken } from '../../components/CombatantToken';
+import { TokenMovementTrail } from '../../components/TokenMovementTrail';
 import { RippleViewer } from '../../components/RippleViewer';
 import { NightModeOverlay } from '../../components/NightModeOverlay';
 import { ProtectedRoute } from '../../components/ProtectedRoute';
@@ -16,6 +17,7 @@ import { Button } from '../../components/ui/button';
 import { getPlayAreaRect, migrateAoEMarkers } from '@/utils/aoeCoordinates';
 import { useNightMode } from '@/hooks/useNightMode';
 import { playAreaLayerZIndex } from '@/utils/playAreaLayers';
+import { computeTurnMovementTrail, getLiveMovementPreviewPoint } from '@/utils/turnMovementTrail';
 
 function withMigratedAoEMarkers(
     scene: SceneType,
@@ -163,6 +165,52 @@ export default function ViewerPage() {
 
     const currentPlayer = scene.initiativeOrder?.find(entry => entry.isCurrentTurn);
 
+    const currentTurnEntry = scene.initiativeOrder.find(
+        (entry) => entry.isCurrentTurn && !entry.isKilled
+    );
+    const movementPath = currentTurnEntry?.turnMovementPath ?? [];
+    const showMovementTrail =
+        scene.gridSettings.showMovementTrailToPlayers !== false &&
+        movementPath.length > 0;
+
+    const movementPreviewPoint = useMemo(() => {
+        if (typeof window === 'undefined' || !showMovementTrail) {
+            return null;
+        }
+        return getLiveMovementPreviewPoint(
+            movementPath,
+            currentTurnEntry?.mapPosition,
+            playAreaRef.current,
+            scene.gridSettings.gridCellsX ?? 25,
+            scene.gridSettings.gridCellsY ?? 13
+        );
+    }, [
+        movementPath,
+        currentTurnEntry?.mapPosition,
+        showMovementTrail,
+        scene.gridSettings.gridCellsX,
+        scene.gridSettings.gridCellsY,
+    ]);
+
+    const movementTrail = useMemo(() => {
+        if (typeof window === 'undefined' || !showMovementTrail || !currentTurnEntry) {
+            return { measurePoints: [], totalFeet: 0, tokenRadius: 28 };
+        }
+        return computeTurnMovementTrail({
+            path: movementPath,
+            previewPoint: movementPreviewPoint,
+            gridSettings: scene.gridSettings,
+            containerRef: playAreaRef.current,
+            entry: currentTurnEntry,
+        });
+    }, [
+        movementPath,
+        movementPreviewPoint,
+        scene.gridSettings,
+        currentTurnEntry,
+        showMovementTrail,
+    ]);
+
     const handleLogout = () => {
         logout();
     };
@@ -292,6 +340,26 @@ export default function ViewerPage() {
                                 />
                             ))}
                     </div>
+
+                    {showMovementTrail && currentTurnEntry && (
+                        <div
+                            className="absolute inset-0 pointer-events-none"
+                            style={{
+                                zIndex: playAreaLayerZIndex(
+                                    scene.maps?.length ?? 0,
+                                    'movementTrail'
+                                ),
+                            }}
+                        >
+                            <TokenMovementTrail
+                                points={movementTrail.measurePoints}
+                                previewPoint={movementPreviewPoint}
+                                totalFeet={movementTrail.totalFeet}
+                                containerRef={playAreaRef}
+                                tokenRadius={movementTrail.tokenRadius}
+                            />
+                        </div>
+                    )}
 
                     {/* Grid Overlay - above maps/markers, below initiative UI */}
                     {scene.gridSettings?.showGrid && (

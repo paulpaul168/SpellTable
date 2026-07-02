@@ -69,20 +69,13 @@ import {
 import type { LiveSyncOptions } from '@/utils/liveSync';
 import {
     DEFAULT_TOKEN_FOOTPRINT,
-    getTokenDiameterPixels,
     mapPositionsEqual,
-    mapPositionsToMeasurePoints,
     normalizeTokenFootprint,
     pointerToTokenPosition,
 } from '@/utils/tokenFootprint';
 import { TokenMovementTrail } from './TokenMovementTrail';
 import type { MeasurePoint } from '@/utils/measureDistance';
-import {
-    pathLengthFeet,
-    segmentLengthFeet,
-    getDndDiagonalIndexAfterPath,
-    FEET_PER_CELL,
-} from '@/utils/measureDistance';
+import { computeTurnMovementTrail } from '@/utils/turnMovementTrail';
 import { FogOfWarPalette } from './FogOfWarPalette';
 import { DisplayCalculator } from './DisplayCalculator';
 import { BackupDialog } from './BackupDialog';
@@ -206,44 +199,10 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         (e) => e.isCurrentTurn && !e.isKilled
     )?.id;
 
-    const [movementPath, setMovementPath] = useState<MapPosition[]>([]);
-
-    useEffect(() => {
-        if (!currentTurnEntryId) {
-            setMovementPath([]);
-            return;
-        }
-        const entry = sceneRef.current.initiativeOrder.find(
-            (e) => e.id === currentTurnEntryId
-        );
-        if (entry?.mapPosition) {
-            setMovementPath([structuredClone(entry.mapPosition)]);
-        } else {
-            setMovementPath([]);
-        }
-    }, [currentTurnEntryId]);
-
-    const appendMovementStop = useCallback((position: MapPosition) => {
-        setMovementPath((prev) => {
-            if (prev.length === 0) {
-                return [structuredClone(position)];
-            }
-            const last = prev[prev.length - 1];
-            if (mapPositionsEqual(last, position)) {
-                return prev;
-            }
-            return [...prev, structuredClone(position)];
-        });
-    }, []);
-
-    const resetMovementPath = useCallback(() => {
-        setMovementPath((prev) => {
-            if (prev.length === 0) {
-                return prev;
-            }
-            return [structuredClone(prev[0])];
-        });
-    }, []);
+    const currentTurnEntry = scene.initiativeOrder.find(
+        (e) => e.id === currentTurnEntryId
+    );
+    const movementPath = currentTurnEntry?.turnMovementPath ?? [];
 
     const [movementPreviewPoint, setMovementPreviewPoint] = useState<MeasurePoint | null>(
         null
@@ -255,76 +214,22 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         }
     }, [currentTurnEntryId]);
 
-    const movementMeasurePoints = useMemo(() => {
-        if (movementPath.length === 0) {
-            return [];
-        }
-        const rect = getPlayAreaRect(playAreaRef.current);
-        const gridCellsX = scene.gridSettings.gridCellsX ?? 25;
-        const gridCellsY = scene.gridSettings.gridCellsY ?? 13;
-        return mapPositionsToMeasurePoints(
+    const movementTrail = useMemo(
+        () =>
+            computeTurnMovementTrail({
+                path: movementPath,
+                previewPoint: movementPreviewPoint,
+                gridSettings: scene.gridSettings,
+                containerRef: playAreaRef.current,
+                entry: currentTurnEntry,
+            }),
+        [
             movementPath,
-            rect,
-            gridCellsX,
-            gridCellsY
-        );
-    }, [movementPath, scene.gridSettings.gridCellsX, scene.gridSettings.gridCellsY]);
-
-    const movementTotalFeet = useMemo(() => {
-        if (movementMeasurePoints.length === 0) {
-            return 0;
-        }
-        const rect = getPlayAreaRect(playAreaRef.current);
-        let feet = pathLengthFeet(
-            movementMeasurePoints,
+            movementPreviewPoint,
             scene.gridSettings,
-            rect
-        );
-        if (movementPreviewPoint && movementMeasurePoints.length > 0) {
-            const diagonalIndex = getDndDiagonalIndexAfterPath(
-                movementMeasurePoints,
-                scene.gridSettings
-            );
-            feet += segmentLengthFeet(
-                movementMeasurePoints[movementMeasurePoints.length - 1],
-                movementPreviewPoint,
-                scene.gridSettings,
-                rect,
-                FEET_PER_CELL,
-                diagonalIndex
-            );
-        }
-        return feet;
-    }, [movementMeasurePoints, movementPreviewPoint, scene.gridSettings]);
-
-    const currentTurnTokenRadius = useMemo(() => {
-        if (!currentTurnEntryId) {
-            return 28;
-        }
-        const entry = scene.initiativeOrder.find((e) => e.id === currentTurnEntryId);
-        if (!entry?.mapPosition) {
-            return 28;
-        }
-        const rect = getPlayAreaRect(playAreaRef.current);
-        const footprint = normalizeTokenFootprint(
-            entry,
-            scene.gridSettings.defaultTokenFootprint ?? DEFAULT_TOKEN_FOOTPRINT
-        );
-        return (
-            getTokenDiameterPixels(
-                footprint,
-                rect,
-                scene.gridSettings.gridCellsX ?? 25,
-                scene.gridSettings.gridCellsY ?? 13
-            ) / 2
-        );
-    }, [
-        currentTurnEntryId,
-        scene.initiativeOrder,
-        scene.gridSettings,
-        movementPreviewPoint,
-        movementPath,
-    ]);
+            currentTurnEntry,
+        ]
+    );
 
     const applySceneWithAoEMigration = useCallback(
         (nextScene: SceneType): SceneType =>
@@ -914,6 +819,109 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         [applyScenePatch],
     );
 
+    const appendMovementStop = useCallback(
+        (position: MapPosition) => {
+            if (!currentTurnEntryId) {
+                return;
+            }
+            applyScenePatch((prev) => {
+                const entry = prev.initiativeOrder.find(
+                    (e) => e.id === currentTurnEntryId
+                );
+                if (!entry) {
+                    return prev;
+                }
+                const pathPrev =
+                    entry.turnMovementPath ??
+                    (entry.mapPosition ? [entry.mapPosition] : []);
+                if (pathPrev.length === 0) {
+                    return {
+                        ...prev,
+                        initiativeOrder: prev.initiativeOrder.map((e) =>
+                            e.id === currentTurnEntryId
+                                ? {
+                                      ...e,
+                                      turnMovementPath: [structuredClone(position)],
+                                  }
+                                : e
+                        ),
+                    };
+                }
+                const last = pathPrev[pathPrev.length - 1];
+                if (mapPositionsEqual(last, position)) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    initiativeOrder: prev.initiativeOrder.map((e) =>
+                        e.id === currentTurnEntryId
+                            ? {
+                                  ...e,
+                                  turnMovementPath: [
+                                      ...pathPrev,
+                                      structuredClone(position),
+                                  ],
+                              }
+                            : e
+                    ),
+                };
+            });
+        },
+        [currentTurnEntryId, applyScenePatch],
+    );
+
+    const resetMovementPath = useCallback(() => {
+        if (!currentTurnEntryId) {
+            return;
+        }
+        applyScenePatch((prev) => {
+            const entry = prev.initiativeOrder.find(
+                (e) => e.id === currentTurnEntryId
+            );
+            if (!entry?.turnMovementPath?.length) {
+                return prev;
+            }
+            return {
+                ...prev,
+                initiativeOrder: prev.initiativeOrder.map((e) =>
+                    e.id === currentTurnEntryId
+                        ? {
+                              ...e,
+                              turnMovementPath: [
+                                  structuredClone(entry.turnMovementPath![0]),
+                              ],
+                          }
+                        : e
+                ),
+            };
+        });
+    }, [currentTurnEntryId, applyScenePatch]);
+
+    useEffect(() => {
+        if (!currentTurnEntryId) {
+            return;
+        }
+        applyScenePatch((prev) => {
+            const entry = prev.initiativeOrder.find(
+                (e) => e.id === currentTurnEntryId
+            );
+            if (!entry?.mapPosition || entry.turnMovementPath?.length) {
+                return prev;
+            }
+            return {
+                ...prev,
+                initiativeOrder: prev.initiativeOrder.map((e) =>
+                    e.id === currentTurnEntryId
+                        ? {
+                              ...e,
+                              turnMovementPath: [structuredClone(entry.mapPosition!)],
+                          }
+                        : e
+                ),
+            };
+        });
+    }, [currentTurnEntryId, applyScenePatch]);
+
     const handleStartPlaceEntry = (id: string) => {
         const entry = scene.initiativeOrder.find((e) => e.id === id);
         if (!entry) return;
@@ -1327,14 +1335,26 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 }))
             })),
             initiativeOrder: scene.initiativeOrder.map((entry) => {
-                if (!entry.mapPosition) return entry;
+                if (!entry.mapPosition) {
+                    return entry;
+                }
+                const shiftedPosition = {
+                    ...entry.mapPosition,
+                    x: entry.mapPosition.x + dx,
+                    y: entry.mapPosition.y + dy,
+                };
                 return {
                     ...entry,
-                    mapPosition: {
-                        ...entry.mapPosition,
-                        x: entry.mapPosition.x + dx,
-                        y: entry.mapPosition.y + dy,
-                    },
+                    mapPosition: shiftedPosition,
+                    ...(entry.turnMovementPath?.length
+                        ? {
+                              turnMovementPath: entry.turnMovementPath.map((point) => ({
+                                  ...point,
+                                  x: point.x + dx,
+                                  y: point.y + dy,
+                              })),
+                          }
+                        : {}),
                 };
             }),
         };
@@ -1557,9 +1577,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     ))}
                 </div>
 
-                {isAdmin &&
-                    currentTurnEntryId &&
-                    movementPath.length > 0 && (
+                {currentTurnEntryId && movementPath.length > 0 && (
                         <div
                             className="absolute inset-0 pointer-events-none"
                             style={{
@@ -1570,11 +1588,11 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             }}
                         >
                             <TokenMovementTrail
-                                points={movementMeasurePoints}
+                                points={movementTrail.measurePoints}
                                 previewPoint={movementPreviewPoint}
-                                totalFeet={movementTotalFeet}
+                                totalFeet={movementTrail.totalFeet}
                                 containerRef={playAreaRef}
-                                tokenRadius={currentTurnTokenRadius}
+                                tokenRadius={movementTrail.tokenRadius}
                             />
                         </div>
                     )}
