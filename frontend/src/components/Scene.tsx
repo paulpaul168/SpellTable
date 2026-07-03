@@ -1485,8 +1485,10 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 {/* AoE Markers - Ensure they're above maps but below tokens */}
                 <div
                     className={cn(
-                        'absolute inset-0',
-                        isToolCaptureMode && 'pointer-events-none'
+                        'absolute inset-0 pointer-events-none',
+                        isToolCaptureMode
+                            ? '[&>*]:pointer-events-none'
+                            : '[&>*]:pointer-events-auto'
                     )}
                     style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'aoe') }}
                 >
@@ -1512,8 +1514,10 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 {/* Fog of War - Above AoE markers but below tokens */}
                 <div
                     className={cn(
-                        'absolute inset-0',
-                        isToolCaptureMode && 'pointer-events-none'
+                        'absolute inset-0 pointer-events-none',
+                        isToolCaptureMode
+                            ? '[&>*]:pointer-events-none'
+                            : '[&>*]:pointer-events-auto'
                     )}
                     style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'fog') }}
                 >
