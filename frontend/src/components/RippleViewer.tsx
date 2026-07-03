@@ -12,6 +12,7 @@ import {
     pathLengthFeet,
     type MeasurePoint,
 } from '@/utils/measureDistance';
+import { playAreaLayerZIndex } from '@/utils/playAreaLayers';
 
 // Add keyframe animations to the global stylesheet
 if (typeof document !== 'undefined') {
@@ -56,12 +57,14 @@ interface RippleViewerProps {
     hidden?: boolean;
     gridSettings: Scene['gridSettings'];
     playAreaRef: React.RefObject<HTMLDivElement | null>;
+    mapCount: number;
 }
 
 export const RippleViewer: React.FC<RippleViewerProps> = ({
     hidden = false,
     gridSettings,
     playAreaRef,
+    mapCount,
 }) => {
     const [showRipple, setShowRipple] = useState(false);
     const [ripplePosition, setRipplePosition] = useState<MeasurePoint>({ x: 0, y: 0 });
@@ -219,6 +222,8 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({
         return null;
     }
 
+    const measureZ = playAreaLayerZIndex(mapCount, 'measureOverlay');
+
     return createPortal(
         <>
             {measurePoints.length > 0 && (
@@ -226,13 +231,15 @@ export const RippleViewer: React.FC<RippleViewerProps> = ({
                     points={measurePoints}
                     totalFeet={totalMeasureFeet}
                     containerRef={playAreaRef}
+                    zIndex={measureZ}
                 />
             )}
 
             {showRipple && (
                 <div
-                    className="absolute pointer-events-none z-[900]"
+                    className="absolute pointer-events-none"
                     style={{
+                        zIndex: measureZ,
                         left: rippleDisplayPosition.x,
                         top: rippleDisplayPosition.y,
                     }}

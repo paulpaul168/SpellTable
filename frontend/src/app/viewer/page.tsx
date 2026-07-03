@@ -424,6 +424,7 @@ export default function ViewerPage() {
                 hidden={isViewerBlanked}
                 gridSettings={scene.gridSettings}
                 playAreaRef={playAreaRef}
+                mapCount={scene.maps?.length ?? 0}
             />
             </>
         </ProtectedRoute>

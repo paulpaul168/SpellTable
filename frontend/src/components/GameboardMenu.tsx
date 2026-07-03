@@ -26,11 +26,13 @@ import {
     pointerToMeasurePoint,
     type MeasurePoint,
 } from '@/utils/measureDistance';
+import { playAreaLayerZIndex } from '@/utils/playAreaLayers';
 
 interface GameboardMenuProps {
     connectionStatus: string;
     gridSettings: Scene['gridSettings'];
     playAreaRef: React.RefObject<HTMLDivElement | null>;
+    mapCount: number;
     isViewerBlanked: boolean;
     onToggleViewerBlank: () => void;
     isDarkMode: boolean;
@@ -68,6 +70,7 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
     connectionStatus,
     gridSettings,
     playAreaRef,
+    mapCount,
     isViewerBlanked,
     onToggleViewerBlank,
     isDarkMode,
@@ -456,6 +459,7 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
     const showMeasureOverlay =
         activeTool === 'measure' || measurePoints.length > 0;
 
+    const measureZ = playAreaLayerZIndex(mapCount, 'measureOverlay');
     const playAreaPortalTarget = playAreaRef.current;
 
     const playAreaEffects =
@@ -468,13 +472,15 @@ export const GameboardMenu: React.FC<GameboardMenuProps> = ({
                         totalFeet={totalMeasureFeet}
                         containerRef={playAreaRef}
                         showEmptyHint={activeTool === 'measure'}
+                        zIndex={measureZ}
                     />
                 )}
 
                 {showRipple && (
                     <div
-                        className="absolute pointer-events-none z-[900]"
+                        className="absolute pointer-events-none"
                         style={{
+                            zIndex: measureZ,
                             left: rippleDisplayPosition.x,
                             top: rippleDisplayPosition.y,
                         }}

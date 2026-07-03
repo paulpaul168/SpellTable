@@ -4,10 +4,12 @@ export const PLAY_AREA_LAYER = {
     aoe: 100,
     fog: 150,
     grid: 200,
-    /** Above AoE/fog/grid; below token icons. */
-    movementTrail: 945,
     /** Above AoE marker max (900 while dragging). */
     tokens: 950,
+    /** Turn movement path — above tokens. */
+    movementTrail: 960,
+    /** Ruler measure overlay and marker ripple — above tokens. */
+    measureOverlay: 960,
 } as const;
 
 /** Per-token z-index within the tokens layer (relative ordering only). */

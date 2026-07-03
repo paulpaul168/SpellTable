@@ -13,6 +13,7 @@ interface MeasureOverlayProps {
     containerRef: RefObject<HTMLElement | null>;
     className?: string;
     showEmptyHint?: boolean;
+    zIndex?: number;
 }
 
 export const MeasureOverlay: React.FC<MeasureOverlayProps> = ({
@@ -21,6 +22,7 @@ export const MeasureOverlay: React.FC<MeasureOverlayProps> = ({
     containerRef,
     className,
     showEmptyHint = false,
+    zIndex,
 }) => {
     const [, setResizeTick] = useState(0);
 
@@ -49,10 +51,8 @@ export const MeasureOverlay: React.FC<MeasureOverlayProps> = ({
 
     return (
         <div
-            className={cn(
-                'absolute inset-0 pointer-events-none z-[900]',
-                className
-            )}
+            className={cn('absolute inset-0 pointer-events-none', className)}
+            style={zIndex !== undefined ? { zIndex } : undefined}
         >
             <svg className="h-full w-full">
                 {displayPoints.length >= 2 && (
