@@ -37,6 +37,7 @@ interface CombatantTokenProps {
     onMovementStop?: (position: MapPosition) => void;
     onResetMovement?: () => void;
     onMovementPreviewChange?: (point: MeasurePoint | null) => void;
+    isHighlighted?: boolean;
 }
 
 export const CombatantToken = memo(function CombatantToken({
@@ -50,6 +51,7 @@ export const CombatantToken = memo(function CombatantToken({
     onMovementStop,
     onResetMovement,
     onMovementPreviewChange,
+    isHighlighted = false,
 }: CombatantTokenProps) {
     const mapPosition = entry.mapPosition;
     if (!mapPosition) return null;
@@ -57,10 +59,13 @@ export const CombatantToken = memo(function CombatantToken({
     const [isDragging, setIsDragging] = useState(false);
     const [tokenDiameter, setTokenDiameter] = useState(48);
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+    const [highlightAnimation, setHighlightAnimation] = useState(false);
+    const [highlightRippleKey, setHighlightRippleKey] = useState(0);
     const pendingUpdateRef = useRef<InitiativeEntry | null>(null);
     const mouseDragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     const isDraggingRef = useRef(false);
     const tokenRef = useRef<HTMLDivElement>(null);
+    const highlightTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     const gridCellsX = gridSettings?.gridCellsX ?? 25;
     const gridCellsY = gridSettings?.gridCellsY ?? 13;
@@ -114,6 +119,31 @@ export const CombatantToken = memo(function CombatantToken({
         window.addEventListener('resize', updatePosition);
         return () => window.removeEventListener('resize', updatePosition);
     }, [mapPosition, calculatePosition]);
+
+    useEffect(() => {
+        if (!isHighlighted) return;
+
+        queueMicrotask(() => {
+            setHighlightRippleKey((k) => k + 1);
+            setHighlightAnimation(true);
+        });
+
+        if (highlightTimerRef.current) {
+            clearTimeout(highlightTimerRef.current);
+        }
+
+        highlightTimerRef.current = setTimeout(() => {
+            setHighlightAnimation(false);
+            highlightTimerRef.current = null;
+        }, 3500);
+
+        return () => {
+            if (highlightTimerRef.current) {
+                clearTimeout(highlightTimerRef.current);
+                highlightTimerRef.current = null;
+            }
+        };
+    }, [isHighlighted]);
 
     const applyDragAtClient = useCallback(
         (clientX: number, clientY: number) => {
@@ -348,7 +378,9 @@ export const CombatantToken = memo(function CombatantToken({
             : COMBATANT_TOKEN_Z_INDEX.dragging
         : entry.isCurrentTurn
           ? COMBATANT_TOKEN_Z_INDEX.currentTurn
-          : COMBATANT_TOKEN_Z_INDEX.default;
+          : highlightAnimation
+            ? COMBATANT_TOKEN_Z_INDEX.highlighted
+            : COMBATANT_TOKEN_Z_INDEX.default;
 
     return (
         <div
@@ -390,6 +422,33 @@ export const CombatantToken = memo(function CombatantToken({
                     <div
                         className={cn(
                             'absolute inset-0 rounded-full border-2 animate-combatant-ripple-3',
+                            rippleBorderClass
+                        )}
+                    />
+                </div>
+            )}
+
+            {highlightAnimation && (
+                <div
+                    key={`locate-${highlightRippleKey}`}
+                    className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-visible"
+                    aria-hidden
+                >
+                    <div
+                        className={cn(
+                            'absolute inset-0 rounded-full border-2 animate-combatant-locate-ripple-1',
+                            rippleBorderClass
+                        )}
+                    />
+                    <div
+                        className={cn(
+                            'absolute inset-0 rounded-full border-2 animate-combatant-locate-ripple-2',
+                            rippleBorderClass
+                        )}
+                    />
+                    <div
+                        className={cn(
+                            'absolute inset-0 rounded-full border-2 animate-combatant-locate-ripple-3',
                             rippleBorderClass
                         )}
                     />

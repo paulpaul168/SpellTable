@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useToast } from './ui/use-toast';
-import { Plus, Trash2, ChevronDown, ChevronUp, Eye, EyeOff, Skull, X, ChevronRight, ScrollText, MapPin, MapPinOff, Pencil } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, Eye, EyeOff, Skull, X, ChevronRight, ScrollText, MapPin, MapPinOff, Pencil, Crosshair } from 'lucide-react';
 import { EncounterHistoryEntry, InitiativeEntry } from '../types/map';
 import { applyTurnChangeToEntries } from '@/utils/turnMovementTrail';
 import {
@@ -95,6 +95,7 @@ interface InitiativeSidebarProps {
     placingEntryId?: string | null;
     onStartPlaceEntry?: (id: string) => void;
     onClearEntryPosition?: (id: string) => void;
+    onLocateEntry?: (id: string) => void;
 }
 
 export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
@@ -108,6 +109,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
     placingEntryId = null,
     onStartPlaceEntry,
     onClearEntryPosition,
+    onLocateEntry,
 }) => {
     const { toast } = useToast();
     const [isVisible, setIsVisible] = useState(true);
@@ -711,7 +713,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                 <GlassPanel
                     title="Initiative"
                     edge="bottom-left"
-                    className="!w-[26rem] max-w-[95vw]"
+                    className="!w-[30rem] max-w-[95vw]"
                     onClose={onClose}
                     headerActions={
                         <>
@@ -855,15 +857,31 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                             {isAdmin && onStartPlaceEntry && onClearEntryPosition && (
                                                 <div className="flex items-center gap-0.5">
                                                     {entry.mapPosition ? (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-6 w-6 p-0 text-muted-foreground"
-                                                            title="Remove from map"
-                                                            onClick={() => onClearEntryPosition(entry.id)}
-                                                        >
-                                                            <MapPinOff className="h-3.5 w-3.5" />
-                                                        </Button>
+                                                        <>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 w-6 p-0 text-muted-foreground"
+                                                                title="Remove from map"
+                                                                onClick={() => onClearEntryPosition(entry.id)}
+                                                            >
+                                                                <MapPinOff className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            {!entry.isKilled && onLocateEntry && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 w-6 p-0 text-muted-foreground"
+                                                                    title="Locate on map"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        onLocateEntry(entry.id);
+                                                                    }}
+                                                                >
+                                                                    <Crosshair className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                            )}
+                                                        </>
                                                     ) : (
                                                         !entry.isKilled && (
                                                             <Button
