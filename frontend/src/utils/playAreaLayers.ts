@@ -13,6 +13,7 @@ export const PLAY_AREA_LAYER = {
 /** Per-token z-index within the tokens layer (relative ordering only). */
 export const COMBATANT_TOKEN_Z_INDEX = {
     default: 1,
+    highlighted: 5,
     currentTurn: 10,
     dragging: 20,
     currentTurnDragging: 30,

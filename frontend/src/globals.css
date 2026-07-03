@@ -467,6 +467,21 @@ body {
   transform-origin: center center;
 }
 
+.animate-combatant-locate-ripple-1 {
+  animation: combatant-token-ripple 1.5s ease-out 2 forwards;
+  transform-origin: center center;
+}
+
+.animate-combatant-locate-ripple-2 {
+  animation: combatant-token-ripple 1.5s ease-out 0.2s 2 forwards;
+  transform-origin: center center;
+}
+
+.animate-combatant-locate-ripple-3 {
+  animation: combatant-token-ripple 1.5s ease-out 0.4s 2 forwards;
+  transform-origin: center center;
+}
+
 .shake-effect {
   animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }

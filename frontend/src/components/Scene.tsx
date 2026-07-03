@@ -178,6 +178,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [hideInvisibleMaps, setHideInvisibleMaps] = useState(false);
     const [highlightedMarkerId, setHighlightedMarkerId] = useState<string | null>(null);
     const [highlightedFogOfWarId, setHighlightedFogOfWarId] = useState<string | null>(null);
+    const [highlightedEntryId, setHighlightedEntryId] = useState<string | null>(null);
     const [isMoveEverythingOpen, setIsMoveEverythingOpen] = useState(false);
     const [isViewerBlanked, setIsViewerBlanked] = useState(false);
     const [isViewerRotated, setIsViewerRotated] = useState(false);
@@ -942,6 +943,25 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         }
     };
 
+    const handleLocateEntry = useCallback(
+        (entryId: string) => {
+            const entry = scene.initiativeOrder.find((e) => e.id === entryId);
+            if (!entry?.mapPosition || entry.isKilled) return;
+
+            setHighlightedEntryId(entryId);
+            setTimeout(() => {
+                setHighlightedEntryId(null);
+            }, 2100);
+
+            toast({
+                title: 'Located',
+                description: entry.name,
+                duration: 2000,
+            });
+        },
+        [scene.initiativeOrder, toast]
+    );
+
     const handlePlayAreaClick = (e: React.MouseEvent) => {
         if (isToolCaptureMode) return;
         if (!isAdmin || !placingEntryId) return;
@@ -1557,6 +1577,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             containerRef={playAreaRef}
                             gridSettings={scene.gridSettings}
                             defaultTokenFootprint={scene.gridSettings.defaultTokenFootprint}
+                            isHighlighted={entry.id === highlightedEntryId}
                             movementPath={
                                 entry.id === currentTurnEntryId
                                     ? movementPath
@@ -1730,6 +1751,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                         placingEntryId={placingEntryId}
                         onStartPlaceEntry={handleStartPlaceEntry}
                         onClearEntryPosition={handleClearEntryPosition}
+                        onLocateEntry={handleLocateEntry}
                     />
                 </div>
             )}
