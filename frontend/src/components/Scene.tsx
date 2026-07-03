@@ -1705,6 +1705,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                     connectionStatus={connectionStatus}
                     gridSettings={scene.gridSettings}
                     playAreaRef={playAreaRef}
+                    mapCount={scene.maps?.length ?? 0}
                     isViewerBlanked={isViewerBlanked}
                     onToggleViewerBlank={handleToggleViewerBlank}
                     isDarkMode={isDarkMode}
