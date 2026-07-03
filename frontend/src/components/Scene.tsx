@@ -178,7 +178,10 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [hideInvisibleMaps, setHideInvisibleMaps] = useState(false);
     const [highlightedMarkerId, setHighlightedMarkerId] = useState<string | null>(null);
     const [highlightedFogOfWarId, setHighlightedFogOfWarId] = useState<string | null>(null);
-    const [highlightedEntryId, setHighlightedEntryId] = useState<string | null>(null);
+    const [locatePulse, setLocatePulse] = useState<{ entryId: string; pulseId: number } | null>(
+        null
+    );
+    const locatePulseIdRef = useRef(0);
     const [isMoveEverythingOpen, setIsMoveEverythingOpen] = useState(false);
     const [isViewerBlanked, setIsViewerBlanked] = useState(false);
     const [isViewerRotated, setIsViewerRotated] = useState(false);
@@ -948,10 +951,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             const entry = scene.initiativeOrder.find((e) => e.id === entryId);
             if (!entry?.mapPosition || entry.isKilled) return;
 
-            setHighlightedEntryId(entryId);
-            setTimeout(() => {
-                setHighlightedEntryId(null);
-            }, 2100);
+            locatePulseIdRef.current += 1;
+            setLocatePulse({ entryId, pulseId: locatePulseIdRef.current });
 
             toast({
                 title: 'Located',
@@ -1004,9 +1005,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         });
     };
 
-    const placedCombatants = scene.initiativeOrder
-        .filter((e) => e.mapPosition && !e.isKilled)
-        .sort((a, b) => Number(a.isCurrentTurn) - Number(b.isCurrentTurn));
+    const placedCombatants = scene.initiativeOrder.filter(
+        (e) => e.mapPosition && !e.isKilled
+    );
 
     const handleToggleCurrentPlayer = () => {
         const updatedScene = {
@@ -1577,7 +1578,11 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                             containerRef={playAreaRef}
                             gridSettings={scene.gridSettings}
                             defaultTokenFootprint={scene.gridSettings.defaultTokenFootprint}
-                            isHighlighted={entry.id === highlightedEntryId}
+                            locatePulseId={
+                                locatePulse?.entryId === entry.id
+                                    ? locatePulse.pulseId
+                                    : undefined
+                            }
                             movementPath={
                                 entry.id === currentTurnEntryId
                                     ? movementPath

@@ -37,7 +37,8 @@ interface CombatantTokenProps {
     onMovementStop?: (position: MapPosition) => void;
     onResetMovement?: () => void;
     onMovementPreviewChange?: (point: MeasurePoint | null) => void;
-    isHighlighted?: boolean;
+    /** Increments on each locate click for this token; drives one-shot pulse animation. */
+    locatePulseId?: number;
 }
 
 export const CombatantToken = memo(function CombatantToken({
@@ -51,7 +52,7 @@ export const CombatantToken = memo(function CombatantToken({
     onMovementStop,
     onResetMovement,
     onMovementPreviewChange,
-    isHighlighted = false,
+    locatePulseId,
 }: CombatantTokenProps) {
     const mapPosition = entry.mapPosition;
     if (!mapPosition) return null;
@@ -60,7 +61,6 @@ export const CombatantToken = memo(function CombatantToken({
     const [tokenDiameter, setTokenDiameter] = useState(48);
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
     const [highlightAnimation, setHighlightAnimation] = useState(false);
-    const [highlightRippleKey, setHighlightRippleKey] = useState(0);
     const pendingUpdateRef = useRef<InitiativeEntry | null>(null);
     const mouseDragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     const isDraggingRef = useRef(false);
@@ -121,12 +121,9 @@ export const CombatantToken = memo(function CombatantToken({
     }, [mapPosition, calculatePosition]);
 
     useEffect(() => {
-        if (!isHighlighted) return;
+        if (locatePulseId === undefined) return;
 
-        queueMicrotask(() => {
-            setHighlightRippleKey((k) => k + 1);
-            setHighlightAnimation(true);
-        });
+        setHighlightAnimation(true);
 
         if (highlightTimerRef.current) {
             clearTimeout(highlightTimerRef.current);
@@ -143,7 +140,7 @@ export const CombatantToken = memo(function CombatantToken({
                 highlightTimerRef.current = null;
             }
         };
-    }, [isHighlighted]);
+    }, [locatePulseId]);
 
     const applyDragAtClient = useCallback(
         (clientX: number, clientY: number) => {
@@ -428,9 +425,9 @@ export const CombatantToken = memo(function CombatantToken({
                 </div>
             )}
 
-            {highlightAnimation && (
+            {highlightAnimation && locatePulseId !== undefined && (
                 <div
-                    key={`locate-${highlightRippleKey}`}
+                    key={`locate-${locatePulseId}`}
                     className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-visible"
                     aria-hidden
                 >
