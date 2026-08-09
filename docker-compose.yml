@@ -37,6 +37,8 @@ services:
       dockerfile: Dockerfile
       args:
         - NEXT_PUBLIC_API_URL=/api
+        - NEXT_PUBLIC_UMAMI_SCRIPT_URL=https://analytics.paulhoeller.at/script.js
+        - NEXT_PUBLIC_UMAMI_WEBSITE_ID=fc0f76e2-6555-44b0-8550-06ce93cbfd96
     ports:
       - "3000:3000"  # Only frontend is accessible from outside
     depends_on:
@@ -46,6 +48,8 @@ services:
     environment:
       # Update API URL to use the /api/ path that Apache will proxy
       - NEXT_PUBLIC_API_URL=/api
+      - NEXT_PUBLIC_UMAMI_SCRIPT_URL=https://analytics.paulhoeller.at/script.js
+      - NEXT_PUBLIC_UMAMI_WEBSITE_ID=fc0f76e2-6555-44b0-8550-06ce93cbfd96
     networks:
       - spelltable-network
 
