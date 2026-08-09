@@ -5,6 +5,7 @@ import { ThemeProvider } from '../components/ThemeProvider'
 import { AuthProvider } from '../contexts/AuthContext'
 import { LogoutButton } from '../components/LogoutButton'
 import { Toaster } from '../components/ui/toaster'
+import UmamiAnalytics from '../components/UmamiAnalytics'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -34,6 +35,7 @@ export default function RootLayout({
           </AuthProvider>
         </ThemeProvider>
         <Toaster />
+        <UmamiAnalytics />
       </body>
     </html>
   )
