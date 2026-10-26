@@ -68,7 +68,7 @@ export function ScreenShareOverlay({ stream, active }: ScreenShareOverlayProps) 
             {stream ? (
                 <video
                     ref={videoRef}
-                    className="max-h-full max-w-full object-contain"
+                    className="h-full w-full object-cover"
                     autoPlay
                     playsInline
                 />
