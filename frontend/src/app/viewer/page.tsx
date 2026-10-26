@@ -12,7 +12,9 @@ import { TokenMovementTrail } from '../../components/TokenMovementTrail';
 import { RippleViewer } from '../../components/RippleViewer';
 import { NightModeOverlay } from '../../components/NightModeOverlay';
 import { ProtectedRoute } from '../../components/ProtectedRoute';
+import { ScreenShareOverlay } from '../../components/ScreenShareOverlay';
 import { useAuth } from '../../contexts/AuthContext';
+import { useScreenShareViewer } from '@/hooks/useScreenShareViewer';
 import { Button } from '../../components/ui/button';
 import { getPlayAreaRect, migrateAoEMarkers } from '@/utils/aoeCoordinates';
 import { useNightMode } from '@/hooks/useNightMode';
@@ -55,6 +57,7 @@ export default function ViewerPage() {
     const [highlightedMarkerId, setHighlightedMarkerId] = useState<string | null>(null);
     const [isViewerBlanked, setIsViewerBlanked] = useState(false);
     const [isViewerRotated, setIsViewerRotated] = useState(false);
+    const { remoteStream, isShareActive } = useScreenShareViewer();
 
     // Use fixed 1.0 scale to match admin view exactly
     const displayScale = 1.0;
@@ -408,7 +411,7 @@ export default function ViewerPage() {
                 </div>
 
                 {/* Blank Overlay - Hide all content when admin blanks the viewer */}
-                {isViewerBlanked && (
+                {isViewerBlanked && !isShareActive && (
                     <div
                         className="absolute inset-0 bg-black z-[9999] flex items-center justify-center"
                         style={{ height: '100vh', width: '100vw' }}
@@ -419,6 +422,8 @@ export default function ViewerPage() {
                         </div>
                     </div>
                 )}
+
+                <ScreenShareOverlay stream={remoteStream} active={isShareActive} />
             </div>
             <RippleViewer
                 hidden={isViewerBlanked}

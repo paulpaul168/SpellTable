@@ -31,10 +31,15 @@ function resolveWebSocketUrl(): string {
     return `${wsProtocol}//${window.location.host}${path}/ws`;
 }
 
-interface WebSocketMessage {
+export interface WebSocketMessage {
     type: string;
     scene?: Scene;
     status?: string;
+    clientId?: string;
+    fromClientId?: string;
+    targetClientId?: string;
+    sdp?: RTCSessionDescriptionInit;
+    candidate?: RTCIceCandidateInit | null;
     [key: string]: unknown;
 }
 
@@ -42,6 +47,8 @@ class WebSocketService {
     private ws: WebSocket | null = null;
     /** Last URL passed to `new WebSocket()` (for diagnostics; `onerror` only receives an empty Event). */
     private lastWsUrl: string | null = null;
+    /** Server-assigned id for this socket (used for WebRTC signaling). */
+    private clientId: string | null = null;
     private listeners: ((data: WebSocketMessage) => void)[] = [];
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
@@ -94,7 +101,7 @@ class WebSocketService {
             console.log('✅ WebSocket connected successfully');
             this.reconnectAttempts = 0;
             this.isConnecting = false;
-            this.notifyListeners({ type: 'connection_status', status: 'connected' });
+            // clientId arrives with the server's connection_status message
 
             // Start connection health check
             this.startConnectionHealthCheck();
@@ -111,6 +118,13 @@ class WebSocketService {
         this.ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data) as WebSocketMessage;
+                if (
+                    data.type === 'connection_status' &&
+                    data.status === 'connected' &&
+                    typeof data.clientId === 'string'
+                ) {
+                    this.clientId = data.clientId;
+                }
                 this.notifyListeners(data);
             } catch (error) {
                 console.error('Error parsing WebSocket message:', error);
@@ -121,6 +135,7 @@ class WebSocketService {
             const intentional = this.closingIntentionally;
             this.closingIntentionally = false;
             this.isConnecting = false;
+            this.clientId = null;
             this.stopConnectionHealthCheck();
 
             if (!intentional) {
@@ -301,6 +316,10 @@ class WebSocketService {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) return 'connected';
         if (this.reconnectAttempts >= this.maxReconnectAttempts) return 'failed';
         return 'disconnected';
+    }
+
+    getClientId(): string | null {
+        return this.clientId;
     }
 }
 

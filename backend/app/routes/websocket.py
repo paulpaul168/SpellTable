@@ -5,6 +5,7 @@ This module contains the websocket routes for the FastAPI app.
 import asyncio
 import json
 import os
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -15,14 +16,27 @@ from ..core.constants import SCENES_DIR
 
 router = APIRouter()
 
-# Store connected clients
-clients: set[WebSocket] = set()
+# Store connected clients by id
+clients: dict[str, WebSocket] = {}
+# Reverse lookup for cleanup
+_client_ids: dict[WebSocket, str] = {}
 # Lock for thread-safe operations
 clients_lock = asyncio.Lock()
+# Active screen-share publisher (WebSocket client id)
+active_sharer_id: str | None = None
 # Debounced scene persistence
 _pending_scene_save: dict[str, Any] | None = None
 _scene_save_task: asyncio.Task[None] | None = None
 SCENE_SAVE_DEBOUNCE_SEC = 1.0
+
+SCREEN_SHARE_UNICAST_TYPES = frozenset(
+    {
+        "screen_share_request",
+        "screen_share_offer",
+        "screen_share_answer",
+        "screen_share_ice",
+    }
+)
 
 
 async def broadcast_scene_update(scene_data: dict[str, Any]) -> None:
@@ -34,32 +48,53 @@ async def broadcast_scene_update(scene_data: dict[str, Any]) -> None:
 async def _broadcast_to_all_clients(message: dict[str, Any]) -> None:
     """Broadcast a message to all connected clients."""
     async with clients_lock:
-        disconnected_clients = set()
-        for client in clients:
+        disconnected_ids: list[str] = []
+        for client_id, client in clients.items():
             try:
                 await client.send_json(message)
             except (WebSocketDisconnect, RuntimeError, ConnectionError) as e:
                 logger.exception(f"Error broadcasting to client: {e}")
-                disconnected_clients.add(client)
+                disconnected_ids.append(client_id)
 
-        # Remove disconnected clients
-        clients.difference_update(disconnected_clients)
+        for client_id in disconnected_ids:
+            _remove_client_locked(client_id)
 
 
 async def _broadcast_to_others(websocket: WebSocket, message: dict[str, Any]) -> None:
     """Broadcast a message to all clients except the sender."""
     async with clients_lock:
-        disconnected_clients = set()
-        for client in clients:
-            if client != websocket:  # Don't send back to the sender
+        disconnected_ids: list[str] = []
+        for client_id, client in clients.items():
+            if client != websocket:
                 try:
                     await client.send_json(message)
                 except (WebSocketDisconnect, RuntimeError, ConnectionError) as e:
                     logger.exception(f"Error broadcasting to client: {e}")
-                    disconnected_clients.add(client)
+                    disconnected_ids.append(client_id)
 
-        # Remove disconnected clients
-        clients.difference_update(disconnected_clients)
+        for client_id in disconnected_ids:
+            _remove_client_locked(client_id)
+
+
+def _remove_client_locked(client_id: str) -> None:
+    """Remove a client from registries. Caller must hold clients_lock."""
+    websocket = clients.pop(client_id, None)
+    if websocket is not None:
+        _client_ids.pop(websocket, None)
+
+
+async def _send_to_client(target_client_id: str, message: dict[str, Any]) -> None:
+    """Unicast a message to a specific client id."""
+    async with clients_lock:
+        client = clients.get(target_client_id)
+        if client is None:
+            logger.debug(f"Target client {target_client_id} not connected")
+            return
+        try:
+            await client.send_json(message)
+        except (WebSocketDisconnect, RuntimeError, ConnectionError) as e:
+            logger.exception(f"Error sending to client {target_client_id}: {e}")
+            _remove_client_locked(target_client_id)
 
 
 async def _send_initial_scene(websocket: WebSocket) -> None:
@@ -161,7 +196,62 @@ async def _handle_scene_event(websocket: WebSocket, message: dict[str, Any]) -> 
     await _broadcast_to_others(websocket, payload)
 
 
-async def _handle_websocket_message(websocket: WebSocket, data: str) -> bool:
+async def _handle_screen_share_started(
+    websocket: WebSocket, from_client_id: str, _message: dict[str, Any]
+) -> None:
+    """Mark sharer active and notify other clients."""
+    global active_sharer_id
+    active_sharer_id = from_client_id
+    await _broadcast_to_others(
+        websocket,
+        {
+            "type": "screen_share_started",
+            "fromClientId": from_client_id,
+        },
+    )
+
+
+async def _handle_screen_share_stopped(
+    websocket: WebSocket, from_client_id: str, _message: dict[str, Any]
+) -> None:
+    """Clear sharer and notify other clients."""
+    global active_sharer_id
+    if active_sharer_id == from_client_id:
+        active_sharer_id = None
+    await _broadcast_to_others(
+        websocket,
+        {
+            "type": "screen_share_stopped",
+            "fromClientId": from_client_id,
+        },
+    )
+
+
+async def _handle_screen_share_unicast(
+    from_client_id: str, message: dict[str, Any]
+) -> None:
+    """Relay WebRTC signaling to a specific peer."""
+    target_client_id = message.get("targetClientId")
+    if not isinstance(target_client_id, str) or not target_client_id:
+        logger.debug("screen share unicast missing targetClientId")
+        return
+
+    payload = {**message, "fromClientId": from_client_id}
+    # screen_share_request goes to active sharer when target omitted misuse —
+    # callers must set target; for request without target, route to sharer.
+    if message.get("type") == "screen_share_request" and active_sharer_id:
+        if target_client_id != active_sharer_id:
+            # Prefer explicit target; if client targeted wrong id, still try send
+            pass
+        await _send_to_client(target_client_id, payload)
+        return
+
+    await _send_to_client(target_client_id, payload)
+
+
+async def _handle_websocket_message(
+    websocket: WebSocket, from_client_id: str, data: str
+) -> bool:
     """
     Handle a single websocket message.
 
@@ -187,6 +277,19 @@ async def _handle_websocket_message(websocket: WebSocket, data: str) -> bool:
             await _handle_unrotate_viewer(websocket, message)
         elif message_type == "scene_event":
             await _handle_scene_event(websocket, message)
+        elif message_type == "screen_share_started":
+            await _handle_screen_share_started(websocket, from_client_id, message)
+        elif message_type == "screen_share_stopped":
+            await _handle_screen_share_stopped(websocket, from_client_id, message)
+        elif message_type in SCREEN_SHARE_UNICAST_TYPES:
+            # Requests without target route to the active sharer
+            if (
+                message_type == "screen_share_request"
+                and not message.get("targetClientId")
+                and active_sharer_id
+            ):
+                message = {**message, "targetClientId": active_sharer_id}
+            await _handle_screen_share_unicast(from_client_id, message)
 
         return True
 
@@ -197,8 +300,23 @@ async def _handle_websocket_message(websocket: WebSocket, data: str) -> bool:
 
 async def _cleanup_websocket(websocket: WebSocket) -> None:
     """Clean up websocket connection."""
+    global active_sharer_id
+    stopped_share = False
+    client_id: str | None = None
+
     async with clients_lock:
-        clients.discard(websocket)
+        client_id = _client_ids.get(websocket)
+        if client_id is not None:
+            if active_sharer_id == client_id:
+                active_sharer_id = None
+                stopped_share = True
+            _remove_client_locked(client_id)
+
+    if stopped_share and client_id is not None:
+        await _broadcast_to_all_clients(
+            {"type": "screen_share_stopped", "fromClientId": client_id}
+        )
+
     try:
         if websocket.client_state != WebSocketState.DISCONNECTED:
             await websocket.close()
@@ -206,18 +324,33 @@ async def _cleanup_websocket(websocket: WebSocket) -> None:
         pass
 
 
-async def _setup_websocket_connection(websocket: WebSocket) -> None:
-    """Set up a new websocket connection."""
-    # Accept the WebSocket connection
+async def _setup_websocket_connection(websocket: WebSocket) -> str:
+    """Set up a new websocket connection and return its client id."""
+    client_id = str(uuid.uuid4())
     await websocket.accept()
     async with clients_lock:
-        clients.add(websocket)
+        clients[client_id] = websocket
+        _client_ids[websocket] = client_id
 
-    # Send initial connection success message
-    await websocket.send_json({"type": "connection_status", "status": "connected"})
+    await websocket.send_json(
+        {
+            "type": "connection_status",
+            "status": "connected",
+            "clientId": client_id,
+        }
+    )
 
-    # Send current scene if it exists
     await _send_initial_scene(websocket)
+
+    if active_sharer_id and active_sharer_id != client_id:
+        await websocket.send_json(
+            {
+                "type": "screen_share_started",
+                "fromClientId": active_sharer_id,
+            }
+        )
+
+    return client_id
 
 
 @router.websocket("/ws")
@@ -225,26 +358,25 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     """
     WebSocket endpoint for the FastAPI app.
     """
+    client_id: str | None = None
     try:
-        await _setup_websocket_connection(websocket)
+        client_id = await _setup_websocket_connection(websocket)
 
-        # Main message processing loop
         while True:
             try:
                 data = await websocket.receive_text()
-                should_continue = await _handle_websocket_message(websocket, data)
+                should_continue = await _handle_websocket_message(
+                    websocket, client_id, data
+                )
                 if not should_continue:
                     break
             except WebSocketDisconnect:
-                # Client disconnected, exit the loop normally
                 break
             except (json.JSONDecodeError, ConnectionError) as e:
                 logger.exception(f"Error in message loop: {e}")
                 break
 
     except (WebSocketDisconnect, ConnectionError, RuntimeError) as e:
-        logger.debug(
-            f"WebSocket disconnected: {e}"
-        )  # Changed to debug level for normal disconnects
+        logger.debug(f"WebSocket disconnected: {e}")
     finally:
         await _cleanup_websocket(websocket)

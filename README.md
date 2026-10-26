@@ -73,6 +73,7 @@ A modern, local web-based virtual tabletop for in-person D&D sessions with a phy
 - **AoE snap-to-grid** toggle for free placement when needed
 - **Gameboard dock** (admin): pointer, ripple markers, **distance measurement** (feet along a path), lightning flash, board shake, night mode with brightness slider
 - **Viewer blanking** to black out the table display during breaks or surprises
+- **Screen share** from the admin browser (Mac/Linux) to the `/viewer` overlay via WebRTC; include tab/system audio when the OS allows. Requires a secure context (**HTTPS** or localhost)—plain `http://` LAN IPs cannot capture the display.
 - **Soundboard** for ambient tracks and one-shots
 
 ### Campaigns and accounts
@@ -101,6 +102,7 @@ A modern, local web-based virtual tabletop for in-person D&D sessions with a phy
 - [x] Admin and player views with Socket.IO sync
 - [x] AoE markers with rotation, staged reveal, and animated effects
 - [x] Gameboard tools: measure, ripple, lightning, shake, night mode, viewer blank
+- [x] Admin screen share to viewer overlay (WebRTC; HTTPS/localhost)
 - [x] Soundboard
 - [x] Fog of war regions on maps
 
