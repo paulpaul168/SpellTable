@@ -31,6 +31,8 @@ import {
     Menu,
     Map as MapIcon,
     Cloud,
+    ScreenShare,
+    ScreenShareOff,
 } from 'lucide-react';
 import {
     Dialog,
@@ -51,6 +53,7 @@ import { SaveSceneDialog } from './SaveSceneDialog';
 import { LoadSceneDialog } from './LoadSceneDialog';
 import { MapListSidebar } from './MapListSidebar';
 import { useToast } from "@/components/ui/use-toast";
+import { useScreenSharePublisher } from '@/hooks/useScreenSharePublisher';
 import { InitiativeSidebar } from './InitiativeSidebar';
 import { EncounterHistoryEntry, InitiativeEntry } from '@/types/map';
 import { SceneManagement } from './SceneManagement';
@@ -137,6 +140,11 @@ const SceneOperationStatusDialog: React.FC<SceneOperationStatusDialogProps> = ({
 export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, initialDisplayScale = 1.0 }) => {
     const { toast } = useToast();
     const { user, logout, isAdmin: isUserAdmin } = useAuth();
+    const {
+        isSharing: isScreenSharing,
+        startSharing,
+        stopSharing,
+    } = useScreenSharePublisher();
     const [scene, setScene] = useState<SceneType>({
         id: initialScene?.id || 'default',
         name: initialScene?.name || 'Default Scene',
@@ -1434,6 +1442,49 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         });
     };
 
+    const handleToggleScreenShare = async () => {
+        if (isScreenSharing) {
+            stopSharing();
+            toast({
+                title: 'Screen sharing stopped',
+                description: 'Viewers will return to the map',
+                duration: 3000,
+            });
+            return;
+        }
+
+        try {
+            const { audioAvailable } = await startSharing();
+            toast({
+                title: 'Screen sharing started',
+                description: audioAvailable
+                    ? 'Viewers can see and hear your shared screen'
+                    : 'Viewers can see your screen (audio unavailable on this system)',
+                duration: 4000,
+            });
+        } catch (error) {
+            const name = error instanceof DOMException ? error.name : '';
+            if (name === 'NotAllowedError' || name === 'AbortError') {
+                toast({
+                    title: 'Screen share cancelled',
+                    description: 'Permission denied or picker closed',
+                    variant: 'destructive',
+                    duration: 4000,
+                });
+                return;
+            }
+            toast({
+                title: 'Screen share failed',
+                description:
+                    error instanceof Error
+                        ? error.message
+                        : 'Could not start screen sharing (HTTPS or localhost required)',
+                variant: 'destructive',
+                duration: 5000,
+            });
+        }
+    };
+
     return (
         <div className="dark flex h-dvh w-dvw overflow-hidden bg-gameboard">
             {/* Main Content */}
@@ -1743,6 +1794,26 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 </div>
             )}
 
+            {isScreenSharing && (
+                <div
+                    className={cn(
+                        'glass-panel absolute right-4 z-[1000] rounded-md border-primary/50 bg-primary/10 px-3 py-2',
+                        isViewerBlanked && isViewerRotated
+                            ? 'top-28'
+                            : isViewerBlanked || isViewerRotated
+                              ? 'top-16'
+                              : 'top-4'
+                    )}
+                >
+                    <div className="flex items-center gap-2">
+                        <ScreenShare className="h-4 w-4 text-primary" />
+                        <span className="text-xs font-medium text-primary">
+                            Sharing screen…
+                        </span>
+                    </div>
+                </div>
+            )}
+
             {/* Initiative Sidebar */}
             {showInitiative && (
                 <div className="!z-[9999]">
@@ -1849,6 +1920,21 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                     <RotateCw className="h-4 w-4 mr-2" />
                                     {isViewerRotated ? 'Unrotate Viewer' : 'Rotate Viewer 180°'}
                                 </DropdownMenuItem>
+                                {isAdmin && (
+                                    <DropdownMenuItem
+                                        className="text-xs cursor-pointer"
+                                        onClick={() => {
+                                            void handleToggleScreenShare();
+                                        }}
+                                    >
+                                        {isScreenSharing ? (
+                                            <ScreenShareOff className="h-4 w-4 mr-2" />
+                                        ) : (
+                                            <ScreenShare className="h-4 w-4 mr-2" />
+                                        )}
+                                        {isScreenSharing ? 'Stop Sharing' : 'Share Screen'}
+                                    </DropdownMenuItem>
+                                )}
                             </div>
 
                             <DropdownMenuSeparator />
