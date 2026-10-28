@@ -176,6 +176,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isViewerMode] = useState(false);
     const [showMapList, setShowMapList] = useState(false);
     const [showInitiative, setShowInitiative] = useState(true);
+    const [showEnemyStatBlock, setShowEnemyStatBlock] = useState(true);
     const [isSceneManagementOpen, setIsSceneManagementOpen] = useState(false);
     const [isSoundboardOpen, setIsSoundboardOpen] = useState(false);
     const [isCleanLayout, setIsCleanLayout] = useState(false);
@@ -1843,6 +1844,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                         showCurrentPlayer={scene.showCurrentPlayer}
                         onToggleCurrentPlayer={handleToggleCurrentPlayer}
                         onClose={() => setShowInitiative(false)}
+                        showEnemyStatBlock={showEnemyStatBlock}
+                        onCloseEnemyStatBlock={() => setShowEnemyStatBlock(false)}
                         placingEntryId={placingEntryId}
                         onStartPlaceEntry={handleStartPlaceEntry}
                         onClearEntryPosition={handleClearEntryPosition}
@@ -1936,6 +1939,19 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                     <ExternalLink className="h-4 w-4 mr-2" />
                                     Open Initiative Page
                                 </DropdownMenuItem>
+                                {isAdmin && (
+                                    <DropdownMenuItem
+                                        className="text-xs cursor-pointer"
+                                        onClick={() =>
+                                            setShowEnemyStatBlock(!showEnemyStatBlock)
+                                        }
+                                    >
+                                        <Skull className="h-4 w-4 mr-2" />
+                                        {showEnemyStatBlock
+                                            ? 'Hide Enemy Stat Block'
+                                            : 'Show Enemy Stat Block'}
+                                    </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem
                                     className="text-xs cursor-pointer"
                                     onClick={handleToggleViewerBlank}
@@ -2105,6 +2121,20 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                 active: showInitiative,
                                 onClick: () => setShowInitiative(!showInitiative),
                             },
+                            ...(isAdmin
+                                ? [
+                                      {
+                                          id: 'enemy-stat-block',
+                                          label: showEnemyStatBlock
+                                              ? 'Hide enemy stats'
+                                              : 'Show enemy stats',
+                                          icon: <Skull className="h-4 w-4" />,
+                                          active: showEnemyStatBlock,
+                                          onClick: () =>
+                                              setShowEnemyStatBlock(!showEnemyStatBlock),
+                                      },
+                                  ]
+                                : []),
                             {
                                 id: 'maps',
                                 label: showMapList ? 'Hide maps' : 'Show maps',

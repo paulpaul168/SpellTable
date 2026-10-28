@@ -105,6 +105,8 @@ interface InitiativeSidebarProps {
     showCurrentPlayer: boolean;
     onToggleCurrentPlayer: () => void;
     onClose: () => void;
+    showEnemyStatBlock?: boolean;
+    onCloseEnemyStatBlock?: () => void;
     placingEntryId?: string | null;
     onStartPlaceEntry?: (id: string) => void;
     onClearEntryPosition?: (id: string) => void;
@@ -119,6 +121,8 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
     showCurrentPlayer,
     onToggleCurrentPlayer,
     onClose,
+    showEnemyStatBlock = true,
+    onCloseEnemyStatBlock,
     placingEntryId = null,
     onStartPlaceEntry,
     onClearEntryPosition,
@@ -482,7 +486,8 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
             const monster = await monsterService.getMonster(monsterName);
             const slots = snapshotSpellSlots(monster);
             patchEntry(entryId, {
-                monsterName: monster.name,
+                // Keep aurora:/fc5: lookup key — display name alone 404s on local JSON.
+                monsterName,
                 spellSlotMaximum: slots,
                 spellSlotsExpended: emptySpellSlotArray(),
                 innateUsesExpended: {},
@@ -1146,21 +1151,25 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                 ))}
                             </SortableContext>
                         </DndContext>
-                        {isAdmin && (
-                            <div className="mt-3 border-t border-border/50 pt-3">
-                                <EnemyCombatPanel
-                                    entry={focusedEnemy}
-                                    onUpdateEntry={(patch) => {
-                                        if (!focusedEnemy) return;
-                                        patchEntry(focusedEnemy.id, patch);
-                                    }}
-                                    onLinkMonster={(monsterName) => {
-                                        if (!focusedEnemy) return;
-                                        void linkMonsterToEntry(focusedEnemy.id, monsterName);
-                                    }}
-                                />
-                            </div>
-                        )}
+                </GlassPanel>
+            )}
+
+            {isVisible && isAdmin && showEnemyStatBlock && focusedEnemy && (
+                <GlassPanel
+                    title={focusedEnemy.name || 'Enemy'}
+                    edge="right"
+                    onClose={onCloseEnemyStatBlock}
+                    className="!top-1/2 !h-[50vh] !max-h-[50vh] !w-[22rem] !-translate-y-1/2 sm:!w-96"
+                >
+                    <EnemyCombatPanel
+                        entry={focusedEnemy}
+                        onUpdateEntry={(patch) => {
+                            patchEntry(focusedEnemy.id, patch);
+                        }}
+                        onLinkMonster={(monsterName) => {
+                            void linkMonsterToEntry(focusedEnemy.id, monsterName);
+                        }}
+                    />
                 </GlassPanel>
             )}
 

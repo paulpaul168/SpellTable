@@ -123,8 +123,8 @@ export function EnemyCombatPanel({ entry, onUpdateEntry, onLinkMonster }: Props)
             : fc5Library.filter((m) => m.name.toLowerCase().includes(q)).slice(0, 40);
 
     return (
-        <div className="max-h-72 space-y-2 overflow-y-auto rounded-md border border-border/60 bg-background/50 p-3">
-            <div className="flex items-center justify-between gap-2">
+        <div className="flex min-h-0 flex-1 flex-col space-y-2 rounded-md border border-border/60 bg-background/50 p-3">
+            <div className="flex shrink-0 items-center justify-between gap-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Enemy stat block
                 </p>
@@ -234,26 +234,28 @@ export function EnemyCombatPanel({ entry, onUpdateEntry, onLinkMonster }: Props)
             )}
 
             {monster && (
-                <MonsterStatBlock
-                    monster={monster}
-                    currentHP={entry.hp}
-                    compact
-                    spellSlotMaximum={
-                        entry.spellSlotMaximum ?? snapshotSpellSlots(monster)
-                    }
-                    spellSlotsExpended={
-                        entry.spellSlotsExpended ?? emptySpellSlotArray()
-                    }
-                    innateUsesExpended={entry.innateUsesExpended ?? {}}
-                    onSpellSlotChange={(expended) =>
-                        onUpdateEntry({
-                            spellSlotsExpended: normalizeSpellSlotArray(expended),
-                        })
-                    }
-                    onInnateUseChange={(innateUsesExpended) =>
-                        onUpdateEntry({ innateUsesExpended })
-                    }
-                />
+                <div className="min-h-0 flex-1">
+                    <MonsterStatBlock
+                        monster={monster}
+                        currentHP={entry.hp}
+                        compact
+                        spellSlotMaximum={
+                            entry.spellSlotMaximum ?? snapshotSpellSlots(monster)
+                        }
+                        spellSlotsExpended={
+                            entry.spellSlotsExpended ?? emptySpellSlotArray()
+                        }
+                        innateUsesExpended={entry.innateUsesExpended ?? {}}
+                        onSpellSlotChange={(expended) =>
+                            onUpdateEntry({
+                                spellSlotsExpended: normalizeSpellSlotArray(expended),
+                            })
+                        }
+                        onInnateUseChange={(innateUsesExpended) =>
+                            onUpdateEntry({ innateUsesExpended })
+                        }
+                    />
+                </div>
             )}
         </div>
     );

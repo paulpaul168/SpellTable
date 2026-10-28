@@ -20,6 +20,8 @@ from pathlib import Path
 
 from loguru import logger
 
+from ..core.constants import xp_for_challenge
+
 _ATTR_RE = re.compile(r'(\w+)\s*=\s*"([^"]*)"')
 _CREATURE_OPEN_RE = re.compile(
     r'<element\b([^>]*)\btype\s*=\s*"(Monster|Companion)"([^>]*)>',
@@ -274,7 +276,7 @@ class AuroraMonsterCatalogService:
             "languages": languages,
             "challenge": {
                 "rating": challenge_rating,
-                "xp": 0,
+                "xp": xp_for_challenge(challenge_rating),
             },
             "descriptions": descriptions,
             "actions": actions,

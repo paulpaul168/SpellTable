@@ -16,6 +16,8 @@ from pathlib import Path
 
 from loguru import logger
 
+from ..core.constants import xp_for_challenge
+
 _HP_RE = re.compile(r"^\s*(\d+)\s*(?:\(([^)]+)\))?\s*$")
 _SPEED_PART_RE = re.compile(
     r"(?:^|,\s*)(?:(walk|fly|swim|climb|burrow)\s+)?(\d+)\s*ft\.?",
@@ -307,7 +309,7 @@ class Fc5MonsterCatalogService:
             "languages": languages,
             "challenge": {
                 "rating": challenge_rating,
-                "xp": 0,
+                "xp": xp_for_challenge(challenge_rating),
             },
             "descriptions": descriptions,
             "actions": actions,

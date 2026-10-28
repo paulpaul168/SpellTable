@@ -15,6 +15,31 @@ AURORA_PREFIX = "aurora:"
 FC5_PREFIX = "fc5:"
 
 
+def _resolve_catalog_by_display_name(name: str) -> dict | None:
+    """Heal bare display names (e.g. after link stored 'Fire Giant' instead of fc5:…)."""
+    needle = name.strip()
+    if not needle:
+        return None
+
+    fc5 = Fc5MonsterCatalogService()
+    if fc5.is_available():
+        slug = Fc5MonsterCatalogService._slugify(needle)
+        monster = fc5.get_creature_monster(slug)
+        if monster is not None:
+            return monster
+        for entry in fc5.list_creatures(needle, limit=80) or []:
+            if entry.name.lower() == needle.lower():
+                return fc5.get_creature_monster(entry.id)
+
+    aurora = AuroraMonsterCatalogService()
+    if aurora.is_available():
+        for entry in aurora.list_creatures(needle) or []:
+            if entry.name.lower() == needle.lower():
+                return aurora.get_creature_monster(entry.id)
+
+    return None
+
+
 @router.get("", status_code=200)
 async def list_monsters() -> list[Monster]:
     try:
@@ -158,11 +183,16 @@ async def get_monster(monster_name: str) -> Monster | dict:
 
         service = MonsterService()
         monster = service.load_monster(monster_name)
-        if monster is None:
-            raise HTTPException(
-                status_code=404, detail=f"Monster '{monster_name}' not found"
-            )
-        return monster
+        if monster is not None:
+            return monster
+
+        catalog = _resolve_catalog_by_display_name(monster_name)
+        if catalog is not None:
+            return catalog
+
+        raise HTTPException(
+            status_code=404, detail=f"Monster '{monster_name}' not found"
+        )
     except HTTPException as e:
         raise e
     except Exception as e:
