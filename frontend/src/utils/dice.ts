@@ -45,21 +45,51 @@ export function parseDiceExpression(expression: string): ParsedDiceExpression {
     return { pools, modifier };
 }
 
-function rollDie(faces: number): number {
+export function rollDie(faces: number): number {
     return Math.floor(Math.random() * faces) + 1;
 }
 
-export function rollDiceExpression(expression: string): number {
-    const { pools, modifier } = parseDiceExpression(expression);
-    let total = modifier;
+export interface DiceRollDetail {
+    expression: string;
+    rolls: number[];
+    modifier: number;
+    total: number;
+}
 
+/** Roll a dice expression and return the breakdown (no HP-style minimum of 1). */
+export function rollDiceDetailed(expression: string): DiceRollDetail {
+    const { pools, modifier } = parseDiceExpression(expression);
+    const rolls: number[] = [];
     for (const pool of pools) {
         for (let i = 0; i < pool.count; i++) {
-            total += rollDie(pool.faces);
+            rolls.push(rollDie(pool.faces));
         }
     }
+    const total = rolls.reduce((sum, n) => sum + n, 0) + modifier;
+    return { expression: expression.trim(), rolls, modifier, total };
+}
 
-    return Math.max(1, total);
+export function rollDiceExpression(expression: string): number {
+    return Math.max(1, rollDiceDetailed(expression).total);
+}
+
+export interface D20RollDetail {
+    natural: number;
+    modifier: number;
+    total: number;
+    isCritical: boolean;
+    isFumble: boolean;
+}
+
+export function rollD20(modifier: number = 0): D20RollDetail {
+    const natural = rollDie(20);
+    return {
+        natural,
+        modifier,
+        total: natural + modifier,
+        isCritical: natural === 20,
+        isFumble: natural === 1,
+    };
 }
 
 export function parseInitiativeModifier(input: string): number {

@@ -1,13 +1,18 @@
 'use client';
 
-import React from 'react';
-import type { Monster, MonsterSpell } from '@/types/monster';
+import React, { useState } from 'react';
+import type { Description, Monster, MonsterSpell } from '@/types/monster';
 import {
     abilityModifier,
     formatModifier,
     formatSpellSlotSummary,
     normalizeSpellSlotArray,
 } from '@/utils/spellSlots';
+import {
+    isRollableMonsterAttack,
+    rollMonsterAttack,
+    type MonsterAttackRollResult,
+} from '@/utils/monsterAttacks';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +28,8 @@ export type MonsterStatBlockProps = {
     onSpellSlotChange?: (expended: number[]) => void;
     onInnateUseChange?: (expended: Record<string, number>) => void;
     compact?: boolean;
+    /** Click attacks to roll to-hit and damage (default true). */
+    interactiveAttacks?: boolean;
 };
 
 function speedLine(monster: Monster): string {
@@ -30,6 +37,82 @@ function speedLine(monster: Monster): string {
         .filter(([, value]) => value != null)
         .map(([key, value]) => `${key} ${value} ft.`)
         .join(', ');
+}
+
+function ActionLines({
+    items,
+    interactiveAttacks,
+}: {
+    items: Description[];
+    interactiveAttacks: boolean;
+}) {
+    const [rolls, setRolls] = useState<Record<string, MonsterAttackRollResult>>({});
+
+    return (
+        <div className="space-y-2">
+            {items.map((d) => {
+                const rollable =
+                    interactiveAttacks && isRollableMonsterAttack(d.description);
+                const result = rolls[d.title];
+                return (
+                    <div key={`act-${d.title}`} className="space-y-1">
+                        <p>
+                            {rollable ? (
+                                <button
+                                    type="button"
+                                    className="font-semibold italic text-amber-200 underline decoration-amber-600/70 underline-offset-2 hover:text-amber-100 hover:decoration-amber-400"
+                                    title="Roll attack"
+                                    onClick={() => {
+                                        const rolled = rollMonsterAttack(
+                                            d.title,
+                                            d.description
+                                        );
+                                        if (rolled) {
+                                            setRolls((prev) => ({
+                                                ...prev,
+                                                [d.title]: rolled,
+                                            }));
+                                        }
+                                    }}
+                                >
+                                    {d.title}.
+                                </button>
+                            ) : (
+                                <span className="font-semibold italic">{d.title}.</span>
+                            )}{' '}
+                            {d.description}
+                        </p>
+                        {result && (
+                            <div className="rounded border border-amber-700/50 bg-amber-950/40 px-2 py-1 text-xs tabular-nums text-amber-100">
+                                <span className="font-semibold">{result.name}:</span>{' '}
+                                {result.summary}
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="ml-2 h-5 px-1.5 text-[10px] text-amber-200"
+                                    onClick={() => {
+                                        const rolled = rollMonsterAttack(
+                                            d.title,
+                                            d.description
+                                        );
+                                        if (rolled) {
+                                            setRolls((prev) => ({
+                                                ...prev,
+                                                [d.title]: rolled,
+                                            }));
+                                        }
+                                    }}
+                                >
+                                    Reroll
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
 }
 
 function groupSpells(spells: MonsterSpell[] | undefined) {
@@ -137,6 +220,7 @@ export function MonsterStatBlock({
     onSpellSlotChange,
     onInnateUseChange,
     compact,
+    interactiveAttacks = true,
 }: MonsterStatBlockProps) {
     const sc = monster.spellcasting;
     const slotMax = normalizeSpellSlotArray(
@@ -396,33 +480,35 @@ export function MonsterStatBlock({
             {(monster.actions?.length ?? 0) > 0 && (
                 <div className="space-y-2 border-t border-amber-800/40 pt-2">
                     <h4 className="font-semibold">Actions</h4>
-                    {(monster.actions ?? []).map((d) => (
-                        <p key={`act-${d.title}`}>
-                            <span className="font-semibold italic">{d.title}.</span> {d.description}
+                    {interactiveAttacks && (
+                        <p className="text-[10px] text-muted-foreground">
+                            Underlined attacks: click to roll to-hit and damage
                         </p>
-                    ))}
+                    )}
+                    <ActionLines
+                        items={monster.actions ?? []}
+                        interactiveAttacks={interactiveAttacks}
+                    />
                 </div>
             )}
 
             {(monster.reactions?.length ?? 0) > 0 && (
                 <div className="space-y-2 border-t border-amber-800/40 pt-2">
                     <h4 className="font-semibold">Reactions</h4>
-                    {(monster.reactions ?? []).map((d) => (
-                        <p key={`rea-${d.title}`}>
-                            <span className="font-semibold italic">{d.title}.</span> {d.description}
-                        </p>
-                    ))}
+                    <ActionLines
+                        items={monster.reactions ?? []}
+                        interactiveAttacks={interactiveAttacks}
+                    />
                 </div>
             )}
 
             {(monster.legendary_actions?.length ?? 0) > 0 && (
                 <div className="space-y-2 border-t border-amber-800/40 pt-2">
                     <h4 className="font-semibold">Legendary Actions</h4>
-                    {(monster.legendary_actions ?? []).map((d) => (
-                        <p key={`leg-${d.title}`}>
-                            <span className="font-semibold italic">{d.title}.</span> {d.description}
-                        </p>
-                    ))}
+                    <ActionLines
+                        items={monster.legendary_actions ?? []}
+                        interactiveAttacks={interactiveAttacks}
+                    />
                 </div>
             )}
         </div>
