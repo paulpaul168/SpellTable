@@ -322,11 +322,12 @@ async def import_tavern_catalog(
 
     existing: set[str] = set()
     if body.mode == "append":
-        for (nm,) in (
+        name_rows: list[tuple[str]] = (
             db.query(TavernOptionDefinition.name)
             .filter(TavernOptionDefinition.campaign_id == campaign_id)
             .all()
-        ):
+        )
+        for (nm,) in name_rows:
             existing.add(nm.strip())
 
     added = 0
