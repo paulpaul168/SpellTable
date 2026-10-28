@@ -74,13 +74,29 @@ type SpellPreset = {
 
 // Common D&D spells with AoE (20′ radius → 40′ diameter for sizeInFeet)
 const commonSpells: SpellPreset[] = [
-    { name: 'Fireball', shape: 'circle', size: 40, color: '#FF5A5A', effectId: 'fireball' },
+    { name: 'Arms of Hadar', shape: 'circle', size: 20, color: '#3D5C2E' },
+    { name: 'Black Tentacles', shape: 'square', size: 20, color: '#3D5C2E' },
     { name: 'Burning Hands', shape: 'cone', size: 15, color: '#FF5A5A', effectId: 'burning-hands' },
-    { name: 'Lightning Bolt', shape: 'line', size: 100, color: '#5AD5FF', effectId: 'lightning-bolt' },
     { name: 'Call Lightning', shape: 'circle', size: 40, color: '#5AD5FF', effectId: 'call-lightning' },
-    { name: 'Cone of Cold', shape: 'cone', size: 60, color: '#5AD5FF', effectId: 'cone-of-cold' },
-    { name: 'Wall of Fire', shape: 'line', size: 60, color: '#FF5A5A', effectId: 'wall-of-fire' },
     { name: 'Cloudkill', shape: 'circle', size: 20, color: '#C9E265', effectId: 'cloudkill' },
+    { name: 'Cone of Cold', shape: 'cone', size: 60, color: '#5AD5FF', effectId: 'cone-of-cold' },
+    { name: 'Darkness', shape: 'circle', size: 15, color: '#000000', effectId: 'darkness' },
+    { name: 'Dawn', shape: 'cylinder', size: 60, color: '#FFE566' },
+    { name: 'Destructive Wave', shape: 'circle', size: 60, color: '#5AD5FF' },
+    { name: 'Entangle', shape: 'square', size: 20, color: '#75FF5A' },
+    { name: 'Faerie Fire', shape: 'cube', size: 20, color: '#CC5AFF' },
+    { name: 'Fear', shape: 'cone', size: 30, color: '#CC5AFF' },
+    { name: 'Fireball', shape: 'circle', size: 40, color: '#FF5A5A', effectId: 'fireball' },
+    { name: 'Fog Cloud', shape: 'circle', size: 20, color: '#C9C9C9', effectId: 'fog-cloud' },
+    { name: 'Grease', shape: 'square', size: 10, color: '#C9E265' },
+    { name: 'Hunger of Hadar', shape: 'circle', size: 40, color: '#3D5C2E' },
+    { name: 'Hypnotic Pattern', shape: 'cube', size: 30, color: '#CC5AFF' },
+    { name: 'Ice Storm', shape: 'cylinder', size: 40, color: '#5AD5FF' },
+    { name: 'Lightning Bolt', shape: 'line', size: 100, color: '#5AD5FF', effectId: 'lightning-bolt' },
+    { name: 'Meteor Swarm', shape: 'circle', size: 40, color: '#FF5A5A', effectId: 'meteor-swarm' },
+    { name: 'Shatter', shape: 'circle', size: 20, color: '#C9C9C9' },
+    { name: 'Sleep', shape: 'circle', size: 40, color: '#5A7FFF' },
+    { name: 'Sleet Storm', shape: 'cylinder', size: 80, color: '#5AD5FF' },
     { name: 'Spirit Guardians', shape: 'circle', size: 15, color: '#CC5AFF', effectId: 'spirit-guardians' },
     {
         name: 'Spirit Guardians (Necrotic)',
@@ -96,10 +112,10 @@ const commonSpells: SpellPreset[] = [
         color: '#FFE566',
         effectId: 'spirit-guardians-radiant',
     },
-    { name: 'Meteor Swarm', shape: 'circle', size: 40, color: '#FF5A5A', effectId: 'meteor-swarm' },
+    { name: 'Synaptic Static', shape: 'circle', size: 40, color: '#CC5AFF' },
+    { name: 'Thunderwave', shape: 'cube', size: 15, color: '#5AD5FF' },
+    { name: 'Wall of Fire', shape: 'line', size: 60, color: '#FF5A5A', effectId: 'wall-of-fire' },
     { name: 'Web', shape: 'cube', size: 20, color: '#FFFFFF' },
-    { name: 'Darkness', shape: 'circle', size: 15, color: '#000000', effectId: 'darkness' },
-    { name: 'Fog Cloud', shape: 'circle', size: 20, color: '#C9C9C9', effectId: 'fog-cloud' },
 ];
 
 export const AoEPalette: React.FC<AoEPaletteProps> = ({
