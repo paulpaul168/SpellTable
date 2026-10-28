@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { AoEShape, AoEMarker } from '../types/map';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -15,6 +15,7 @@ import {
     Trash2,
     EyeIcon,
     Settings,
+    Search,
 } from 'lucide-react';
 import { Slider } from './ui/slider';
 import { Checkbox } from './ui/checkbox';
@@ -120,6 +121,13 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
     const [customColor, setCustomColor] = useState('#FF5A5A');
     const [customLabel, setCustomLabel] = useState('');
     const [opacity, setOpacity] = useState(0.5);
+    const [spellSearch, setSpellSearch] = useState('');
+
+    const filteredSpells = useMemo(() => {
+        const query = spellSearch.trim().toLowerCase();
+        if (!query) return commonSpells;
+        return commonSpells.filter((spell) => spell.name.toLowerCase().includes(query));
+    }, [spellSearch]);
 
     // Function to handle adding from presets
     const handleAddFromPreset = (
@@ -189,7 +197,7 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="glass-panel fixed bottom-20 left-1/2 z-[1001] w-72 -translate-x-1/2 rounded-lg transition-all duration-200">
+        <div className="glass-panel fixed bottom-20 left-1/2 z-[1001] w-96 -translate-x-1/2 rounded-lg transition-all duration-200">
             {/* Header */}
             <div className="glass-panel-header flex items-center justify-between py-2">
                 <h3 className="text-sm font-medium text-foreground">AoE Markers</h3>
@@ -282,13 +290,13 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
                                     key={index}
                                     variant="outline"
                                     size="sm"
-                                    className="text-xs justify-start"
+                                    className="h-auto w-full justify-start gap-2 px-2 py-1.5 text-left text-xs"
                                     onClick={() => handleAddFromPreset(aoe.shape as AoEShape, aoe.size, aoe.color)}
                                 >
-                                    <span className="mr-2 flex w-4 shrink-0 items-center justify-center">
+                                    <span className="flex w-4 shrink-0 items-center justify-center">
                                         {renderShapePreview(aoe.shape as AoEShape, aoe.color, 12)}
                                     </span>
-                                    {aoe.name}
+                                    <span className="min-w-0 truncate">{aoe.name}</span>
                                 </Button>
                             ))}
                         </div>
@@ -297,28 +305,47 @@ export const AoEPalette: React.FC<AoEPaletteProps> = ({
 
                 {/* Spells Tab */}
                 {!showSettings && activeTab === 'spells' && (
-                    <div className="max-h-80 overflow-y-auto p-2">
-                        <div className="grid grid-cols-1 gap-2">
-                            {commonSpells.map((spell, index) => (
-                                <Button
-                                    key={index}
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-xs justify-start"
-                                    onClick={() => handleAddFromPreset(
-                                        spell.shape,
-                                        spell.size,
-                                        spell.color,
-                                        spell.name,
-                                        spell.effectId,
-                                    )}
-                                >
-                                    <span className="mr-2 flex w-4 shrink-0 items-center justify-center">
-                                        {renderShapePreview(spell.shape, spell.color, 12)}
-                                    </span>
-                                    {spell.name} ({spell.size}&apos;)
-                                </Button>
-                            ))}
+                    <div className="p-2 space-y-2">
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                value={spellSearch}
+                                onChange={(e) => setSpellSearch(e.target.value)}
+                                placeholder="Search spells…"
+                                className="h-8 pl-8 text-xs"
+                            />
+                        </div>
+                        <div className="max-h-72 overflow-y-auto">
+                            {filteredSpells.length === 0 ? (
+                                <p className="py-6 text-center text-xs text-muted-foreground">
+                                    No spells match “{spellSearch.trim()}”
+                                </p>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-2">
+                                    {filteredSpells.map((spell) => (
+                                        <Button
+                                            key={spell.effectId || spell.name}
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-auto w-full justify-start gap-2 px-2 py-1.5 text-left text-xs"
+                                            onClick={() => handleAddFromPreset(
+                                                spell.shape,
+                                                spell.size,
+                                                spell.color,
+                                                spell.name,
+                                                spell.effectId,
+                                            )}
+                                        >
+                                            <span className="flex w-4 shrink-0 items-center justify-center">
+                                                {renderShapePreview(spell.shape, spell.color, 12)}
+                                            </span>
+                                            <span className="min-w-0 truncate">
+                                                {spell.name} ({spell.size}&apos;)
+                                            </span>
+                                        </Button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
