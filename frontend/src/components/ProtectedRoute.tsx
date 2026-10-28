@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
+import { Button } from './ui/button';
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
@@ -10,7 +11,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-    const { isAuthenticated, isAdmin, loading } = useAuth();
+    const { isAuthenticated, isAdmin, loading, logout } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
@@ -51,6 +52,9 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
                     <p className="text-zinc-600 dark:text-zinc-400">
                         You need admin privileges to access this page.
                     </p>
+                    <Button onClick={logout} variant="outline" className="mt-6">
+                        Logout
+                    </Button>
                 </div>
             </div>
         );
