@@ -375,7 +375,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
 
             if (namesToAdd.length > 0) {
                 const API_BASE_URL = getApiUrl();
-                const listResponse = await fetch(`${API_BASE_URL}/maps/list`);
+                const listResponse = await fetch(`${API_BASE_URL}/maps/list`, {
+                    headers: { ...authService.getAuthHeader() },
+                });
                 if (!listResponse.ok) throw new Error('Failed to fetch map list');
 
                 const listData = await listResponse.json();
@@ -1044,7 +1046,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         try {
             // Fetch all available maps
             const API_BASE_URL = getApiUrl();
-            const response = await fetch(`${API_BASE_URL}/maps/list`);
+            const response = await fetch(`${API_BASE_URL}/maps/list`, {
+                headers: { ...authService.getAuthHeader() },
+            });
             if (!response.ok) throw new Error('Failed to load maps');
 
             const data = await response.json();

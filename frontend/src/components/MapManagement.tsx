@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { MapData } from '@/types/map';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { useToast } from './ui/use-toast';
-import { Folder, FolderPlus, FolderMinus, ChevronRight, ChevronDown, Map, Upload, Pencil, Trash2 } from 'lucide-react';
+import { Folder, FolderPlus, FolderMinus, ChevronRight, ChevronDown, Map, Upload, Pencil, Trash2, Search } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { MapUploadDialog } from './MapUploadDialog';
+import { authService } from '@/services/auth';
 import {
     DndContext,
     closestCenter,
@@ -32,6 +33,23 @@ import { CSS } from '@dnd-kit/utilities';
 import { cn } from '@/lib/utils';
 import { createPortal } from 'react-dom';
 import {getApiUrl} from "@/utils/api";
+
+function authHeaders(json = true): HeadersInit {
+    return {
+        ...authService.getAuthHeader(),
+        ...(json ? { 'Content-Type': 'application/json' } : {}),
+    };
+}
+
+function ancestorPaths(folderPath: string | undefined | null): string[] {
+    if (!folderPath) return [];
+    const parts = folderPath.split('/').filter(Boolean);
+    const paths: string[] = [];
+    for (let i = 0; i < parts.length; i++) {
+        paths.push(parts.slice(0, i + 1).join('/'));
+    }
+    return paths;
+}
 
 interface FolderItem {
     name: string;
@@ -68,6 +86,7 @@ interface DroppableFolderProps {
     onToggle: () => void;
     onAddSubfolder: () => void;
     onDelete: () => void;
+    onRename: () => void;
     onUpload: () => void;
 }
 
@@ -84,6 +103,7 @@ const DroppableFolder: React.FC<DroppableFolderProps> = ({
     onToggle,
     onAddSubfolder,
     onDelete,
+    onRename,
     onUpload,
 }) => {
     const { setNodeRef, isOver } = useDroppable({
@@ -101,7 +121,7 @@ const DroppableFolder: React.FC<DroppableFolderProps> = ({
             style={{ marginLeft: `${level * 20}px` }}
             className={cn(
                 "flex items-center justify-between p-2 rounded-md mb-1 cursor-pointer",
-                isOver ? "bg-blue-500/30 border border-blue-500" : "hover:bg-zinc-800/50"
+                isOver ? "bg-primary/20 border border-primary" : "hover:bg-muted/50"
             )}
             onClick={onToggle}
         >
@@ -111,10 +131,10 @@ const DroppableFolder: React.FC<DroppableFolderProps> = ({
                 ) : (
                     <ChevronRight className="h-4 w-4 flex-shrink-0" />
                 )}
-                <Folder className="h-4 w-4 text-zinc-400 flex-shrink-0" />
+                <Folder className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span className="break-words min-w-0 flex-1" title={folder.name}>{folder.name}</span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1">
                 <Button
                     variant="ghost"
                     size="sm"
@@ -136,6 +156,17 @@ const DroppableFolder: React.FC<DroppableFolderProps> = ({
                     title="Create subfolder"
                 >
                     <FolderPlus className="h-4 w-4" />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onRename();
+                    }}
+                    title="Rename folder"
+                >
+                    <Pencil className="h-4 w-4" />
                 </Button>
                 <Button
                     variant="ghost"
@@ -330,8 +361,16 @@ export const MapManagement: React.FC<MapManagementProps> = ({
     const [mapsByFolder, setMapsByFolder] = useState<Record<string, MapData[]>>({});
     const [allAvailableMaps, setAllAvailableMaps] = useState<MapData[]>([]);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-    const [itemToDelete, setItemToDelete] = useState<{ type: 'map' | 'folder', name: string } | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<{
+        type: 'map' | 'folder';
+        name: string;
+        path?: string;
+    } | null>(null);
     const [selectedMapNames, setSelectedMapNames] = useState<Set<string>>(new Set());
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isRenameFolderOpen, setIsRenameFolderOpen] = useState(false);
+    const [folderToRename, setFolderToRename] = useState<FolderItem | null>(null);
+    const [renameFolderName, setRenameFolderName] = useState('');
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -344,26 +383,22 @@ export const MapManagement: React.FC<MapManagementProps> = ({
         })
     );
 
-    const loadAllMaps = async () => {
+    const loadAllMaps = useCallback(async () => {
         try {
-            const API_BASE_URL = getApiUrl();
-            const response = await fetch(`${API_BASE_URL}/maps/list`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+            const response = await fetch(`${getApiUrl()}/maps/list`, {
+                headers: authHeaders(),
             });
             if (!response.ok) throw new Error('Failed to load maps');
 
             const data = await response.json();
             const availableMaps = data.maps || [];
 
-            // Convert the simplified map objects from the API to MapData objects with grid coordinates
             const convertedMaps: MapData[] = availableMaps.map((m: { name: string, folder?: string }) => ({
                 name: m.name,
                 folder: m.folder,
                 data: {
-                    position: { x: 9, y: 16 }, // Default to center of a standard 18x32 grid
-                    useGridCoordinates: true,  // Use grid coordinates by default for new maps
+                    position: { x: 9, y: 16 },
+                    useGridCoordinates: true,
                     scale: 1,
                     rotation: 0,
                     isHidden: true
@@ -372,7 +407,6 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
             setAllAvailableMaps(convertedMaps);
 
-            // Process maps into folders
             const folderMaps: Record<string, MapData[]> = {};
             convertedMaps.forEach(map => {
                 const folder = map.folder || 'root';
@@ -389,29 +423,17 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                 variant: "destructive",
             });
         }
-    };
+    }, [toast]);
 
-    const loadMapFolders = async () => {
+    const loadMapFolders = useCallback(async () => {
         try {
-            console.log("Loading map folders...");
-            const API_BASE_URL = getApiUrl();
-            const response = await fetch(`${API_BASE_URL}/maps/folders`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+            const response = await fetch(`${getApiUrl()}/maps/folders`, {
+                headers: authHeaders(),
             });
             if (!response.ok) throw new Error('Failed to load map folders');
 
             const data = await response.json();
-            console.log("Received folder data:", data);
-
-            const folders = data.folders || [];
-            console.log('Loaded folders:', folders);
-
-            // Don't expand folders by default - start with an empty set
-            setExpandedFolders(new Set());
-
-            setMapFolders(folders);
+            setMapFolders(data.folders || []);
         } catch (error) {
             console.error('Error loading map folders:', error);
             toast({
@@ -420,23 +442,72 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                 variant: "destructive",
             });
         }
-    };
+    }, [toast]);
 
-    const refreshData = () => {
-        loadAllMaps();
-        loadMapFolders();
+    const refreshData = useCallback(() => {
+        void loadAllMaps();
+        void loadMapFolders();
         onRefreshMaps();
-    };
+    }, [loadAllMaps, loadMapFolders, onRefreshMaps]);
 
     useEffect(() => {
         if (isOpen) {
-            console.log("MapManagement dialog opened, loading data...");
-            loadAllMaps();
-            loadMapFolders();
+            setSearchQuery('');
+            void loadAllMaps();
+            void loadMapFolders();
         } else {
             setSelectedMapNames(new Set());
         }
-    }, [isOpen]);
+    }, [isOpen, loadAllMaps, loadMapFolders]);
+
+    const query = searchQuery.trim().toLowerCase();
+
+    const filteredFolders = useMemo(() => {
+        if (!query) return mapFolders;
+        const matchingMapFolders = new Set(
+            allAvailableMaps
+                .filter((m) => m.name.toLowerCase().includes(query))
+                .map((m) => m.folder)
+                .filter(Boolean) as string[]
+        );
+        return mapFolders.filter((f) => {
+            if (f.name.toLowerCase().includes(query) || f.path.toLowerCase().includes(query)) {
+                return true;
+            }
+            return [...matchingMapFolders].some(
+                (path) => path === f.path || path.startsWith(f.path + '/')
+            );
+        });
+    }, [mapFolders, allAvailableMaps, query]);
+
+    const filteredMapsByFolder = useMemo(() => {
+        if (!query) return mapsByFolder;
+        const next: Record<string, MapData[]> = {};
+        for (const [folder, mapsInFolder] of Object.entries(mapsByFolder)) {
+            const matched = mapsInFolder.filter((m) =>
+                m.name.toLowerCase().includes(query)
+            );
+            if (matched.length) next[folder] = matched;
+        }
+        return next;
+    }, [mapsByFolder, query]);
+
+    useEffect(() => {
+        if (!query) return;
+        setExpandedFolders((prev) => {
+            const next = new Set(prev);
+            for (const mapsInFolder of Object.values(filteredMapsByFolder)) {
+                for (const map of mapsInFolder) {
+                    for (const p of ancestorPaths(map.folder)) next.add(p);
+                }
+            }
+            for (const folder of filteredFolders) {
+                next.add(folder.path);
+                for (const p of ancestorPaths(folder.parent)) next.add(p);
+            }
+            return next;
+        });
+    }, [query, filteredMapsByFolder, filteredFolders]);
 
     const handleCreateFolder = async () => {
         if (!newFolderName.trim()) {
@@ -449,12 +520,9 @@ export const MapManagement: React.FC<MapManagementProps> = ({
         }
 
         try {
-            const API_BASE_URL = getApiUrl();
-            const response = await fetch(`${API_BASE_URL}/maps/folder`, {
+            const response = await fetch(`${getApiUrl()}/maps/folder`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: authHeaders(),
                 body: JSON.stringify({
                     folder_name: newFolderName,
                     parent_folder: parentFolder || undefined
@@ -482,12 +550,15 @@ export const MapManagement: React.FC<MapManagementProps> = ({
         }
     };
 
-    const handleDeleteFolder = async (folderName: string) => {
+    const handleDeleteFolder = async (folderPath: string) => {
         try {
-            const API_BASE_URL = getApiUrl();
-            const response = await fetch(`${API_BASE_URL}/maps/folder/${folderName}`, {
-                method: 'DELETE',
-            });
+            const response = await fetch(
+                `${getApiUrl()}/maps/folder/${encodeURI(folderPath)}`,
+                {
+                    method: 'DELETE',
+                    headers: authHeaders(false),
+                }
+            );
 
             if (!response.ok) throw new Error('Failed to delete folder');
 
@@ -503,6 +574,33 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                 title: "Error",
                 description: "Failed to delete folder. Please try again.",
                 variant: "destructive",
+            });
+        }
+    };
+
+    const handleRenameFolder = async () => {
+        if (!folderToRename || !renameFolderName.trim()) return;
+        try {
+            const response = await fetch(
+                `${getApiUrl()}/maps/folder/${encodeURI(folderToRename.path)}`,
+                {
+                    method: 'PUT',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ new_name: renameFolderName.trim() }),
+                }
+            );
+            if (!response.ok) throw new Error('Failed to rename folder');
+            toast({ title: 'Success', description: 'Folder renamed successfully' });
+            setIsRenameFolderOpen(false);
+            setFolderToRename(null);
+            setRenameFolderName('');
+            refreshData();
+        } catch (error) {
+            console.error('Error renaming folder:', error);
+            toast({
+                title: 'Error',
+                description: 'Failed to rename folder. Please try again.',
+                variant: 'destructive',
             });
         }
     };
@@ -542,18 +640,12 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
     const handleRenameMap = async (map: MapData, newName: string) => {
         try {
-            console.log(`Renaming map from "${map.name}" to "${newName}"`);
 
-            const API_BASE_URL = getApiUrl();
-            const response = await fetch(`${API_BASE_URL}/maps/rename/${encodeURIComponent(map.name)}`, {
+            const response = await fetch(`${getApiUrl()}/maps/rename/${encodeURIComponent(map.name)}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: authHeaders(),
                 body: JSON.stringify({ new_name: newName }),
             });
-
-            console.log(`Rename response status: ${response.status}`);
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -562,7 +654,6 @@ export const MapManagement: React.FC<MapManagementProps> = ({
             }
 
             const data = await response.json();
-            console.log("Rename response data:", data);
 
             const oldName = map.name; // Store the old name before refreshing
 
@@ -579,7 +670,6 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
             // Call onMapRename if provided
             if (onMapRename) {
-                console.log(`Calling onMapRename with old name: ${oldName}, new name: ${newName}`);
                 onMapRename(oldName, newName);
 
                 // Add a small delay before refreshing data to ensure scene updates complete first
@@ -599,9 +689,9 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
     const handleDeleteMap = async (mapName: string) => {
         try {
-            const API_BASE_URL = getApiUrl();
-            const response = await fetch(`${API_BASE_URL}/maps/file/${mapName}`, {
+            const response = await fetch(`${getApiUrl()}/maps/file/${encodeURIComponent(mapName)}`, {
                 method: 'DELETE',
+                headers: authHeaders(false),
             });
 
             if (!response.ok) throw new Error('Failed to delete map');
@@ -623,12 +713,9 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
     const handleMoveMap = async (mapName: string, targetFolder: string | null) => {
         try {
-            const API_BASE_URL = getApiUrl();
-            const response = await fetch(`${API_BASE_URL}/maps/move/${mapName}`, {
+            const response = await fetch(`${getApiUrl()}/maps/move/${encodeURIComponent(mapName)}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: authHeaders(),
                 body: JSON.stringify({ folder: targetFolder || null }),
             });
 
@@ -662,7 +749,6 @@ export const MapManagement: React.FC<MapManagementProps> = ({
     };
 
     const handleDragStart = (event: DragStartEvent) => {
-        console.log('Drag start:', event.active.id);
         setActiveId(event.active.id as string);
 
         // Find the map being dragged
@@ -696,8 +782,6 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
         if (!over) return;
 
-        console.log('Drag end:', active.id, 'over:', over.id);
-
         // Get data from the draggable elements
         const activeData = active.data.current;
         const overData = over.data.current;
@@ -729,7 +813,6 @@ export const MapManagement: React.FC<MapManagementProps> = ({
             const shouldMove = normalizedTargetFolder !== currentFolder;
 
             if (shouldMove) {
-                console.log(`Moving map ${sourceMapName} from ${currentFolder} to ${normalizedTargetFolder}`);
                 await handleMoveMap(sourceMapName, normalizedTargetFolder);
 
                 // Auto-expand the folder where the item was dropped
@@ -769,25 +852,38 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                 const newIndex = mapsByFolder[sourceFolder].findIndex(m => m.name === over.id);
 
                 if (oldIndex !== -1 && newIndex !== -1) {
-                    console.log(`Reordering map ${active.id} in folder ${sourceFolder}`);
                     const newMaps = arrayMove([...mapsByFolder[sourceFolder]], oldIndex, newIndex);
-                    const updatedMapsByFolder = {
+                    setMapsByFolder({
                         ...mapsByFolder,
                         [sourceFolder]: newMaps
-                    };
-                    setMapsByFolder(updatedMapsByFolder);
+                    });
+                    const folderKey = sourceFolder === 'root' ? null : sourceFolder;
+                    try {
+                        const response = await fetch(`${getApiUrl()}/maps/order`, {
+                            method: 'PUT',
+                            headers: authHeaders(),
+                            body: JSON.stringify({
+                                folder: folderKey,
+                                filenames: newMaps.map((m) => m.name),
+                            }),
+                        });
+                        if (!response.ok) throw new Error('Failed to save order');
+                    } catch (error) {
+                        console.error(error);
+                        toast({
+                            title: 'Error',
+                            description: 'Failed to save map order. Reloading…',
+                            variant: 'destructive',
+                        });
+                        refreshData();
+                    }
                 }
             }
         }
     };
 
     const renderFolderTree = (parent: string | null = null, level: number = 0) => {
-        // This function now only handles sub-folders, not top-level ones
-        console.log(`Rendering sub-folders for parent: ${parent}, level: ${level}`);
-
-        // Filter for direct children of the given parent
-        const childFolders = mapFolders.filter(f => f.parent === parent);
-        console.log(`Found ${childFolders.length} sub-folders for parent ${parent}:`, childFolders);
+        const childFolders = filteredFolders.filter(f => f.parent === parent);
 
         return childFolders.map(folder => (
             <div key={folder.path}>
@@ -800,7 +896,12 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                         setParentFolder(folder.path);
                         setIsCreateFolderOpen(true);
                     }}
-                    onDelete={() => confirmDeleteFolder(folder.name)}
+                    onDelete={() => confirmDeleteFolder(folder)}
+                    onRename={() => {
+                        setFolderToRename(folder);
+                        setRenameFolderName(folder.name);
+                        setIsRenameFolderOpen(true);
+                    }}
                     onUpload={() => {
                         setUploadFolder(folder.path);
                         setIsUploadOpen(true);
@@ -809,15 +910,12 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
                 {expandedFolders.has(folder.path) && (
                     <>
-                        {/* Recursive call for deeper sub-folders */}
                         {renderFolderTree(folder.path, level + 1)}
-
-                        {/* Maps in this folder */}
                         <SortableContext
-                            items={(mapsByFolder[folder.path] || []).map(map => map.name)}
+                            items={(filteredMapsByFolder[folder.path] || []).map(map => map.name)}
                             strategy={verticalListSortingStrategy}
                         >
-                            {(mapsByFolder[folder.path] || []).map((map) =>
+                            {(filteredMapsByFolder[folder.path] || []).map((map) =>
                                 renderMapItem(map, folder.path, level + 1)
                             )}
                         </SortableContext>
@@ -836,8 +934,8 @@ export const MapManagement: React.FC<MapManagementProps> = ({
         }
     });
 
-    const confirmDeleteFolder = (folderName: string) => {
-        setItemToDelete({ type: 'folder', name: folderName });
+    const confirmDeleteFolder = (folder: FolderItem) => {
+        setItemToDelete({ type: 'folder', name: folder.name, path: folder.path });
         setDeleteConfirmOpen(true);
     };
 
@@ -851,7 +949,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
         try {
             if (itemToDelete.type === 'folder') {
-                await handleDeleteFolder(itemToDelete.name);
+                await handleDeleteFolder(itemToDelete.path || itemToDelete.name);
             } else {
                 await handleDeleteMap(itemToDelete.name);
             }
@@ -888,7 +986,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="sm:max-w-[90vw] max-h-[90vh]">
                 <DialogHeader>
                     <DialogTitle>Map Management</DialogTitle>
@@ -898,6 +996,15 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                 </DialogHeader>
 
                 <div className="flex flex-col gap-4">
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search maps…"
+                            className="pl-8"
+                        />
+                    </div>
                     <div className="flex flex-wrap justify-between items-center gap-2">
                         <div className="flex flex-wrap gap-2">
                             <Button
@@ -936,11 +1043,6 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                         </Button>
                     </div>
 
-                    {/* Debug folder information */}
-                    <div className="text-xs text-zinc-500 mb-2">
-                        Folders available: {mapFolders.length}
-                    </div>
-
                     <DndContext
                         sensors={sensors}
                         collisionDetection={closestCenter}
@@ -972,7 +1074,7 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                             )}
                         >
                             {/* Render all top-level folders first */}
-                            {mapFolders
+                            {filteredFolders
                                 .filter(folder => folder.parent === null || folder.parent === "")
                                 .map(folder => (
                                     <div key={folder.path}>
@@ -985,7 +1087,12 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                                                 setParentFolder(folder.path);
                                                 setIsCreateFolderOpen(true);
                                             }}
-                                            onDelete={() => confirmDeleteFolder(folder.name)}
+                                            onDelete={() => confirmDeleteFolder(folder)}
+                                            onRename={() => {
+                                                setFolderToRename(folder);
+                                                setRenameFolderName(folder.name);
+                                                setIsRenameFolderOpen(true);
+                                            }}
                                             onUpload={() => {
                                                 setUploadFolder(folder.path);
                                                 setIsUploadOpen(true);
@@ -999,10 +1106,10 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
                                                 {/* Maps in this folder */}
                                                 <SortableContext
-                                                    items={(mapsByFolder[folder.path] || []).map(map => map.name)}
+                                                    items={(filteredMapsByFolder[folder.path] || []).map(map => map.name)}
                                                     strategy={verticalListSortingStrategy}
                                                 >
-                                                    {(mapsByFolder[folder.path] || []).map((map) =>
+                                                    {(filteredMapsByFolder[folder.path] || []).map((map) =>
                                                         renderMapItem(map, folder.path, 1)
                                                     )}
                                                 </SortableContext>
@@ -1013,10 +1120,10 @@ export const MapManagement: React.FC<MapManagementProps> = ({
 
                             {/* Root level maps */}
                             <SortableContext
-                                items={(mapsByFolder['root'] || []).map(map => map.name)}
+                                items={(filteredMapsByFolder['root'] || []).map(map => map.name)}
                                 strategy={verticalListSortingStrategy}
                             >
-                                {(mapsByFolder['root'] || []).map((map) =>
+                                {(filteredMapsByFolder['root'] || []).map((map) =>
                                     renderMapItem(map, null, 0)
                                 )}
                             </SortableContext>
@@ -1085,6 +1192,29 @@ export const MapManagement: React.FC<MapManagementProps> = ({
                 targetFolder={uploadFolder}
                 onComplete={handleUploadComplete}
             />
+
+
+            <Dialog open={isRenameFolderOpen} onOpenChange={setIsRenameFolderOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Rename Folder</DialogTitle>
+                        <DialogDescription>
+                            Enter a new name for “{folderToRename?.name}”
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Input
+                        value={renameFolderName}
+                        onChange={(e) => setRenameFolderName(e.target.value)}
+                        placeholder="New folder name"
+                    />
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsRenameFolderOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={() => void handleRenameFolder()}>Rename</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>

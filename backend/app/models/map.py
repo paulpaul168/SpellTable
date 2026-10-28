@@ -26,3 +26,20 @@ class FolderItem(BaseModel):
     type: str = "folder"
     path: str
     parent: str | None = None
+
+
+class FolderRenameRequest(BaseModel):
+    """
+    A folder rename request model.
+    """
+
+    new_name: str
+
+
+class MapOrderRequest(BaseModel):
+    """
+    Persist map order within a folder (or root when folder is null/empty).
+    """
+
+    folder: str | None = None
+    filenames: list[str]

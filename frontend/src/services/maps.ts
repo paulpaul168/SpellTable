@@ -1,4 +1,5 @@
 import { getApiUrl } from '@/utils/api';
+import { authService } from '@/services/auth';
 
 export interface MapUploadSuccess {
     ok: true;
@@ -32,6 +33,9 @@ export async function uploadMap(
 
     const response = await fetch(`${getApiUrl()}/maps/upload`, {
         method: 'POST',
+        headers: {
+            ...authService.getAuthHeader(),
+        },
         body: formData,
     });
 
