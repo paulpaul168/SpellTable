@@ -8,24 +8,78 @@ import shutil
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from loguru import logger
 
+from ..core.auth import get_current_active_user, require_admin_role
 from ..core.constants import SCENES_DIR
 from ..models.scenes import FolderCreateRequest, FolderRenameRequest, SceneData
+from ..models.user import User
 
 router = APIRouter()
 
 
+def _scene_sort_key(scene: dict[str, Any]) -> tuple[int, str]:
+    order = scene.get("sortOrder", scene.get("sort_order", 0))
+    try:
+        order_int = int(order)
+    except (TypeError, ValueError):
+        order_int = 0
+    return (order_int, str(scene.get("name", "")).lower())
+
+
+def _next_sort_order(folder: str | None) -> int:
+    """Return max sortOrder in folder (or root) + 1."""
+    max_order = -1
+    for root, _, files in os.walk(SCENES_DIR):
+        for file in files:
+            if not file.endswith(".json") or file == "current_scene.json":
+                continue
+            file_path = os.path.join(root, file)
+            try:
+                with open(file=file_path, encoding="utf-8") as f:
+                    data = json.load(f)
+            except (OSError, json.JSONDecodeError):
+                continue
+            scene_folder = data.get("folder") or None
+            if scene_folder != folder:
+                continue
+            order = data.get("sortOrder", data.get("sort_order", 0))
+            try:
+                max_order = max(max_order, int(order))
+            except (TypeError, ValueError):
+                continue
+    return max_order + 1
+
+
+def _find_scene_file(scene_id: str) -> str | None:
+    for root, _, files in os.walk(SCENES_DIR):
+        for file in files:
+            if file.endswith(".json") and file != "current_scene.json":
+                file_path = os.path.join(root, file)
+                try:
+                    with open(file=file_path, encoding="utf-8") as f:
+                        data = json.load(f)
+                except (OSError, json.JSONDecodeError):
+                    continue
+                if data.get("id") == scene_id:
+                    return file_path
+    return None
+
+
 @router.post("/save")
-async def save_scene(scene: SceneData) -> dict[str, str]:
+async def save_scene(
+    scene: SceneData,
+    _current_user: User = Depends(require_admin_role),
+) -> dict[str, str]:
     """
-    Save a scene.
+    Save a new scene (Save As).
     """
     try:
         scene.id = str(uuid.uuid4())
-        # Create folder if it doesn't exist
+        scene.sort_order = _next_sort_order(scene.folder)
+
         if scene.folder:
             folder_path = os.path.join(SCENES_DIR, scene.folder)
             os.makedirs(folder_path, exist_ok=True)
@@ -35,14 +89,20 @@ async def save_scene(scene: SceneData) -> dict[str, str]:
 
         with open(file=scene_file, mode="w", encoding="utf-8") as f:
             json.dump(scene.model_dump(by_alias=True), f)
-        return {"message": "Scene saved successfully"}
+        return {
+            "message": "Scene saved successfully",
+            "id": scene.id,
+            "name": scene.name,
+        }
     except Exception as e:
         logger.exception(f"Error saving scene: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/list")
-async def list_scenes() -> dict[str, Any]:
+async def list_scenes(
+    _current_user: User = Depends(require_admin_role),
+) -> dict[str, Any]:
     """
     List all scenes.
     """
@@ -71,6 +131,7 @@ async def list_scenes() -> dict[str, Any]:
                         scenes.append(scene_data)
 
         scan_directory(SCENES_DIR)
+        scenes.sort(key=_scene_sort_key)
         return {"folders": folders, "scenes": scenes}
     except Exception as e:
         logger.exception(f"Error listing scenes: {e}")
@@ -78,7 +139,10 @@ async def list_scenes() -> dict[str, Any]:
 
 
 @router.post("/folder")
-async def create_folder(request: FolderCreateRequest) -> dict[str, str]:
+async def create_folder(
+    request: FolderCreateRequest,
+    _current_user: User = Depends(require_admin_role),
+) -> dict[str, str]:
     """
     Create a folder.
     """
@@ -94,57 +158,51 @@ async def create_folder(request: FolderCreateRequest) -> dict[str, str]:
             raise HTTPException(status_code=400, detail="Folder already exists")
         os.makedirs(folder_path)
         return {"message": "Folder created successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"Error creating folder: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/folder/{folder_path:path}")
-async def delete_folder(folder_path: str) -> dict[str, str]:
+async def delete_folder(
+    folder_path: str,
+    _current_user: User = Depends(require_admin_role),
+) -> dict[str, str]:
     """
     Delete a folder.
     """
     try:
-        folder_path = os.path.join(SCENES_DIR, folder_path)
-        if not os.path.exists(folder_path):
+        full_path = os.path.join(SCENES_DIR, folder_path)
+        if not os.path.exists(full_path):
             raise HTTPException(status_code=404, detail="Folder not found")
-        shutil.rmtree(folder_path)
+        shutil.rmtree(full_path)
         return {"message": "Folder deleted successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"Error deleting folder: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/load/{scene_id}")
-async def load_scene(scene_id: str) -> dict[str, Any]:
+async def load_scene(
+    scene_id: str,
+    _current_user: User = Depends(require_admin_role),
+) -> dict[str, Any]:
     """
     Load a scene.
     """
     try:
-        # First get the scene data to find its folder
-        scene_data = None
-        # scene_file = None
-
-        # Search through all scenes to find the one with matching ID
-        for root, _, files in os.walk(SCENES_DIR):
-            for file in files:
-                if file.endswith(".json") and file != "current_scene.json":
-                    file_path = os.path.join(root, file)
-                    with open(file=file_path, encoding="utf-8") as f:
-                        data: dict[str, Any] = json.load(f)
-                        if data["id"] == scene_id:
-                            scene_data = data
-                            # scene_file = file_path
-                            break
-            if scene_data:
-                break
-
-        if not scene_data:
+        scene_file = _find_scene_file(scene_id)
+        if not scene_file:
             raise HTTPException(status_code=404, detail="Scene not found")
 
-        return scene_data
-    except HTTPException as e:
-        logger.exception(f"HTTPException in load_scene: {e}")
+        with open(file=scene_file, encoding="utf-8") as f:
+            data: dict[str, Any] = json.load(f)
+            return data
+    except HTTPException:
         raise
     except Exception as e:
         logger.exception(f"Error in load_scene: {e}")
@@ -152,28 +210,21 @@ async def load_scene(scene_id: str) -> dict[str, Any]:
 
 
 @router.delete("/{scene_id}")
-async def delete_scene(scene_id: str) -> dict[str, str]:
+async def delete_scene(
+    scene_id: str,
+    _current_user: User = Depends(require_admin_role),
+) -> dict[str, str]:
     """
     Delete a scene.
     """
     try:
-        # First check in root directory
-        scene_file = os.path.join(SCENES_DIR, f"{scene_id}.json")
-        if not os.path.exists(scene_file):
-            # If not found, search in all folders
-            for folder in os.listdir(SCENES_DIR):
-                folder_path = os.path.join(SCENES_DIR, folder)
-                if os.path.isdir(folder_path):
-                    scene_file = os.path.join(folder_path, f"{scene_id}.json")
-                    if os.path.exists(scene_file):
-                        break
-            else:
-                raise HTTPException(status_code=404, detail="Scene not found")
+        scene_file = _find_scene_file(scene_id)
+        if not scene_file:
+            raise HTTPException(status_code=404, detail="Scene not found")
 
         os.remove(scene_file)
         return {"message": "Scene deleted successfully"}
-    except HTTPException as e:
-        logger.exception(f"HTTPException in delete_scene: {e}")
+    except HTTPException:
         raise
     except Exception as e:
         logger.exception(f"Error in delete_scene: {e}")
@@ -181,42 +232,37 @@ async def delete_scene(scene_id: str) -> dict[str, str]:
 
 
 @router.put("/{scene_id}")
-async def update_scene(scene_id: str, scene: SceneData) -> dict[str, str]:
+async def update_scene(
+    scene_id: str,
+    scene: SceneData,
+    _current_user: User = Depends(require_admin_role),
+) -> dict[str, str]:
     """
     Update a scene.
     """
     try:
-        # Search through all directories to find the scene file
-        scene_file = None
-        for root, _, files in os.walk(SCENES_DIR):
-            for file in files:
-                if file.endswith(".json") and file != "current_scene.json":
-                    file_path = os.path.join(root, file)
-                    with open(file=file_path, encoding="utf-8") as f:
-                        data = json.load(f)
-                        if data["id"] == scene_id:
-                            scene_file = file_path
-                            break
-            if scene_file:
-                break
-
+        scene_file = _find_scene_file(scene_id)
         if not scene_file:
             raise HTTPException(status_code=404, detail="Scene not found")
 
-        # If scene is being moved to a different folder
+        scene.id = scene_id
+
+        # Move file when folder changes (including move to root)
         if scene.folder:
             new_folder_path = os.path.join(SCENES_DIR, scene.folder)
             os.makedirs(new_folder_path, exist_ok=True)
             new_scene_file = os.path.join(new_folder_path, f"{scene_id}.json")
-            if scene_file != new_scene_file:
-                shutil.move(scene_file, new_scene_file)
-                scene_file = new_scene_file
+        else:
+            new_scene_file = os.path.join(SCENES_DIR, f"{scene_id}.json")
+
+        if scene_file != new_scene_file:
+            shutil.move(scene_file, new_scene_file)
+            scene_file = new_scene_file
 
         with open(file=scene_file, mode="w", encoding="utf-8") as f:
             json.dump(scene.model_dump(by_alias=True), f)
         return {"message": "Scene updated successfully"}
-    except HTTPException as e:
-        logger.exception(f"HTTPException in update_scene: {e}")
+    except HTTPException:
         raise
     except Exception as e:
         logger.exception(f"Error in update_scene: {e}")
@@ -225,118 +271,114 @@ async def update_scene(scene_id: str, scene: SceneData) -> dict[str, str]:
 
 @router.post("/{scene_id}/image")
 async def upload_scene_image(
-    scene_id: str, file: UploadFile = File(...)
+    scene_id: str,
+    file: UploadFile = File(...),
+    _current_user: User = Depends(require_admin_role),
 ) -> dict[str, str]:
     """
     Upload a scene image.
     """
     try:
-        # Find the scene file
-        scene_file = None
-        for root, _, files in os.walk(SCENES_DIR):
-            for f in files:
-                if f == f"{scene_id}.json":
-                    scene_file = os.path.join(root, f)
-                    break
-            if scene_file:
-                break
-
+        scene_file = _find_scene_file(scene_id)
         if not scene_file:
             raise HTTPException(status_code=404, detail="Scene not found")
 
-        # Create images directory if it doesn't exist
         scene_dir = os.path.dirname(scene_file)
         images_dir = os.path.join(scene_dir, "images")
         os.makedirs(images_dir, exist_ok=True)
 
-        # Save the image
         image_id = str(uuid.uuid4())
-        image_path = os.path.join(images_dir, f"{image_id}_{file.filename}")
+        safe_name = file.filename or "image"
+        image_path = os.path.join(images_dir, f"{image_id}_{safe_name}")
         file_content = await file.read()
         with open(image_path, "wb") as buffer:
             buffer.write(file_content)
 
-        # Update scene data
+        relative_path = os.path.relpath(image_path, SCENES_DIR)
+
         with open(file=scene_file, encoding="utf-8") as buffer:
             scene_data = json.load(buffer)
+
+        if "images" not in scene_data or not isinstance(scene_data["images"], list):
+            scene_data["images"] = []
 
         scene_data["images"].append(
             {
                 "id": image_id,
-                "name": file.filename,
-                "path": os.path.relpath(image_path, SCENES_DIR),
+                "name": safe_name,
+                "path": relative_path,
             }
         )
 
         with open(file=scene_file, mode="w", encoding="utf-8") as buffer:
             json.dump(scene_data, buffer)
 
-        return {"message": "Image uploaded successfully", "image_id": image_id}
+        return {
+            "message": "Image uploaded successfully",
+            "image_id": image_id,
+            "name": safe_name,
+            "path": relative_path,
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"Error in upload_scene_image: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/image/{image_path:path}")
-async def get_scene_image(image_path: str) -> FileResponse:
+async def get_scene_image(
+    image_path: str,
+    _current_user: User = Depends(get_current_active_user),
+) -> FileResponse:
     """
-    Get a scene image.
+    Get a scene image (any authenticated user).
     """
     try:
         file_path = os.path.join(SCENES_DIR, image_path)
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail="Image not found")
         return FileResponse(file_path)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"Error in get_scene_image: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/{scene_id}/image/{image_id}")
-async def delete_scene_image(scene_id: str, image_id: str) -> dict[str, str]:
+async def delete_scene_image(
+    scene_id: str,
+    image_id: str,
+    _current_user: User = Depends(require_admin_role),
+) -> dict[str, str]:
     """
     Delete a scene image.
     """
     try:
-        # Find the scene file
-        scene_file = None
-        for root, _, files in os.walk(SCENES_DIR):
-            for f in files:
-                if f == f"{scene_id}.json":
-                    scene_file = os.path.join(root, f)
-                    break
-            if scene_file:
-                break
-
+        scene_file = _find_scene_file(scene_id)
         if not scene_file:
             raise HTTPException(status_code=404, detail="Scene not found")
 
-        # Update scene data and delete image
         with open(file=scene_file, encoding="utf-8") as buffer:
             scene_data = json.load(buffer)
 
-        image_to_delete = None
-        for image in scene_data["images"]:
-            if image["id"] == image_id:
-                image_to_delete = image
-                break
-
+        images = scene_data.get("images") or []
+        image_to_delete = next((img for img in images if img.get("id") == image_id), None)
         if not image_to_delete:
             raise HTTPException(status_code=404, detail="Image not found")
 
-        # Delete the image file
         image_path = os.path.join(SCENES_DIR, image_to_delete["path"])
         if os.path.exists(image_path):
             os.remove(image_path)
 
-        # Update scene data
-        scene_data["images"] = [
-            img for img in scene_data["images"] if img["id"] != image_id
-        ]
+        scene_data["images"] = [img for img in images if img.get("id") != image_id]
         with open(file=scene_file, mode="w", encoding="utf-8") as buffer:
             json.dump(scene_data, buffer)
 
         return {"message": "Image deleted successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"Error in delete_scene_image: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -344,30 +386,28 @@ async def delete_scene_image(scene_id: str, image_id: str) -> dict[str, str]:
 
 @router.put("/folder/{folder_path:path}")
 async def rename_folder(
-    folder_path: str, request: FolderRenameRequest
+    folder_path: str,
+    request: FolderRenameRequest,
+    _current_user: User = Depends(require_admin_role),
 ) -> dict[str, str]:
     """Rename a folder in the scenes directory."""
     try:
-        # Ensure folder exists
         old_path = os.path.join(SCENES_DIR, folder_path)
         if not os.path.exists(old_path):
             raise HTTPException(status_code=404, detail="Folder not found")
 
-        # Get parent path and construct new path
         parent_dir = os.path.dirname(old_path)
         new_path = os.path.join(parent_dir, request.new_name)
 
-        # Check if destination exists
         if os.path.exists(new_path):
             raise HTTPException(
                 status_code=400,
                 detail=f"A folder named '{request.new_name}' already exists",
             )
 
-        # Rename folder
         os.rename(old_path, new_path)
 
-        # Update all scenes that reference this folder
+        # Update scenes that reference this folder or nested paths under it
         for root, _, files in os.walk(SCENES_DIR):
             for file in files:
                 if file.endswith(".json") and file != "current_scene.json":
@@ -376,25 +416,41 @@ async def rename_folder(
                         with open(file=file_path, encoding="utf-8") as buffer:
                             scene_data = json.load(buffer)
 
-                        # Check if this scene's folder needs updating
-                        if scene_data.get("folder") == folder_path:
-                            scene_data["folder"] = request.new_name
-                            with open(
-                                file=file_path, mode="w", encoding="utf-8"
-                            ) as buffer:
-                                json.dump(scene_data, buffer)
-                    except FileNotFoundError as e:
-                        logger.exception(f"FileNotFoundError in rename_folder: {e}")
-                        # Continue even if one scene fails to update
-                        continue
-                    except json.JSONDecodeError as e:
-                        logger.exception(f"JSONDecodeError in rename_folder: {e}")
-                        # Continue even if one scene fails to update
+                        current_folder = scene_data.get("folder")
+                        if not current_folder:
+                            continue
+
+                        if current_folder == folder_path:
+                            # Sibling rename: parent/new_name
+                            parent = os.path.dirname(folder_path)
+                            scene_data["folder"] = (
+                                os.path.join(parent, request.new_name)
+                                if parent
+                                else request.new_name
+                            )
+                        elif current_folder.startswith(folder_path + os.sep) or current_folder.startswith(
+                            folder_path + "/"
+                        ):
+                            suffix = current_folder[len(folder_path) :]
+                            parent = os.path.dirname(folder_path)
+                            new_base = (
+                                os.path.join(parent, request.new_name)
+                                if parent
+                                else request.new_name
+                            )
+                            scene_data["folder"] = new_base + suffix.replace("\\", "/")
+                        else:
+                            continue
+
+                        scene_data["folder"] = scene_data["folder"].replace("\\", "/")
+                        with open(file=file_path, mode="w", encoding="utf-8") as buffer:
+                            json.dump(scene_data, buffer)
+                    except (FileNotFoundError, json.JSONDecodeError, OSError) as e:
+                        logger.exception(f"Error updating scene folder ref: {e}")
                         continue
 
         return {"message": "Folder renamed successfully"}
-    except HTTPException as e:
-        logger.exception(f"HTTPException in rename_folder: {e}")
+    except HTTPException:
         raise
     except Exception as e:
         logger.exception(f"Error in rename_folder: {e}")

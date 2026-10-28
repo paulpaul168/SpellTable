@@ -27,6 +27,7 @@ class SceneData(BaseModel):
     id: str
     name: str
     folder: str | None = None
+    sort_order: int = Field(default=0, alias="sortOrder")
     maps: list[dict[str, Any]] = []
     active_map_id: str | None = Field(default=None, alias="activeMapId")
     grid_settings: dict[str, Any] = Field(
@@ -43,6 +44,14 @@ class SceneData(BaseModel):
         alias="encounterHistory",
     )
     images: list[SceneImage] = []
+    aoe_markers: list[dict[str, Any]] = Field(
+        default_factory=list,
+        alias="aoeMarkers",
+    )
+    fog_of_war: list[dict[str, Any]] = Field(
+        default_factory=list,
+        alias="fogOfWar",
+    )
 
 
 class FolderCreateRequest(BaseModel):

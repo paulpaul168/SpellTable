@@ -50,7 +50,6 @@ import {
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { SaveSceneDialog } from './SaveSceneDialog';
-import { LoadSceneDialog } from './LoadSceneDialog';
 import { MapListSidebar } from './MapListSidebar';
 import { useToast } from "@/components/ui/use-toast";
 import { useScreenSharePublisher } from '@/hooks/useScreenSharePublisher';
@@ -89,6 +88,7 @@ import { playAreaLayerZIndex } from '@/utils/playAreaLayers';
 import { MoveEverythingDialog } from './MoveEverythingDialog';
 import { UserManagementDialog } from './UserManagementDialog';
 import { useAuth } from '@/contexts/AuthContext';
+import { authService } from '@/services/auth';
 import {getApiUrl} from "@/utils/api";
 import {MonsterManagementDialog} from "@/components/MonsterManagementDialog";
 
@@ -162,12 +162,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         showCurrentPlayer: true,
         aoeMarkers: initialScene?.aoeMarkers || [],
         fogOfWar: initialScene?.fogOfWar || [],
+        images: initialScene?.images || [],
+        sortOrder: initialScene?.sortOrder,
+        folder: initialScene?.folder,
     });
     const [connectionStatus, setConnectionStatus] = useState('connecting');
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [isSaveSceneOpen, setIsSaveSceneOpen] = useState(false);
-    const [isLoadSceneOpen, setIsLoadSceneOpen] = useState(false);
-    const [savedScenes, setSavedScenes] = useState<SceneType[]>([]);
     const [operationStatus, setOperationStatus] = useState<{
         type: 'success' | 'error' | 'info';
         message: string;
@@ -455,90 +456,97 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
         await addMapsToScene(results.map((r) => r.filename));
     };
 
-    const handleSaveScene = async (name: string, isSaveAs: boolean = false) => {
+    const buildScenePayload = (
+        overrides: Partial<SceneType> = {}
+    ): SceneType => ({
+        ...scene,
+        ...overrides,
+        gridSettings: overrides.gridSettings || scene.gridSettings || {
+            showGrid: true,
+            gridSize: 50,
+        },
+        initiativeOrder: overrides.initiativeOrder ?? scene.initiativeOrder ?? [],
+        encounterHistory: overrides.encounterHistory ?? scene.encounterHistory ?? [],
+        showCurrentPlayer: overrides.showCurrentPlayer ?? scene.showCurrentPlayer ?? true,
+        aoeMarkers: overrides.aoeMarkers ?? scene.aoeMarkers ?? [],
+        fogOfWar: overrides.fogOfWar ?? scene.fogOfWar ?? [],
+        images: overrides.images ?? scene.images ?? [],
+    });
+
+    const handleSaveScene = async (
+        name: string,
+        isSaveAs: boolean = false,
+        folder?: string | null
+    ) => {
+        if (!isSaveAs && (!scene.id || scene.id === 'default')) {
+            setIsSaveSceneOpen(true);
+            return;
+        }
+
         try {
-            const timestamp = new Date().toLocaleString();
-            const sceneToSave = {
-                ...scene,
-                name: isSaveAs ? `${name} (${timestamp})` : scene.name,
-                id: isSaveAs ? Date.now().toString() : scene.id,
-                gridSettings: scene.gridSettings || {
-                    showGrid: true,
-                    gridSize: 50
-                },
-                initiativeOrder: scene.initiativeOrder || [],
-                encounterHistory: scene.encounterHistory || [],
-                showCurrentPlayer: scene.showCurrentPlayer ?? true,
-                aoeMarkers: scene.aoeMarkers || [],
-                fogOfWar: scene.fogOfWar || []
-            };
+            const sceneToSave = buildScenePayload(
+                isSaveAs
+                    ? {
+                          name,
+                          folder: folder || undefined,
+                      }
+                    : { name: scene.name }
+            );
 
             const API_BASE_URL = getApiUrl();
-            const endpoint = isSaveAs ? `${API_BASE_URL}/scenes/save` : `${API_BASE_URL}/scenes/${scene.id}`;
+            const endpoint = isSaveAs
+                ? `${API_BASE_URL}/scenes/save`
+                : `${API_BASE_URL}/scenes/${scene.id}`;
             const method = isSaveAs ? 'POST' : 'PUT';
 
             const response = await fetch(endpoint, {
                 method,
                 headers: {
                     'Content-Type': 'application/json',
+                    ...authService.getAuthHeader(),
                 },
                 body: JSON.stringify(sceneToSave),
             });
+
+            if (response.status === 404 && !isSaveAs) {
+                setIsSaveSceneOpen(true);
+                toast({
+                    title: 'Scene not in library',
+                    description: 'Choose a name to save this scene as a new library entry.',
+                    duration: 4000,
+                });
+                return;
+            }
 
             if (!response.ok) {
                 throw new Error('Failed to save scene');
             }
 
-            setScene(sceneToSave);
+            let savedScene = sceneToSave;
+            if (isSaveAs) {
+                const result = await response.json();
+                savedScene = {
+                    ...sceneToSave,
+                    id: result.id || sceneToSave.id,
+                    name: result.name || sceneToSave.name,
+                };
+            }
+
+            setScene(savedScene);
             toast({
-                title: "Scene Saved",
-                description: `Scene "${sceneToSave.name}" ${isSaveAs ? 'saved' : 'updated'} at ${timestamp}`,
+                title: 'Scene Saved',
+                description: isSaveAs
+                    ? `Saved "${savedScene.name}" to the library`
+                    : `Updated "${savedScene.name}"`,
                 duration: 3000,
             });
             setIsSaveSceneOpen(false);
         } catch (error) {
             console.error('Error saving scene:', error);
             toast({
-                title: "Error",
-                description: "Failed to save scene. Please try again.",
-                variant: "destructive",
-                duration: 3000,
-            });
-        }
-    };
-
-    const handleLoadScene = async () => {
-        try {
-            const API_BASE_URL = getApiUrl();
-            const response = await fetch(`${API_BASE_URL}/scenes/list`, {
-                method: 'GET',
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to load scenes');
-            }
-
-            const scenes = await response.json();
-            const scenesWithDefaults = scenes.map((scene: Partial<SceneType>) => ({
-                ...scene,
-                gridSettings: scene.gridSettings || {
-                    showGrid: true,
-                    gridSize: 50
-                },
-                initiativeOrder: scene.initiativeOrder || [],
-                encounterHistory: scene.encounterHistory || [],
-                showCurrentPlayer: scene.showCurrentPlayer ?? true,
-                aoeMarkers: scene.aoeMarkers || [],
-                fogOfWar: scene.fogOfWar || []
-            }));
-            setSavedScenes(scenesWithDefaults);
-            setIsLoadSceneOpen(true);
-        } catch (error) {
-            console.error('Error loading scenes:', error);
-            toast({
-                title: "Error",
-                description: "Failed to load scenes. Please try again.",
-                variant: "destructive",
+                title: 'Error',
+                description: 'Failed to save scene. Please try again.',
+                variant: 'destructive',
                 duration: 3000,
             });
         }
@@ -549,6 +557,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             const API_BASE_URL = getApiUrl();
             const response = await fetch(`${API_BASE_URL}/scenes/load/${loadedScene.id}`, {
                 method: 'GET',
+                headers: {
+                    ...authService.getAuthHeader(),
+                },
             });
 
             if (!response.ok) {
@@ -556,32 +567,35 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             }
 
             const sceneData = await response.json();
-            const sceneWithDefaults = {
+            const sceneWithDefaults = buildScenePayload({
                 ...sceneData,
                 gridSettings: sceneData.gridSettings || {
                     showGrid: true,
-                    gridSize: 50
+                    gridSize: 50,
                 },
                 initiativeOrder: sceneData.initiativeOrder || [],
                 encounterHistory: sceneData.encounterHistory || [],
                 showCurrentPlayer: sceneData.showCurrentPlayer ?? true,
                 aoeMarkers: sceneData.aoeMarkers || [],
-                fogOfWar: sceneData.fogOfWar || []
-            };
+                fogOfWar: sceneData.fogOfWar || [],
+                images: sceneData.images || [],
+                sortOrder: sceneData.sortOrder,
+                folder: sceneData.folder,
+            });
             setScene(sceneWithDefaults);
             websocketService.sendSceneUpdate(sceneWithDefaults);
             toast({
-                title: "Scene Loaded",
-                description: "Scene loaded successfully",
+                title: 'Scene Loaded',
+                description: `"${sceneWithDefaults.name}" loaded`,
                 duration: 3000,
             });
-            setIsLoadSceneOpen(false);
+            setIsSceneManagementOpen(false);
         } catch (error) {
             console.error('Error loading scene:', error);
             toast({
-                title: "Error",
-                description: "Failed to load scene. Please try again.",
-                variant: "destructive",
+                title: 'Error',
+                description: 'Failed to load scene. Please try again.',
+                variant: 'destructive',
                 duration: 3000,
             });
         }
@@ -1855,6 +1869,18 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                     <Settings className="h-4 w-4 text-muted-foreground" />
                                     <span className="text-xs font-medium text-foreground">Scene</span>
                                 </div>
+                                <p
+                                    className="px-2 pb-1 text-[11px] text-muted-foreground truncate"
+                                    title={
+                                        !scene.id || scene.id === 'default'
+                                            ? 'Unsaved'
+                                            : scene.name
+                                    }
+                                >
+                                    {!scene.id || scene.id === 'default'
+                                        ? 'Unsaved'
+                                        : scene.name}
+                                </p>
                                 <div className="space-y-1 mt-1">
                                     <DropdownMenuItem
                                         className="text-xs cursor-pointer"
@@ -2039,14 +2065,10 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 isOpen={isSaveSceneOpen}
                 onClose={() => setIsSaveSceneOpen(false)}
                 onSave={handleSaveScene}
-                currentName={scene.name}
-            />
-
-            <LoadSceneDialog
-                isOpen={isLoadSceneOpen}
-                onClose={() => setIsLoadSceneOpen(false)}
-                onLoad={handleSceneLoad}
-                savedScenes={savedScenes}
+                currentName={
+                    !scene.id || scene.id === 'default' ? '' : scene.name
+                }
+                currentFolder={scene.folder}
             />
 
             <SceneOperationStatusDialog
@@ -2062,6 +2084,9 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                 onClose={() => setIsSceneManagementOpen(false)}
                 onLoad={handleSceneLoad}
                 currentScene={scene}
+                onCurrentSceneImagesChange={(images) =>
+                    setScene((prev) => ({ ...prev, images }))
+                }
             />
 
             {/* Tool dock */}

@@ -88,8 +88,11 @@ export interface Scene {
     id: string;
     name: string;
     folder?: string;
+    /** Order within folder (or root); lower first. */
+    sortOrder?: number;
     maps: MapData[];
     activeMapId: string | null;
+    images?: SceneImage[];
     gridSettings: {
         showGrid: boolean;
         gridSize: number;
