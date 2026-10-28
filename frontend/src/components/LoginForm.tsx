@@ -5,7 +5,6 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function LoginForm() {
@@ -19,14 +18,12 @@ export function LoginForm() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Check for query parameters on mount
     useEffect(() => {
         if (!searchParams) return;
         const username = searchParams.get('username');
         const password = searchParams.get('password');
 
         if (username && password) {
-            // Auto-login with query parameters
             handleAutoLogin(username, password);
         }
     }, [searchParams]);
@@ -37,10 +34,8 @@ export function LoginForm() {
 
         try {
             await login(username, password);
-            // Don't redirect here - let AuthContext handle the redirect based on user role
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Auto-login failed');
-            // Clear query parameters on failure for security
             router.replace('/login');
         } finally {
             setIsLoading(false);
@@ -71,71 +66,90 @@ export function LoginForm() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-800 p-4">
-            <Card className="w-full max-w-md shadow-lg border-0 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm">
-                <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl font-bold text-center text-zinc-900 dark:text-zinc-100">
-                        SpellTable Login
-                    </CardTitle>
-                    <CardDescription className="text-center text-zinc-600 dark:text-zinc-400">
-                        Enter your credentials to access the application
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="username" className="text-zinc-700 dark:text-zinc-300">
-                                Username
-                            </Label>
-                            <Input
-                                id="username"
-                                type="text"
-                                placeholder="Enter your username"
-                                value={credentials.username}
-                                onChange={handleInputChange('username')}
-                                required
-                                className="border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="password" className="text-zinc-700 dark:text-zinc-300">
-                                Password
-                            </Label>
-                            <Input
-                                id="password"
-                                type="password"
-                                placeholder="Enter your password"
-                                value={credentials.password}
-                                onChange={handleInputChange('password')}
-                                required
-                                className="border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
-                            />
-                        </div>
+        <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-12">
+            <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_hsl(220_70%_50%_/_0.12),_transparent_55%),radial-gradient(ellipse_at_bottom_right,_hsl(240_6%_40%_/_0.2),_transparent_50%)] dark:bg-[radial-gradient(ellipse_at_top,_hsl(220_70%_55%_/_0.18),_transparent_55%),radial-gradient(ellipse_at_bottom_right,_hsl(240_5%_20%_/_0.45),_transparent_50%)]"
+            />
+            <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 opacity-[0.035] dark:opacity-[0.06]"
+                style={{
+                    backgroundImage:
+                        'linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px)',
+                    backgroundSize: '48px 48px',
+                }}
+            />
+            <div
+                aria-hidden
+                className="pointer-events-none absolute -left-24 top-1/4 h-72 w-72 rounded-full bg-primary/10 blur-3xl animate-in fade-in duration-1000"
+            />
+            <div
+                aria-hidden
+                className="pointer-events-none absolute -right-16 bottom-1/4 h-64 w-64 rounded-full bg-zinc-400/10 blur-3xl dark:bg-zinc-500/10 animate-in fade-in duration-1000"
+            />
 
-                        {error && (
-                            <div className="p-3 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                                {error}
-                            </div>
-                        )}
+            <div className="relative z-10 w-full max-w-sm">
+                <div className="mb-10 text-center animate-in fade-in slide-in-from-bottom-3 duration-500">
+                    <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+                        SpellTable
+                    </h1>
+                    <p className="mt-3 text-sm text-muted-foreground">
+                        Sign in to continue
+                    </p>
+                </div>
 
-                        <Button
-                            type="submit"
-                            className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 text-zinc-100"
-                            disabled={isLoading}
-                        >
-                            {isLoading ? 'Signing in...' : 'Sign In'}
-                        </Button>
-                    </form>
-
-                    <div className="mt-6 text-center text-sm text-zinc-600 dark:text-zinc-400">
-                        <p className="mb-2">Default credentials:</p>
-                        <div className="space-y-1 text-xs">
-                            <p><strong>Admin:</strong> admin / admin123</p>
-                            <p><strong>Viewer:</strong> viewer / viewer123</p>
-                        </div>
+                <form
+                    onSubmit={handleSubmit}
+                    className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-both"
+                    style={{ animationDelay: '80ms' }}
+                >
+                    <div className="space-y-2">
+                        <Label htmlFor="username">Username</Label>
+                        <Input
+                            id="username"
+                            type="text"
+                            placeholder="Username"
+                            autoComplete="username"
+                            value={credentials.username}
+                            onChange={handleInputChange('username')}
+                            required
+                            className="h-11 bg-background/60 backdrop-blur-sm transition-shadow focus-visible:shadow-[0_0_0_3px_hsl(var(--ring)/0.2)]"
+                        />
                     </div>
-                </CardContent>
-            </Card>
+                    <div className="space-y-2">
+                        <Label htmlFor="password">Password</Label>
+                        <Input
+                            id="password"
+                            type="password"
+                            placeholder="Password"
+                            autoComplete="current-password"
+                            value={credentials.password}
+                            onChange={handleInputChange('password')}
+                            required
+                            className="h-11 bg-background/60 backdrop-blur-sm transition-shadow focus-visible:shadow-[0_0_0_3px_hsl(var(--ring)/0.2)]"
+                        />
+                    </div>
+
+                    {error && (
+                        <div
+                            role="alert"
+                            className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive animate-in fade-in zoom-in-95 duration-200"
+                        >
+                            {error}
+                        </div>
+                    )}
+
+                    <Button
+                        type="submit"
+                        size="lg"
+                        className="w-full transition-transform duration-150 hover:scale-[1.01] active:scale-[0.99]"
+                        disabled={isLoading}
+                    >
+                        {isLoading ? 'Signing in...' : 'Sign In'}
+                    </Button>
+                </form>
+            </div>
         </div>
     );
 }
