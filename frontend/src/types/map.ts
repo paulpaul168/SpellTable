@@ -36,6 +36,14 @@ export interface InitiativeEntry {
     tokenSize?: number;
     /** Grid cell-center stops accumulated during this combatant's current turn. */
     turnMovementPath?: MapPosition[];
+    /** Library monster template name when added from monster management. */
+    monsterName?: string;
+    /** Expended spell slots by tier: index 0 = 1st … 8 = 9th. */
+    spellSlotsExpended?: number[];
+    /** Snapshot of slot maxima when the combatant was added. */
+    spellSlotMaximum?: number[];
+    /** Per-day / limited innate spell uses expended, keyed by spell name. */
+    innateUsesExpended?: Record<string, number>;
 }
 
 export interface EncounterHistoryEntry {

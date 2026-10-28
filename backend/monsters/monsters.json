@@ -5,14 +5,19 @@
     "alignment": "Neutral Evil",
     "armor": {
       "ac": 15,
-      "type": "Leather"
+      "type": "Leather",
+      "shield": false
     },
     "hp": {
       "average": 7,
       "hit_dice": "2d6"
     },
     "speed": {
-      "walk": 30
+      "walk": 30,
+      "fly": null,
+      "swim": null,
+      "burrow": null,
+      "climb": null
     },
     "ability_scores": {
       "strength": 8,
@@ -22,15 +27,19 @@
       "wisdom": 8,
       "charisma": 8
     },
+    "saving_throws": [],
     "skills": [
       {
         "skill": "Stealth",
         "modifier": 6
       }
     ],
+    "damage_resistances": [],
+    "damage_immunities": [],
+    "condition_immunities": [],
     "senses": {
-      "darkvision": 60,
-      "passive_perception": 9
+      "passive_perception": 9,
+      "darkvision": 60
     },
     "languages": [
       "Common",
@@ -55,7 +64,10 @@
         "title": "Shortbow",
         "description": "Ranged Weapon Attack: +4 to hit, range 80/320 ft., one target. Hit: 5 (1d6 + 2) piercing damage."
       }
-    ]
+    ],
+    "reactions": [],
+    "legendary_actions": [],
+    "spellcasting": null
   },
   {
     "name": "Goblin Boss",
@@ -71,7 +83,11 @@
       "hit_dice": "6d6"
     },
     "speed": {
-      "walk": 30
+      "walk": 30,
+      "fly": null,
+      "swim": null,
+      "burrow": null,
+      "climb": null
     },
     "ability_scores": {
       "strength": 10,
@@ -81,22 +97,26 @@
       "wisdom": 8,
       "charisma": 10
     },
+    "saving_throws": [],
     "skills": [
       {
         "skill": "Stealth",
         "modifier": 6
       }
     ],
+    "damage_resistances": [],
+    "damage_immunities": [],
+    "condition_immunities": [],
     "senses": {
-      "darkvision": 60,
-      "passive_perception": 9
+      "passive_perception": 9,
+      "darkvision": 60
     },
     "languages": [
       "Common",
       "Goblin"
     ],
     "challenge": {
-      "rating": 1,
+      "rating": 1.0,
       "xp": 200.0
     },
     "descriptions": [
@@ -128,7 +148,9 @@
         "title": "Redirect Attack",
         "description": "When a creature the goblin can see targets it with an attack, the goblin chooses another goblin within 5 feet of it. The two goblins swap places, and the chosen goblin becomes the target instead."
       }
-    ]
+    ],
+    "legendary_actions": [],
+    "spellcasting": null
   },
   {
     "name": "Wolf",
@@ -136,14 +158,19 @@
     "alignment": "Unaligned",
     "armor": {
       "ac": 13,
-      "type": "Natural Armor"
+      "type": "Natural Armor",
+      "shield": false
     },
     "hp": {
       "average": 11,
       "hit_dice": "2d8+2"
     },
     "speed": {
-      "walk": 40
+      "walk": 40,
+      "fly": null,
+      "swim": null,
+      "burrow": null,
+      "climb": null
     },
     "ability_scores": {
       "strength": 12,
@@ -153,6 +180,7 @@
       "wisdom": 12,
       "charisma": 6
     },
+    "saving_throws": [],
     "skills": [
       {
         "skill": "Perception",
@@ -163,8 +191,12 @@
         "modifier": 4
       }
     ],
+    "damage_resistances": [],
+    "damage_immunities": [],
+    "condition_immunities": [],
     "senses": {
-      "passive_perception": 13
+      "passive_perception": 13,
+      "darkvision": null
     },
     "languages": [],
     "challenge": {
@@ -186,6 +218,9 @@
         "title": "Bite",
         "description": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 (2d4 + 2) piercing damage. If the target is a creature, it must succeed on a DC 11 Strength saving throw or be knocked prone."
       }
-    ]
+    ],
+    "reactions": [],
+    "legendary_actions": [],
+    "spellcasting": null
   }
 ]

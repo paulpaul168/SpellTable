@@ -2,12 +2,17 @@
 This module contains the monsters routes for the FastAPI app.
 """
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Query
 
 from ..models.monster import Monster
+from ..services.aurora_monster_catalog import AuroraMonsterCatalogService
+from ..services.fc5_monster_catalog import Fc5MonsterCatalogService
 from ..services.monster_service import MonsterService
 
 router = APIRouter()
+
+AURORA_PREFIX = "aurora:"
+FC5_PREFIX = "fc5:"
 
 
 @router.get("", status_code=200)
@@ -21,9 +26,136 @@ async def list_monsters() -> list[Monster]:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@router.get("/catalog/status", status_code=200)
+async def aurora_monster_catalog_status() -> dict[str, bool | int]:
+    service = AuroraMonsterCatalogService()
+    available = service.is_available()
+    count = len(service.list_creatures() or []) if available else 0
+    return {"available": available, "count": count}
+
+
+@router.get("/catalog", status_code=200)
+async def list_aurora_monster_catalog(
+    q: str | None = Query(default=None, description="Filter by name, id, or source"),
+) -> list[dict]:
+    service = AuroraMonsterCatalogService()
+    entries = service.list_creatures(q)
+    if entries is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Aurora monster catalog unavailable (AURORA_ELEMENTS_ROOT not configured)",
+        )
+    return [
+        {
+            "id": e.id,
+            "name": e.name,
+            "source": e.source,
+            "size": e.size,
+            "challenge": e.challenge,
+            "ac": e.ac,
+            "hp_average": e.hp_average,
+            "creature_type": e.creature_type,
+            "monsterName": f"{AURORA_PREFIX}{e.id}",
+        }
+        for e in entries
+    ]
+
+
+@router.get("/catalog/{creature_id}", status_code=200)
+async def get_aurora_monster_catalog_detail(creature_id: str) -> dict:
+    service = AuroraMonsterCatalogService()
+    if not service.is_available():
+        raise HTTPException(
+            status_code=503,
+            detail="Aurora monster catalog unavailable (AURORA_ELEMENTS_ROOT not configured)",
+        )
+    monster = service.get_creature_monster(creature_id)
+    if monster is None:
+        raise HTTPException(
+            status_code=404, detail=f"Aurora creature '{creature_id}' not found"
+        )
+    return monster
+
+
+@router.get("/fc5/status", status_code=200)
+async def fc5_monster_catalog_status() -> dict[str, bool | int]:
+    service = Fc5MonsterCatalogService()
+    available = service.is_available()
+    if not available:
+        return {"available": False, "count": 0}
+    entries = service.list_creatures(limit=None) or []
+    return {"available": True, "count": len(entries)}
+
+
+@router.get("/fc5", status_code=200)
+async def list_fc5_monster_catalog(
+    q: str | None = Query(default=None, description="Filter by name, id, type, or source"),
+    limit: int = Query(default=200, ge=1, le=20000),
+) -> list[dict]:
+    service = Fc5MonsterCatalogService()
+    entries = service.list_creatures(q, limit=limit)
+    if entries is None:
+        raise HTTPException(
+            status_code=503,
+            detail="FC5 monster catalog unavailable (FC5_ROOT not configured)",
+        )
+    return [
+        {
+            "id": e.id,
+            "name": e.name,
+            "source": e.source,
+            "size": e.size,
+            "challenge": e.challenge,
+            "ac": e.ac,
+            "hp_average": e.hp_average,
+            "creature_type": e.creature_type,
+            "monsterName": f"{FC5_PREFIX}{e.id}",
+        }
+        for e in entries
+    ]
+
+
+@router.get("/fc5/{creature_id}", status_code=200)
+async def get_fc5_monster_catalog_detail(creature_id: str) -> dict:
+    service = Fc5MonsterCatalogService()
+    if not service.is_available():
+        raise HTTPException(
+            status_code=503,
+            detail="FC5 monster catalog unavailable (FC5_ROOT not configured)",
+        )
+    monster = service.get_creature_monster(creature_id)
+    if monster is None:
+        raise HTTPException(
+            status_code=404, detail=f"FC5 creature '{creature_id}' not found"
+        )
+    return monster
+
+
 @router.get("/{monster_name}", status_code=200)
-async def get_monster(monster_name: str) -> Monster:
+async def get_monster(monster_name: str) -> Monster | dict:
     try:
+        if monster_name.startswith(AURORA_PREFIX):
+            creature_id = monster_name[len(AURORA_PREFIX) :]
+            aurora = AuroraMonsterCatalogService()
+            monster = aurora.get_creature_monster(creature_id)
+            if monster is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Aurora creature '{creature_id}' not found",
+                )
+            return monster
+
+        if monster_name.startswith(FC5_PREFIX):
+            creature_id = monster_name[len(FC5_PREFIX) :]
+            fc5 = Fc5MonsterCatalogService()
+            monster = fc5.get_creature_monster(creature_id)
+            if monster is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"FC5 creature '{creature_id}' not found",
+                )
+            return monster
+
         service = MonsterService()
         monster = service.load_monster(monster_name)
         if monster is None:

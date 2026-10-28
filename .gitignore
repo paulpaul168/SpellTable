@@ -62,3 +62,10 @@ campaign_images/*
 
 # AoE asset build temp downloads
 .tmp-aoe-downloads/
+
+# BYO Aurora content (never commit — operator-mounted licensed data)
+data/aurora-elements/
+docker-compose.aurora.yml
+
+# BYO Fight Club 5e XML compendiums (personal; often non-redistributable)
+data/fc5/

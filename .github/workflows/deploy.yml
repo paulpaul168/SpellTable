@@ -42,4 +42,4 @@ jobs:
           set -euo pipefail
           PORT="${SSH_PORT:-22}"
           ssh -p "$PORT" -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
-            "set -euo pipefail; cd \"${DEPLOY_PATH}\"; git fetch origin deploy; git checkout deploy; git reset --hard origin/deploy; docker compose -f docker-compose.prod.yml up -d --build"
+            "set -euo pipefail; cd \"${DEPLOY_PATH}\"; git fetch origin deploy; git checkout deploy; git reset --hard origin/deploy; if [ -f docker-compose.aurora.yml ]; then docker compose -f docker-compose.prod.yml -f docker-compose.aurora.yml up -d --build; else docker compose -f docker-compose.prod.yml up -d --build; fi"

@@ -21,6 +21,7 @@ from app.routes import (
     maps,
     monsters,
     scenes,
+    spells,
     websocket,
 )
 
@@ -53,6 +54,7 @@ def get_application() -> FastAPI:
     local_app.include_router(maps.router, prefix="/maps")
     local_app.include_router(backup.router, prefix="/backup")
     local_app.include_router(monsters.router, prefix="/monsters")
+    local_app.include_router(spells.router, prefix="/spells", tags=["spells"])
 
     return local_app
 

@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useToast } from './ui/use-toast';
 import { Plus, Trash2, ChevronDown, ChevronUp, Eye, EyeOff, Skull, X, ChevronRight, ScrollText, MapPin, MapPinOff, Pencil, Crosshair } from 'lucide-react';
 import { EncounterHistoryEntry, InitiativeEntry } from '../types/map';
+import type { AuroraMonsterSummary, Fc5MonsterSummary, Monster } from '@/types/monster';
 import { applyTurnChangeToEntries } from '@/utils/turnMovementTrail';
 import {
     DndContext,
@@ -40,6 +41,16 @@ import {
     rollDiceExpression,
     rollInitiative,
 } from '../utils/dice';
+import { monsterService } from '@/services/monster_service';
+import { EnemyCombatPanel } from '@/components/EnemyCombatPanel';
+import {
+    dexInitiativeModifier,
+    resolveMonsterHP,
+    sizeToTokenFootprint,
+    snapshotSpellSlots,
+} from '@/utils/monsterCombat';
+import { emptySpellSlotArray } from '@/utils/spellSlots';
+import { Checkbox } from '@/components/ui/checkbox';
 
 function createEntryId(): string {
     return crypto.randomUUID();
@@ -49,7 +60,8 @@ function createInitiativeEntry(
     name: string,
     initiative: number,
     isPlayer: boolean,
-    hp?: number
+    hp?: number,
+    extras?: Partial<InitiativeEntry>
 ): InitiativeEntry {
     return {
         id: createEntryId(),
@@ -60,6 +72,7 @@ function createInitiativeEntry(
         hp,
         initialHP: hp,
         isKilled: false,
+        ...extras,
     };
 }
 
@@ -125,6 +138,18 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
     const [bulkEnemyHP, setBulkEnemyHP] = useState('');
     const [bulkEnemyInitMod, setBulkEnemyInitMod] = useState('');
     const [playerNames, setPlayerNames] = useState<string[]>([]);
+    const [libraryMonsters, setLibraryMonsters] = useState<Monster[]>([]);
+    const [auroraMonsters, setAuroraMonsters] = useState<AuroraMonsterSummary[]>([]);
+    const [fc5Monsters, setFc5Monsters] = useState<Fc5MonsterSummary[]>([]);
+    const [fc5Available, setFc5Available] = useState(false);
+    const [fc5TotalCount, setFc5TotalCount] = useState(0);
+    const [libraryLoading, setLibraryLoading] = useState(false);
+    const [libraryError, setLibraryError] = useState<string | null>(null);
+    const [libraryQuery, setLibraryQuery] = useState('');
+    const [libraryCount, setLibraryCount] = useState('1');
+    const [libraryRollHP, setLibraryRollHP] = useState(true);
+    const [librarySource, setLibrarySource] = useState<'all' | 'local' | 'aurora' | 'fc5'>('all');
+    const [selectedEnemyId, setSelectedEnemyId] = useState<string | null>(null);
     const [entryContextMenu, setEntryContextMenu] = useState<{
         entryId: string;
         x: number;
@@ -139,6 +164,81 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
     const enemyNameRef = useRef<HTMLInputElement>(null);
     const bulkEnemyNameRef = useRef<HTMLInputElement>(null);
     const editNameRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (!addDialogOpen) return;
+        let cancelled = false;
+        setLibraryLoading(true);
+        setLibraryError(null);
+        Promise.all([
+            monsterService.getMonsters().catch((err) => {
+                throw err;
+            }),
+            monsterService.getAuroraMonsters().catch(() => [] as AuroraMonsterSummary[]),
+            monsterService.getFc5CatalogStatus().catch(() => ({
+                available: false,
+                count: 0,
+            })),
+            monsterService.getFc5Monsters(undefined, 20000).catch(() => [] as Fc5MonsterSummary[]),
+        ])
+            .then(([local, aurora, fc5Status, fc5]) => {
+                if (cancelled) return;
+                setLibraryMonsters(local);
+                setAuroraMonsters(aurora);
+                setFc5Available(fc5Status.available || fc5.length > 0);
+                setFc5TotalCount(fc5Status.count || fc5.length);
+                setFc5Monsters(fc5);
+            })
+            .catch((err) => {
+                if (!cancelled) {
+                    setLibraryMonsters([]);
+                    setAuroraMonsters([]);
+                    setFc5Monsters([]);
+                    setLibraryError(
+                        err instanceof Error ? err.message : 'Failed to load monsters'
+                    );
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setLibraryLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [addDialogOpen]);
+
+    const filteredFc5ForLibrary = useMemo(() => {
+        const q = libraryQuery.trim().toLowerCase();
+        if (librarySource === 'all' && q.length < 2) return [];
+        if (librarySource !== 'fc5' && librarySource !== 'all') return [];
+        const matches = q
+            ? fc5Monsters.filter((m) => m.name.toLowerCase().includes(q))
+            : fc5Monsters;
+        return matches.slice(0, 80);
+    }, [fc5Monsters, libraryQuery, librarySource]);
+
+    const currentEnemyTurnId = useMemo(
+        () =>
+            entries.find((e) => e.isCurrentTurn && !e.isPlayer && !e.isKilled)?.id ?? null,
+        [entries]
+    );
+
+    const focusedEnemy = useMemo(() => {
+        const byId = selectedEnemyId
+            ? entries.find((e) => e.id === selectedEnemyId && !e.isPlayer)
+            : undefined;
+        if (byId) return byId;
+        return (
+            entries.find((e) => e.id === currentEnemyTurnId && !e.isPlayer) ?? null
+        );
+    }, [entries, selectedEnemyId, currentEnemyTurnId]);
+
+    // Auto-focus the enemy whose turn it is; DM can still click another enemy until the turn changes.
+    useEffect(() => {
+        if (currentEnemyTurnId) {
+            setSelectedEnemyId(currentEnemyTurnId);
+        }
+    }, [currentEnemyTurnId]);
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -340,8 +440,15 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
         return current?.name;
     };
 
-    const addEntry = (name: string, initiative: number, isPlayer: boolean, hp?: number, logText?: string) => {
-        const newEntry = createInitiativeEntry(name, initiative, isPlayer, hp);
+    const addEntry = (
+        name: string,
+        initiative: number,
+        isPlayer: boolean,
+        hp?: number,
+        logText?: string,
+        extras?: Partial<InitiativeEntry>
+    ) => {
+        const newEntry = createInitiativeEntry(name, initiative, isPlayer, hp, extras);
 
         const newEntries = [...entries, newEntry].sort((a, b) => b.initiative - a.initiative);
         if (logText) {
@@ -359,6 +466,105 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
         setEnemyName('');
         setEnemyInitiative('');
         setEnemyHP('');
+
+        if (!isPlayer) {
+            setSelectedEnemyId(newEntry.id);
+        }
+    };
+
+    const patchEntry = (id: string, patch: Partial<InitiativeEntry>) => {
+        const newEntries = entries.map((e) => (e.id === id ? { ...e, ...patch } : e));
+        pushEncounterUpdate({ entries: newEntries });
+    };
+
+    const linkMonsterToEntry = async (entryId: string, monsterName: string) => {
+        try {
+            const monster = await monsterService.getMonster(monsterName);
+            const slots = snapshotSpellSlots(monster);
+            patchEntry(entryId, {
+                monsterName: monster.name,
+                spellSlotMaximum: slots,
+                spellSlotsExpended: emptySpellSlotArray(),
+                innateUsesExpended: {},
+                tokenFootprint: sizeToTokenFootprint(monster.size),
+            });
+            toast({
+                title: 'Linked',
+                description: `Linked ${monster.name} to combatant`,
+            });
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description:
+                    error instanceof Error ? error.message : 'Failed to link monster',
+                variant: 'destructive',
+            });
+        }
+    };
+
+    const addFromLibrary = (monster: Monster, templateRef?: string) => {
+        const count = Math.max(1, parseInt(libraryCount, 10) || 1);
+        const initMod = dexInitiativeModifier(monster);
+        const slots = snapshotSpellSlots(monster);
+        const footprint = sizeToTokenFootprint(monster.size);
+        const templateName = templateRef || monster.name;
+        const added: InitiativeEntry[] = [];
+
+        for (let i = 0; i < count; i++) {
+            const hp = resolveMonsterHP(monster, libraryRollHP);
+            const initiative = rollInitiative(initMod);
+            const name = count === 1 ? monster.name : `${monster.name}_${i + 1}`;
+            added.push(
+                createInitiativeEntry(name, initiative, false, hp, {
+                    monsterName: templateName,
+                    spellSlotMaximum: slots,
+                    spellSlotsExpended: emptySpellSlotArray(),
+                    innateUsesExpended: {},
+                    tokenFootprint: footprint,
+                })
+            );
+        }
+
+        const newEntries = [...entries, ...added].sort((a, b) => b.initiative - a.initiative);
+        updateWithLog(
+            newEntries,
+            `Added ${count}× ${monster.name} from library (DEX ${initMod >= 0 ? '+' : ''}${initMod})`
+        );
+        if (added[0]) setSelectedEnemyId(added[0].id);
+        toast({
+            title: 'Added',
+            description: `Added ${count}× ${monster.name}`,
+        });
+    };
+
+    const addFromAuroraLibrary = async (summary: AuroraMonsterSummary) => {
+        try {
+            const monster = await monsterService.getMonster(summary.monsterName);
+            addFromLibrary(monster, summary.monsterName);
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description:
+                    error instanceof Error
+                        ? error.message
+                        : 'Failed to load Aurora creature',
+                variant: 'destructive',
+            });
+        }
+    };
+
+    const addFromFc5Library = async (summary: Fc5MonsterSummary) => {
+        try {
+            const monster = await monsterService.getMonster(summary.monsterName);
+            addFromLibrary(monster, summary.monsterName);
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description:
+                    error instanceof Error ? error.message : 'Failed to load FC5 creature',
+                variant: 'destructive',
+            });
+        }
     };
 
     const removeEntry = (id: string) => {
@@ -713,7 +919,7 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                 <GlassPanel
                     title="Initiative"
                     edge="bottom-left"
-                    className="!w-[30rem] max-w-[95vw]"
+                    className="!w-[34rem] max-w-[95vw]"
                     onClose={onClose}
                     headerActions={
                         <>
@@ -810,8 +1016,16 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                             entry.isPlayer ? 'text-foreground' : 'text-foreground',
                                             entry.isKilled && 'opacity-50',
                                             placingEntryId === entry.id && 'ring-1 ring-primary',
+                                            isAdmin &&
+                                                !entry.isPlayer &&
+                                                selectedEnemyId === entry.id &&
+                                                'ring-1 ring-amber-500/70',
                                             isAdmin && 'cursor-context-menu'
                                         )}
+                                        onClick={() => {
+                                            if (!isAdmin || entry.isPlayer) return;
+                                            setSelectedEnemyId(entry.id);
+                                        }}
                                         onContextMenu={(e) => {
                                             if (!isAdmin) return;
                                             e.preventDefault();
@@ -932,6 +1146,21 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                 ))}
                             </SortableContext>
                         </DndContext>
+                        {isAdmin && (
+                            <div className="mt-3 border-t border-border/50 pt-3">
+                                <EnemyCombatPanel
+                                    entry={focusedEnemy}
+                                    onUpdateEntry={(patch) => {
+                                        if (!focusedEnemy) return;
+                                        patchEntry(focusedEnemy.id, patch);
+                                    }}
+                                    onLinkMonster={(monsterName) => {
+                                        if (!focusedEnemy) return;
+                                        void linkMonsterToEntry(focusedEnemy.id, monsterName);
+                                    }}
+                                />
+                            </div>
+                        )}
                 </GlassPanel>
             )}
 
@@ -1016,6 +1245,204 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
                                         <Plus className="h-4 w-4" />
                                     </Button>
                                 </div>
+                            </div>
+
+                            <div className="h-px bg-border" />
+
+                            <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">
+                                    From monster library
+                                </Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        placeholder="#"
+                                        className="w-16"
+                                        value={libraryCount}
+                                        onChange={(e) => setLibraryCount(e.target.value)}
+                                    />
+                                    <Input
+                                        type="text"
+                                        placeholder="Search library…"
+                                        value={libraryQuery}
+                                        onChange={(e) => setLibraryQuery(e.target.value)}
+                                        className="flex-1"
+                                    />
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {(
+                                        [
+                                            ['all', 'All'],
+                                            ['local', 'Local'],
+                                            ['aurora', `Aurora (${auroraMonsters.length})`],
+                                            [
+                                                'fc5',
+                                                fc5Available
+                                                    ? `FC5 (${fc5TotalCount || '…'})`
+                                                    : 'FC5 (off)',
+                                            ],
+                                        ] as const
+                                    ).map(([value, label]) => (
+                                        <Button
+                                            key={value}
+                                            type="button"
+                                            size="sm"
+                                            variant={
+                                                librarySource === value ? 'default' : 'outline'
+                                            }
+                                            className="h-7 text-xs"
+                                            disabled={value === 'fc5' && !fc5Available}
+                                            onClick={() => setLibrarySource(value)}
+                                        >
+                                            {label}
+                                        </Button>
+                                    ))}
+                                    <div className="flex items-center gap-2">
+                                        <Checkbox
+                                            id="library-roll-hp"
+                                            checked={libraryRollHP}
+                                            onCheckedChange={(checked) =>
+                                                setLibraryRollHP(checked === true)
+                                            }
+                                        />
+                                        <Label htmlFor="library-roll-hp" className="text-xs">
+                                            Roll HP from hit dice
+                                        </Label>
+                                    </div>
+                                </div>
+                                <ul className="max-h-36 space-y-1 overflow-y-auto rounded border border-border/50 p-2 text-sm">
+                                    {libraryLoading && (
+                                        <li className="text-xs text-muted-foreground">
+                                            Loading library…
+                                        </li>
+                                    )}
+                                    {libraryError && (
+                                        <li className="text-xs text-destructive">{libraryError}</li>
+                                    )}
+                                    {!libraryLoading &&
+                                        !libraryError &&
+                                        (librarySource === 'all' || librarySource === 'local') &&
+                                        libraryMonsters
+                                            .filter((m) =>
+                                                m.name
+                                                    .toLowerCase()
+                                                    .includes(libraryQuery.trim().toLowerCase())
+                                            )
+                                            .map((m) => (
+                                                <li
+                                                    key={`local-${m.name}`}
+                                                    className="flex items-center justify-between gap-2"
+                                                >
+                                                    <span className="truncate">
+                                                        {m.name}{' '}
+                                                        <span className="text-xs text-muted-foreground">
+                                                            local · AC {m.armor.ac} · HP{' '}
+                                                            {m.hp.average}
+                                                            {m.spellcasting ? ' · caster' : ''}
+                                                        </span>
+                                                    </span>
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="h-7 shrink-0"
+                                                        onClick={() => addFromLibrary(m)}
+                                                    >
+                                                        Add
+                                                    </Button>
+                                                </li>
+                                            ))}
+                                    {!libraryLoading &&
+                                        !libraryError &&
+                                        (librarySource === 'all' || librarySource === 'aurora') &&
+                                        auroraMonsters
+                                            .filter((m) =>
+                                                m.name
+                                                    .toLowerCase()
+                                                    .includes(libraryQuery.trim().toLowerCase())
+                                            )
+                                            .map((m) => (
+                                                <li
+                                                    key={`aurora-${m.id}`}
+                                                    className="flex items-center justify-between gap-2"
+                                                >
+                                                    <span className="truncate">
+                                                        {m.name}{' '}
+                                                        <span className="text-xs text-muted-foreground">
+                                                            aurora · AC {m.ac ?? '—'} · HP{' '}
+                                                            {m.hp_average ?? '—'}
+                                                            {m.source ? ` · ${m.source}` : ''}
+                                                        </span>
+                                                    </span>
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="h-7 shrink-0"
+                                                        onClick={() =>
+                                                            void addFromAuroraLibrary(m)
+                                                        }
+                                                    >
+                                                        Add
+                                                    </Button>
+                                                </li>
+                                            ))}
+                                    {!libraryLoading &&
+                                        !libraryError &&
+                                        filteredFc5ForLibrary.map((m) => (
+                                            <li
+                                                key={`fc5-${m.id}`}
+                                                className="flex items-center justify-between gap-2"
+                                            >
+                                                <span className="truncate">
+                                                    {m.name}{' '}
+                                                    <span className="text-xs text-muted-foreground">
+                                                        fc5 · AC {m.ac ?? '—'} · HP{' '}
+                                                        {m.hp_average ?? '—'}
+                                                        {m.source ? ` · ${m.source}` : ''}
+                                                    </span>
+                                                </span>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-7 shrink-0"
+                                                    onClick={() => void addFromFc5Library(m)}
+                                                >
+                                                    Add
+                                                </Button>
+                                            </li>
+                                        ))}
+                                    {!libraryLoading &&
+                                        !libraryError &&
+                                        librarySource === 'fc5' &&
+                                        fc5Monsters.length > 0 &&
+                                        filteredFc5ForLibrary.length === 0 && (
+                                            <li className="text-xs text-muted-foreground">
+                                                No FC5 matches for that search.
+                                            </li>
+                                        )}
+                                    {!libraryLoading &&
+                                        !libraryError &&
+                                        ((librarySource === 'local' &&
+                                            libraryMonsters.length === 0) ||
+                                            (librarySource === 'aurora' &&
+                                                auroraMonsters.length === 0) ||
+                                            (librarySource === 'fc5' &&
+                                                fc5Monsters.length === 0) ||
+                                            (librarySource === 'all' &&
+                                                libraryMonsters.length === 0 &&
+                                                auroraMonsters.length === 0)) && (
+                                            <li className="text-xs text-muted-foreground">
+                                                {librarySource === 'aurora'
+                                                    ? 'No Aurora creatures (check AURORA_ELEMENTS_ROOT)'
+                                                    : librarySource === 'fc5'
+                                                      ? 'No FC5 matches (check FC5_ROOT / data/fc5)'
+                                                      : 'No monsters in library'}
+                                            </li>
+                                        )}
+                                </ul>
                             </div>
 
                             <div className="h-px bg-border" />

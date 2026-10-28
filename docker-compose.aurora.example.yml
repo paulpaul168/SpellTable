@@ -1,0 +1,25 @@
+# Example overlay to enable BYO Aurora spell catalog.
+# Copy to docker-compose.aurora.yml (gitignored) and adjust the host path.
+#
+# Dev:
+#   docker compose -f docker-compose.yml -f docker-compose.aurora.yml up -d --build
+# Prod:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.aurora.yml up -d --build
+#
+# Prefer an absolute host path outside the repo (e.g. /opt/aurora-elements)
+# so git reset --hard on deploy does not remove the data.
+
+services:
+  backend:
+    environment:
+      - AURORA_ELEMENTS_ROOT=/app/aurora-elements
+      # Optional Fight Club 5e XML (gitignored host path)
+      - FC5_ROOT=/app/fc5
+    volumes:
+      # Replace with your Aurora elements directory (read-only).
+      # Dev example: ../DnD-Character-Builder/data/aurora-elements
+      # Prod example: /opt/aurora-elements
+      - /opt/aurora-elements:/app/aurora-elements:ro
+      # Optional: personal FC5 XML folder (e.g. Complete_Compendium_5e.xml)
+      # - /opt/fc5:/app/fc5:ro
+      # Dev example: ./data/fc5:/app/fc5:ro

@@ -72,6 +72,25 @@ class Description(ModelBase):
     description: str
 
 
+class MonsterSpell(ModelBase):
+    name: str
+    level: int = 0
+    notes: str | None = None
+    usage: str | None = "slot"  # slot | at_will | per_day
+    per_day: int | None = None
+    source: str | None = None
+    external_id: str | None = None
+
+
+class MonsterSpellcasting(ModelBase):
+    ability: str | None = None
+    save_dc: int | None = None
+    attack_bonus: int | None = None
+    # Index 0 = 1st level … 8 = 9th
+    slots: list[int] | None = None
+    spells: list[MonsterSpell] | None = []
+
+
 # A monster model.
 class Monster(ModelBase):
     name: str
@@ -96,6 +115,7 @@ class Monster(ModelBase):
     actions: list[Description] | None = []
     reactions: list[Description] | None = []
     legendary_actions: list[Description] | None = []
+    spellcasting: MonsterSpellcasting | None = None
 
     @field_validator("size", mode="before")
     @classmethod

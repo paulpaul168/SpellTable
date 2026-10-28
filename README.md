@@ -81,8 +81,17 @@ A modern, local web-based virtual tabletop for in-person D&D sessions with a phy
 - **Sign-in** with JWT-based API auth; **admin** vs **viewer** roles
 - **Campaigns** with membership; per-campaign **diary**, **markdown notes**, and **image gallery**
 - **Tavern** tab: optional in-world business tracking (valuation, tendays, upgrades, ledger)—see campaign diary
-- **Monster** library helpers for reference material tied to the backend
+- **Monster** library with spellcasting / spell slots, add-from-library into initiative, and a DM combat stat block for the current/selected enemy
 - **Backup** endpoints for exporting / restoring campaign-related data (admin)
+
+### Content licensing (Aurora / game text)
+
+SpellTable does **not** ship Wizards of the Coast, Aurora Builder, or Fight Club 5e game text in this repository or in the default Docker image. Optional personal catalogs:
+
+- **Aurora** (`AURORA_ELEMENTS_ROOT`): spell autocomplete + Companion/custom Monster library via a gitignored `docker-compose.aurora.yml` (see `docker-compose.aurora.example.yml`). Official Aurora packs do not include the full Monster Manual.
+- **Fight Club 5e** (`FC5_ROOT`, e.g. `data/fc5`): large XML bestiary (e.g. Complete Compendium). Gitignored; `run.sh` wires it for local demo when present.
+
+Public clones work without either. This project is not affiliated with Wizards of the Coast.
 
 ### Planned / roadmap ideas
 
@@ -189,6 +198,7 @@ pnpm run dev
 
 - **Database**: By default SQLite lives at `data/spelltable.db` (repo root). Override with `DATABASE_URL` if you use another database supported by SQLAlchemy.
 - **Docker**: `docker-compose.yml` mounts `./data`, `./maps`, `./scenes`, `./sounds`, `./campaign_images`, `./monsters`, and `./logs` into the backend—create these directories or rely on Compose as needed.
+- **Optional Aurora catalog**: copy `docker-compose.aurora.example.yml` → `docker-compose.aurora.yml` (gitignored), point the volume at your Aurora XML, then `docker compose -f docker-compose.yml -f docker-compose.aurora.yml up -d --build`.
 
 ## Development
 
