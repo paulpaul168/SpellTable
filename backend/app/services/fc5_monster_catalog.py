@@ -338,9 +338,8 @@ class Fc5MonsterCatalogService:
         am = _SPELL_ABILITY_RE.search(joined)
         if am:
             ability = am.group(1).capitalize()
-        save_dc = self._parse_int(
-            (_SPELL_DC_RE.search(joined).group(1) if _SPELL_DC_RE.search(joined) else None)
-        )
+        dc_m = _SPELL_DC_RE.search(joined)
+        save_dc = self._parse_int(dc_m.group(1) if dc_m else None)
         atk_m = _SPELL_ATK_RE.search(joined)
         attack_bonus = int(atk_m.group(1)) if atk_m else None
 
@@ -578,7 +577,7 @@ class Fc5MonsterCatalogService:
 
     @staticmethod
     def _parse_languages(raw: str) -> list[str]:
-        if not raw or raw.strip() in {"—", "-", "—"}:
+        if not raw or raw.strip() in {"—", "-"}:
             return []
         return [p.strip() for p in re.split(r",|;", raw) if p.strip()]
 

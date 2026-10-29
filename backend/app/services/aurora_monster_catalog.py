@@ -459,7 +459,7 @@ class AuroraMonsterCatalogService:
 
     @staticmethod
     def _parse_languages(raw: str) -> list[str]:
-        if not raw or raw.strip() in {"—", "-", "—"}:
+        if not raw or raw.strip() in {"—", "-"}:
             return []
         # Keep free-form language strings; frontend treats them as strings
         parts = [p.strip() for p in re.split(r",|;", raw) if p.strip()]

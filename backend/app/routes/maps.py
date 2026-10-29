@@ -73,9 +73,13 @@ def _sort_maps(maps: list[dict[str, Any]]) -> list[dict[str, Any]]:
         order = _read_order(folder)
         index = {name: i for i, name in enumerate(order)}
 
-        def sort_key(item: dict[str, Any]) -> tuple[int, str]:
+        def sort_key(
+            item: dict[str, Any],
+            _index: dict[str, int] = index,
+            _order: list[str] = order,
+        ) -> tuple[int, str]:
             name = item["name"]
-            return (index.get(name, len(order)), name.lower())
+            return (_index.get(name, len(_order)), name.lower())
 
         group.sort(key=sort_key)
         sorted_maps.extend(group)
