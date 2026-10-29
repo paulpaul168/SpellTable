@@ -18,6 +18,7 @@ from app.routes import (
     campaign_notes,
     campaign_tavern,
     campaigns,
+    encounters,
     maps,
     monsters,
     scenes,
@@ -54,6 +55,9 @@ def get_application() -> FastAPI:
     local_app.include_router(maps.router, prefix="/maps")
     local_app.include_router(backup.router, prefix="/backup")
     local_app.include_router(monsters.router, prefix="/monsters")
+    local_app.include_router(
+        encounters.router, prefix="/encounters", tags=["encounters"]
+    )
     local_app.include_router(spells.router, prefix="/spells", tags=["spells"])
 
     return local_app

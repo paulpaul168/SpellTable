@@ -28,6 +28,7 @@ import {
     Shield,
     BookOpen,
     Skull,
+    Dices,
     Menu,
     Map as MapIcon,
     Cloud,
@@ -53,7 +54,11 @@ import { SaveSceneDialog } from './SaveSceneDialog';
 import { MapListSidebar } from './MapListSidebar';
 import { useToast } from "@/components/ui/use-toast";
 import { useScreenSharePublisher } from '@/hooks/useScreenSharePublisher';
-import { InitiativeSidebar } from './InitiativeSidebar';
+import {
+    InitiativeSidebar,
+    type InitiativeSidebarHandle,
+} from './InitiativeSidebar';
+import { EncounterGeneratorDialog } from './EncounterGeneratorDialog';
 import { EncounterHistoryEntry, InitiativeEntry } from '@/types/map';
 import { SceneManagement } from './SceneManagement';
 import { Soundboard } from './Soundboard';
@@ -197,6 +202,8 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
     const [isViewerRotated, setIsViewerRotated] = useState(false);
     const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
     const [isMonsterManagementOpen, setIsMonsterManagementOpen] = useState(false);
+    const [isEncounterGeneratorOpen, setIsEncounterGeneratorOpen] = useState(false);
+    const initiativeSidebarRef = useRef<InitiativeSidebarHandle>(null);
     const [placingEntryId, setPlacingEntryId] = useState<string | null>(null);
     const [gameboardActiveTool, setGameboardActiveTool] = useState('pointer');
     const { isDarkMode, brightness, applyNightMode } = useNightMode();
@@ -1837,6 +1844,7 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             {showInitiative && (
                 <div className="!z-[9999]">
                     <InitiativeSidebar
+                        ref={initiativeSidebarRef}
                         isAdmin={isAdmin}
                         entries={scene.initiativeOrder}
                         encounterHistory={scene.encounterHistory || []}
@@ -2043,6 +2051,13 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
                                         >
                                             <Skull className="h-4 w-4 mr-2" />
                                             Monster Management
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="text-xs cursor-pointer"
+                                            onClick={() => setIsEncounterGeneratorOpen(true)}
+                                        >
+                                            <Dices className="h-4 w-4 mr-2" />
+                                            Encounter Generator
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
                                             className="text-xs cursor-pointer"
@@ -2288,6 +2303,28 @@ export const Scene: React.FC<SceneProps> = ({ initialScene, isAdmin = false, ini
             <MonsterManagementDialog
                 isOpen={isMonsterManagementOpen}
                 onClose={() => setIsMonsterManagementOpen(false)}
+            />
+            <EncounterGeneratorDialog
+                isOpen={isEncounterGeneratorOpen}
+                onClose={() => setIsEncounterGeneratorOpen(false)}
+                onAddToInitiative={(monsters) => {
+                    const payload = monsters.map((m) => ({
+                        name: m.name,
+                        initiative: m.initiative,
+                        hp: m.hp,
+                        monsterName: m.name,
+                    }));
+                    const wasOpen = showInitiative;
+                    setShowInitiative(true);
+                    setIsEncounterGeneratorOpen(false);
+                    const push = () => initiativeSidebarRef.current?.addEntries(payload);
+                    if (wasOpen) {
+                        push();
+                    } else {
+                        // Wait for sidebar mount when opening from closed state
+                        window.setTimeout(push, 50);
+                    }
+                }}
             />
 
         </div>

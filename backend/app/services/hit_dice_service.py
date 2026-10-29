@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import re
 import threading
 from typing import Self, cast
@@ -51,3 +52,20 @@ class HitDiceService:
                 modifier += int(token)
 
         return {"dice": dice_terms, "modifier": modifier}
+
+    def evaluate_hit_dice(self, hit_dice: dict[str, list[DiePool] | int]) -> int:
+        """Roll parsed hit dice and return total HP (minimum 1)."""
+        modifier = hit_dice.get("modifier", 0)
+        total = modifier if isinstance(modifier, int) else 0
+        dice = hit_dice.get("dice", [])
+        if isinstance(dice, list):
+            for die_pool in dice:
+                if not isinstance(die_pool, DiePool):
+                    continue
+                for _ in range(die_pool.count):
+                    total += random.randint(1, die_pool.die.faces)
+        return max(1, total)
+
+    def roll_hit_dice_expression(self, expression: str) -> int:
+        """Parse and roll a hit-dice expression like ``2d8+2``."""
+        return self.evaluate_hit_dice(self.parse_hit_dice(expression))

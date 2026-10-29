@@ -1,4 +1,12 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, {
+    forwardRef,
+    useState,
+    useRef,
+    useEffect,
+    useCallback,
+    useMemo,
+    useImperativeHandle,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -113,7 +121,22 @@ interface InitiativeSidebarProps {
     onLocateEntry?: (id: string) => void;
 }
 
-export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
+export interface InitiativeSidebarHandle {
+    addEntries: (
+        entries: Array<{
+            name: string;
+            initiative: number;
+            hp?: number;
+            monsterName?: string;
+        }>
+    ) => void;
+}
+
+export const InitiativeSidebar = forwardRef<
+    InitiativeSidebarHandle,
+    InitiativeSidebarProps
+>(function InitiativeSidebar(
+    {
     isAdmin,
     entries = [],
     encounterHistory = [],
@@ -127,7 +150,9 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
     onStartPlaceEntry,
     onClearEntryPosition,
     onLocateEntry,
-}) => {
+    },
+    ref
+) {
     const { toast } = useToast();
     const [isVisible, setIsVisible] = useState(true);
     const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -475,6 +500,43 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
             setSelectedEnemyId(newEntry.id);
         }
     };
+
+    const addEntriesBatch = (
+        toAdd: Array<{
+            name: string;
+            initiative: number;
+            hp?: number;
+            monsterName?: string;
+        }>
+    ) => {
+        if (!toAdd.length) return;
+
+        const nameCounts = new Map<string, number>();
+        const created: InitiativeEntry[] = toAdd.map((item) => {
+            const count = (nameCounts.get(item.name) ?? 0) + 1;
+            nameCounts.set(item.name, count);
+            const sameNameTotal = toAdd.filter((e) => e.name === item.name).length;
+            const displayName =
+                sameNameTotal > 1 ? `${item.name}_${count}` : item.name;
+            return createInitiativeEntry(displayName, item.initiative, false, item.hp, {
+                monsterName: item.monsterName ?? item.name,
+            });
+        });
+
+        const newEntries = [...entries, ...created].sort(
+            (a, b) => b.initiative - a.initiative
+        );
+        updateWithLog(
+            newEntries,
+            `Added encounter (${created.length} combatant${created.length === 1 ? '' : 's'})`
+        );
+        const lastEnemy = created[created.length - 1];
+        if (lastEnemy) setSelectedEnemyId(lastEnemy.id);
+    };
+
+    useImperativeHandle(ref, () => ({
+        addEntries: addEntriesBatch,
+    }));
 
     const patchEntry = (id: string, patch: Partial<InitiativeEntry>) => {
         const newEntries = entries.map((e) => (e.id === id ? { ...e, ...patch } : e));
@@ -1671,4 +1733,4 @@ export const InitiativeSidebar: React.FC<InitiativeSidebarProps> = ({
             )}
         </>
     );
-}; 
+}); 
