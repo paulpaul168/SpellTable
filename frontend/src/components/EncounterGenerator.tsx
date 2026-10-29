@@ -12,6 +12,11 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
+import {
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { encounterService } from '@/services/encounter_service';
 import type {
     EncounterDifficulty,
@@ -92,13 +97,13 @@ export function EncounterGenerator({ onAddToInitiative }: EncounterGeneratorProp
 
     return (
         <div className="space-y-6 text-zinc-900 dark:text-zinc-100">
-            <div>
-                <h2 className="text-lg font-semibold">Encounter generator</h2>
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <DialogHeader>
+                <DialogTitle className="text-lg font-semibold">Encounter generator</DialogTitle>
+                <DialogDescription className="text-sm text-zinc-600 dark:text-zinc-400">
                     Build a combat from the local monster library using 2014 XP thresholds
                     (±20% adjusted XP).
-                </p>
-            </div>
+                </DialogDescription>
+            </DialogHeader>
 
             <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-1">

@@ -159,10 +159,10 @@ export function UserManagement() {
 
                 <TabsContent value="users" className="space-y-6">
                     <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">User Management</h2>
-                            <p className="text-zinc-600 dark:text-zinc-400">Manage application users and permissions</p>
-                        </div>
+                        <DialogHeader className="space-y-0 text-left">
+                            <DialogTitle className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">User Management</DialogTitle>
+                            <DialogDescription className="text-zinc-600 dark:text-zinc-400">Manage application users and permissions</DialogDescription>
+                        </DialogHeader>
                         <Button onClick={openCreateDialog} className="bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900">
                             Add User
                         </Button>

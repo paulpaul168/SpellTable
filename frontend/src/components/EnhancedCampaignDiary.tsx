@@ -878,16 +878,17 @@ export function EnhancedCampaignDiary({ campaign, onBack }: EnhancedCampaignDiar
                         setSelectedImage(null);
                     }
                 }}>
-                    <DialogContent className="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 max-w-[98vw] max-h-[98vh] w-[98vw] h-[98vh] p-0 overflow-hidden !max-w-[98vw] !w-[98vw] !h-[98vh] !max-h-[98vh]">
+                    <DialogContent
+                        aria-describedby={undefined}
+                        className="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 max-w-[98vw] max-h-[98vh] w-[98vw] h-[98vh] p-0 overflow-hidden !max-w-[98vw] !w-[98vw] !h-[98vh] !max-h-[98vh]"
+                    >
                         <div className="relative h-full flex flex-col">
                             {/* Header with close button */}
                             <div className="flex items-center justify-between p-3 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900">
                                 <div className="flex-1 min-w-0">
-                                    {selectedImage && (
-                                        <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 truncate pr-8">
-                                            {selectedImage.original_filename}
-                                        </h3>
-                                    )}
+                                    <DialogTitle className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 truncate pr-8">
+                                        {selectedImage?.original_filename ?? 'Image'}
+                                    </DialogTitle>
                                 </div>
                                 <Button
                                     variant="outline"

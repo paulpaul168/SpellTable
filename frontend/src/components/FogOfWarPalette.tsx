@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FogOfWar as FogOfWarType } from '../types/map';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -154,6 +154,9 @@ export const FogOfWarPalette: React.FC<FogOfWarPaletteProps> = ({
                         <Eye className="h-5 w-5" />
                         Fog of War
                     </DialogTitle>
+                    <DialogDescription>
+                        Add, edit, or remove fog of war shapes on the map.
+                    </DialogDescription>
                 </DialogHeader>
 
                 <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>

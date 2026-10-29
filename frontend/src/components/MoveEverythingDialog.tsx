@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -46,6 +46,9 @@ export const MoveEverythingDialog: React.FC<MoveEverythingDialogProps> = ({
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Move Everything</DialogTitle>
+                    <DialogDescription>
+                        Shift all tokens and overlays by a number of grid cells.
+                    </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                     <div className="space-y-2">
