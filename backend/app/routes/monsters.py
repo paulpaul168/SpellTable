@@ -114,7 +114,9 @@ async def fc5_monster_catalog_status() -> dict[str, bool | int]:
 
 @router.get("/fc5", status_code=200)
 async def list_fc5_monster_catalog(
-    q: str | None = Query(default=None, description="Filter by name, id, type, or source"),
+    q: str | None = Query(
+        default=None, description="Filter by name, id, type, or source"
+    ),
     limit: int = Query(default=200, ge=1, le=20000),
 ) -> list[dict]:
     service = Fc5MonsterCatalogService()

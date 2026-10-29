@@ -114,7 +114,9 @@ class Fc5MonsterCatalogService:
             return str(root)
 
     def _xml_files(self, root: Path) -> list[Path]:
-        preferred = [root / name for name in _PREFERRED_FILES if (root / name).is_file()]
+        preferred = [
+            root / name for name in _PREFERRED_FILES if (root / name).is_file()
+        ]
         if preferred:
             # Prefer the largest/most complete first file only when Complete exists
             complete = root / "Complete_Compendium_5e.xml"
@@ -200,9 +202,7 @@ class Fc5MonsterCatalogService:
         # Return a shallow copy so callers can mutate safely
         return dict(monster)
 
-    def _scan(
-        self, root: Path
-    ) -> tuple[list[Fc5CreatureSummary], dict[str, dict]]:
+    def _scan(self, root: Path) -> tuple[list[Fc5CreatureSummary], dict[str, dict]]:
         summaries: list[Fc5CreatureSummary] = []
         monsters: dict[str, dict] = {}
         slug_counts: dict[str, int] = {}

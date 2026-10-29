@@ -135,7 +135,9 @@ class AuroraMonsterCatalogService:
         return [
             c
             for c in self._summaries
-            if q in c.name.lower() or q in c.id.lower() or (c.source or "").lower().find(q) >= 0
+            if q in c.name.lower()
+            or q in c.id.lower()
+            or (c.source or "").lower().find(q) >= 0
         ]
 
     def get_creature_monster(self, creature_id: str) -> dict | None:

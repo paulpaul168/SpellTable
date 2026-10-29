@@ -364,7 +364,9 @@ async def delete_scene_image(
             scene_data = json.load(buffer)
 
         images = scene_data.get("images") or []
-        image_to_delete = next((img for img in images if img.get("id") == image_id), None)
+        image_to_delete = next(
+            (img for img in images if img.get("id") == image_id), None
+        )
         if not image_to_delete:
             raise HTTPException(status_code=404, detail="Image not found")
 
@@ -428,9 +430,9 @@ async def rename_folder(
                                 if parent
                                 else request.new_name
                             )
-                        elif current_folder.startswith(folder_path + os.sep) or current_folder.startswith(
-                            folder_path + "/"
-                        ):
+                        elif current_folder.startswith(
+                            folder_path + os.sep
+                        ) or current_folder.startswith(folder_path + "/"):
                             suffix = current_folder[len(folder_path) :]
                             parent = os.path.dirname(folder_path)
                             new_base = (

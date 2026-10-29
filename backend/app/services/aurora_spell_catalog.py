@@ -82,7 +82,11 @@ class AuroraSpellCatalogService:
             return False
 
         token = self._dir_token(root)
-        if self._entries is not None and self._root == root and self._root_mtime_token == token:
+        if (
+            self._entries is not None
+            and self._root == root
+            and self._root_mtime_token == token
+        ):
             return True
 
         self._root = root
@@ -112,11 +116,7 @@ class AuroraSpellCatalogService:
         if not query or not query.strip():
             return list(self._entries)
         q = query.strip().lower()
-        return [
-            e
-            for e in self._entries
-            if q in e.name.lower() or q in e.id.lower()
-        ]
+        return [e for e in self._entries if q in e.name.lower() or q in e.id.lower()]
 
     def get_spell(self, spell_id: str) -> SpellCatalogDetail | None:
         if not self._refresh_if_needed():

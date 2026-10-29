@@ -163,8 +163,8 @@ def _update_scene_map_folders(
                 ):
                     suffix = current[len(old_folder) :]
                     map_ref["folder"] = (
-                        (new_folder or "") + suffix
-                    ).replace("\\", "/").lstrip("/")
+                        ((new_folder or "") + suffix).replace("\\", "/").lstrip("/")
+                    )
                     if not map_ref["folder"]:
                         map_ref.pop("folder", None)
                     changed = True
