@@ -5,9 +5,10 @@ It configures loguru to log to the console and to a file with rotation.
 
 import sys
 from datetime import datetime
-from pathlib import Path
 
 from loguru import logger
+
+from .constants import LOGS_DIR
 
 
 def setup_logger() -> None:
@@ -21,9 +22,8 @@ def setup_logger() -> None:
     Returns:
         The configured logger object
     """
-    # Create logs directory if it doesn't exist
-    logs_dir = Path("logs")
-    logs_dir.mkdir(exist_ok=True)
+    logs_dir = LOGS_DIR
+    logs_dir.mkdir(parents=True, exist_ok=True)
 
     # Remove default handlers
     logger.remove()

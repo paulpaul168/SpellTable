@@ -8,18 +8,20 @@
 #
 # Prefer an absolute host path outside the repo (e.g. /opt/aurora-elements)
 # so git reset --hard on deploy does not remove the data.
+# Alternatively place catalogs under ./storage/data/ and skip extra mounts.
 
 services:
   backend:
     environment:
-      - AURORA_ELEMENTS_ROOT=/app/aurora-elements
+      - AURORA_ELEMENTS_ROOT=/app/storage/data/aurora-elements
       # Optional Fight Club 5e XML (gitignored host path)
-      - FC5_ROOT=/app/fc5
+      - FC5_ROOT=/app/storage/data/fc5
     volumes:
-      # Replace with your Aurora elements directory (read-only).
-      # Dev example: ../DnD-Character-Builder/data/aurora-elements
+      # Replace with your Aurora elements directory (read-only), or rely on
+      # files already under ./storage/data/aurora-elements via the main storage mount.
       # Prod example: /opt/aurora-elements
-      - /opt/aurora-elements:/app/aurora-elements:ro
+      - /opt/aurora-elements:/app/storage/data/aurora-elements:ro
       # Optional: personal FC5 XML folder (e.g. Complete_Compendium_5e.xml)
-      # - /opt/fc5:/app/fc5:ro
-      # Dev example: ./data/fc5:/app/fc5:ro
+      # - /opt/fc5:/app/storage/data/fc5:ro
+      # Dev example (if not already under storage/):
+      # - ./storage/data/fc5:/app/storage/data/fc5:ro

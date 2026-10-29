@@ -31,7 +31,7 @@ Thumbs.db
 .pnpm-store/
 package-lock.json
 
-# Logs
+# Logs (legacy root path + storage)
 logs/*
 *.log
 npm-debug.log*
@@ -43,7 +43,12 @@ lerna-debug.log*
 # Local development
 *.local
 
-# Data directories (but keep .gitkeep files)
+# Consolidated user data (issue #18)
+storage/**
+!storage/**/
+!storage/**/.gitkeep
+
+# Legacy data directories (pre-storage layout; migrate with scripts/migrate-to-storage.sh)
 data/*
 !data/.gitkeep
 logs/*
@@ -63,9 +68,9 @@ campaign_images/*
 # AoE asset build temp downloads
 .tmp-aoe-downloads/
 
-# BYO Aurora content (never commit — operator-mounted licensed data)
+# BYO Aurora / FC5 (never commit — operator-mounted licensed data)
+storage/data/aurora-elements/
+storage/data/fc5/
 data/aurora-elements/
-docker-compose.aurora.yml
-
-# BYO Fight Club 5e XML compendiums (personal; often non-redistributable)
 data/fc5/
+docker-compose.aurora.yml

@@ -11,18 +11,10 @@ services:
       - "8010"
     environment:
       - PYTHONUNBUFFERED=1
+      - STORAGE_ROOT=/app/storage
     restart: unless-stopped
     volumes:
-      # Database and application data
-      - ./data:/app/data
-      - ./logs:/app/logs
-      # Content directories
-      - ./maps:/app/maps
-      - ./scenes:/app/scenes
-      - ./sounds:/app/sounds
-      - ./campaign_images:/app/campaign_images
-      # Same path as local run.sh (cwd=backend → backend/monsters)
-      - ./backend/monsters:/app/monsters
+      - ./storage:/app/storage
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8010/health" ]
       interval: 30s

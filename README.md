@@ -90,7 +90,7 @@ A modern, local web-based virtual tabletop for in-person D&D sessions with a phy
 SpellTable does **not** ship Wizards of the Coast, Aurora Builder, or Fight Club 5e game text in this repository or in the default Docker image. Optional personal catalogs:
 
 - **Aurora** (`AURORA_ELEMENTS_ROOT`): spell autocomplete + Companion/custom Monster library via a gitignored `docker-compose.aurora.yml` (see `docker-compose.aurora.example.yml`). Official Aurora packs do not include the full Monster Manual.
-- **Fight Club 5e** (`FC5_ROOT`, e.g. `data/fc5`): large XML bestiary (e.g. Complete Compendium). Gitignored; `run.sh` wires it for local demo when present.
+- **Fight Club 5e** (`FC5_ROOT`, e.g. `storage/data/fc5`): large XML bestiary (e.g. Complete Compendium). Gitignored; `run.sh` wires it for local demo when present.
 
 Public clones work without either. This project is not affiliated with Wizards of the Coast.
 
@@ -144,14 +144,24 @@ Enhancements in progress or planned include UI polish for touch tables and the i
    cd spelltable
    ```
 
-2. Start backend and frontend (see `run.sh`; it installs frontend deps and runs both processes):
+2. **Migrate existing data** (once, if upgrading from the old layout with `maps/`, `backend/maps/`, `data/`, etc.):
+
+   ```bash
+   chmod +x scripts/migrate-to-storage.sh
+   ./scripts/migrate-to-storage.sh
+   # optional after verifying: ./scripts/migrate-to-storage.sh --cleanup
+   ```
+
+   Fresh clones can skip this and use `./setup-volumes.sh` (or let the backend create `storage/` on first run).
+
+3. Start backend and frontend (see `run.sh`; it installs frontend deps and runs both processes):
 
    ```bash
    chmod +x run.sh   # once
    ./run.sh
    ```
 
-3. **First-time database seed** (creates default users and sample campaigns). From another terminal, with dependencies installed:
+4. **First-time database seed** (creates default users and sample campaigns). From another terminal, with dependencies installed:
 
    ```bash
    cd backend
@@ -166,7 +176,7 @@ Enhancements in progress or planned include UI polish for touch tables and the i
    | `admin`  | `admin123` | Admin  |
    | `viewer` | `viewer123`| Viewer |
 
-4. Open the app:
+5. Open the app:
 
    | URL | Purpose |
    |-----|---------|
@@ -199,8 +209,10 @@ pnpm run dev
 
 ### Data and environment
 
-- **Database**: By default SQLite lives at `data/spelltable.db` (repo root). Override with `DATABASE_URL` if you use another database supported by SQLAlchemy.
-- **Docker**: `docker-compose.yml` mounts `./data`, `./maps`, `./scenes`, `./sounds`, `./campaign_images`, `./monsters`, and `./logs` into the backend—create these directories or rely on Compose as needed.
+- **Storage root**: all user data lives under `storage/` (`maps`, `scenes`, `sounds`, `campaign_images`, `monsters`, `data`, `logs`). Override with `STORAGE_ROOT` if needed.
+- **Database**: By default SQLite is `storage/data/spelltable.db`. Override with `DATABASE_URL` for another SQLAlchemy-supported database.
+- **Docker**: `docker-compose.yml` mounts `./storage:/app/storage` (and sets `STORAGE_ROOT=/app/storage`).
+- **Migration**: upgrading installs should run `./scripts/migrate-to-storage.sh` once before starting the new layout.
 - **Optional Aurora catalog**: copy `docker-compose.aurora.example.yml` → `docker-compose.aurora.yml` (gitignored), point the volume at your Aurora XML, then `docker compose -f docker-compose.yml -f docker-compose.aurora.yml up -d --build`.
 
 ## Development
@@ -221,7 +233,8 @@ spelltable/
 ├── LICENSE.md
 ├── run.sh
 ├── docker-compose.yml
-├── data/                    # SQLite DB (default path); gitignored
+├── scripts/migrate-to-storage.sh
+├── storage/                 # user data (gitignored); maps, scenes, DB, …
 ├── screenshots/
 ├── backend/
 │   ├── main.py              # App factory and route registration
@@ -231,7 +244,6 @@ spelltable/
 │   │   ├── models/          # SQLAlchemy / Pydantic models
 │   │   ├── routes/          # auth, campaigns, scenes, maps, audio, websocket, …
 │   │   └── services/        # monsters, Aurora/FC5 catalogs, hit dice
-│   ├── maps/ scenes/ sounds/
 │   ├── pyproject.toml
 │   └── Dockerfile
 ├── frontend/

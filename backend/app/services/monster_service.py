@@ -2,19 +2,25 @@
 This module provides services related to monster management in the game.
 """
 
+from __future__ import annotations
+
 import hashlib
 import json
+import shutil
 import threading
+from pathlib import Path
 
 from ..core.constants import MONSTERS_DIR
 from ..models.monster import Monster
+
+_SEED_MONSTERS = Path(__file__).resolve().parents[2] / "seed" / "monsters.json"
 
 
 class MonsterService:
     _instance = None
     _lock = threading.Lock()
 
-    MONSTER_FILE_PATH: str = MONSTERS_DIR + "/monsters.json"
+    MONSTER_FILE_PATH: str = f"{MONSTERS_DIR}/monsters.json"
 
     def __new__(cls):
         """Singleton pattern to ensure only one instance of MonsterService exists."""
@@ -37,6 +43,17 @@ class MonsterService:
         self.monster_file_hash: str = ""
         self.monster_cache: list[Monster] | None = None
         self._initialized = True
+
+    def _ensure_library_file(self) -> None:
+        """Create storage library from tracked seed on first use."""
+        path = Path(self.MONSTER_FILE_PATH)
+        if path.is_file():
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if _SEED_MONSTERS.is_file():
+            shutil.copy2(_SEED_MONSTERS, path)
+        else:
+            path.write_text("[]", encoding="utf-8")
 
     def load_monsters(self) -> list[Monster]:
         """Load all monsters."""
@@ -78,6 +95,7 @@ class MonsterService:
         return len(monsters) < initial_count
 
     def __load_monsters_from_file(self, ignore_cache=False) -> list[Monster]:
+        self._ensure_library_file()
         if not ignore_cache:
             current_hash = self.__calculate_file_hash(self.MONSTER_FILE_PATH)
             if (
@@ -94,6 +112,7 @@ class MonsterService:
         return self.monster_cache
 
     def __save_monsters_to_file(self, monsters: list[Monster]) -> None:
+        self._ensure_library_file()
         self.monster_file_hash = ""
         with open(file=self.MONSTER_FILE_PATH, mode="w", encoding="utf-8") as file:
             json.dump([monster.model_dump() for monster in monsters], file, indent=2)

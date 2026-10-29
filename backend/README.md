@@ -70,14 +70,17 @@ SQLAlchemy models for DB entities (users, campaigns, etc.) and Pydantic models f
 
 ### 6. File storage
 
-Typical directories (also mounted in Docker Compose):
+All user data lives under repo-root `storage/` (or `STORAGE_ROOT`). Compose mounts `./storage:/app/storage`. Paths are resolved in `app/core/constants.py` (cwd-independent).
 
-- **Maps** — map images and per-folder order metadata
-- **Scenes** — JSON scene files and related assets
-- **Sounds** — soundboard audio
-- **Campaign images** — gallery uploads
-- **Monsters** — local monster JSON library
-- **Logs** — rotated application logs
+- **Maps** — `storage/maps`
+- **Scenes** — `storage/scenes`
+- **Sounds** — `storage/sounds`
+- **Campaign images** — `storage/campaign_images`
+- **Monsters** — `storage/monsters`
+- **Database / BYO catalogs** — `storage/data`
+- **Logs** — `storage/logs`
+
+Upgrading from the old layout: run `../scripts/migrate-to-storage.sh` once.
 
 ## Data flow
 
@@ -113,7 +116,7 @@ The application uses [loguru](https://github.com/Delgan/loguru). Configuration l
 ### Log destinations
 
 1. **Console** — INFO and above, colored
-2. **Log files** — DEBUG and above under `logs/`, with daily rotation
+2. **Log files** — DEBUG and above under `storage/logs/`, with daily rotation
 
 ### Usage
 

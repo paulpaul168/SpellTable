@@ -2,6 +2,8 @@
 This module contains constants for the FastAPI app.
 """
 
+from __future__ import annotations
+
 import os
 from pathlib import Path
 
@@ -56,16 +58,46 @@ def xp_for_challenge(rating: float | None) -> int:
     return 0
 
 
-# Create necessary directories
-MAPS_DIR = "maps"
-SCENES_DIR = "scenes"
-CAMPAIGN_IMAGES_DIR = "campaign_images"
-MONSTERS_DIR = "monsters"
-# Define the path to the sounds directory
-SOUNDS_DIR = Path(__file__).parent.parent.parent.parent / "backend" / "sounds"
+def _package_root() -> Path:
+    """`backend/` locally, or `/app` in the Docker image (WORKDIR)."""
+    return Path(__file__).resolve().parents[2]
 
-# Ensure directories exist
-os.makedirs(MAPS_DIR, exist_ok=True)
-os.makedirs(SCENES_DIR, exist_ok=True)
-os.makedirs(CAMPAIGN_IMAGES_DIR, exist_ok=True)
-os.makedirs(MONSTERS_DIR, exist_ok=True)
+
+def resolve_storage_root() -> Path:
+    """
+    User-data root under ``storage/``.
+
+    Prefer ``STORAGE_ROOT`` env. Otherwise:
+    - local checkout: ``<repo>/storage`` (package lives in ``backend/``)
+    - Docker: ``/app/storage`` (compose mounts ``./storage:/app/storage``)
+    """
+    env = os.environ.get("STORAGE_ROOT", "").strip()
+    if env:
+        return Path(env).expanduser().resolve()
+
+    pkg = _package_root()
+    if pkg.name == "backend":
+        return (pkg.parent / "storage").resolve()
+    return (pkg / "storage").resolve()
+
+
+STORAGE_ROOT = resolve_storage_root()
+DATA_DIR = STORAGE_ROOT / "data"
+MAPS_DIR = str(STORAGE_ROOT / "maps")
+SCENES_DIR = str(STORAGE_ROOT / "scenes")
+CAMPAIGN_IMAGES_DIR = str(STORAGE_ROOT / "campaign_images")
+MONSTERS_DIR = str(STORAGE_ROOT / "monsters")
+SOUNDS_DIR = STORAGE_ROOT / "sounds"
+LOGS_DIR = STORAGE_ROOT / "logs"
+
+for _path in (
+    STORAGE_ROOT,
+    DATA_DIR,
+    Path(MAPS_DIR),
+    Path(SCENES_DIR),
+    Path(CAMPAIGN_IMAGES_DIR),
+    Path(MONSTERS_DIR),
+    SOUNDS_DIR,
+    LOGS_DIR,
+):
+    _path.mkdir(parents=True, exist_ok=True)

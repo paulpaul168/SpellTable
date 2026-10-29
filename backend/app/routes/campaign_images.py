@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from ..core.auth import get_current_active_user
+from ..core.constants import CAMPAIGN_IMAGES_DIR
 from ..core.database import get_db
 from ..models.campaign import Campaign
 from ..models.campaign_images import (
@@ -20,9 +21,8 @@ from ..models.user import User
 
 router = APIRouter()
 
-# Create uploads directory if it doesn't exist
-UPLOADS_DIR = Path("campaign_images")
-UPLOADS_DIR.mkdir(exist_ok=True)
+UPLOADS_DIR = Path(CAMPAIGN_IMAGES_DIR)
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @router.post("/campaigns/{campaign_id}/images", response_model=CampaignImageResponse)

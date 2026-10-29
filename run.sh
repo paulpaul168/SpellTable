@@ -3,13 +3,13 @@
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # BYO Aurora spell catalog for local demo (gitignored; copy from Character Builder)
-export AURORA_ELEMENTS_ROOT="${AURORA_ELEMENTS_ROOT:-$ROOT_DIR/data/aurora-elements}"
+export AURORA_ELEMENTS_ROOT="${AURORA_ELEMENTS_ROOT:-$ROOT_DIR/storage/data/aurora-elements}"
 if [ ! -d "$AURORA_ELEMENTS_ROOT" ]; then
   echo "Warning: AURORA_ELEMENTS_ROOT not found at $AURORA_ELEMENTS_ROOT (spell catalog disabled)"
 fi
 
-# BYO Fight Club 5e XML bestiary (gitignored; personal download under data/fc5)
-export FC5_ROOT="${FC5_ROOT:-$ROOT_DIR/data/fc5}"
+# BYO Fight Club 5e XML bestiary (gitignored; personal download under storage/data/fc5)
+export FC5_ROOT="${FC5_ROOT:-$ROOT_DIR/storage/data/fc5}"
 if [ ! -d "$FC5_ROOT" ]; then
   echo "Warning: FC5_ROOT not found at $FC5_ROOT (FC5 monster catalog disabled)"
 fi
