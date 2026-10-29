@@ -2,7 +2,13 @@
 
 ## Overview
 
-The SpellTable backend is built with FastAPI, a modern Python web framework for building APIs. The backend serves as the central hub for managing game assets (maps, scenes, audio) and providing real-time communication between clients.
+The SpellTable backend is a FastAPI service that manages game assets (maps, scenes, audio, monsters), campaign data, authentication, and real-time sync between the DM admin UI and player viewers.
+
+Persistence is a mix of:
+
+- **SQLite** (SQLAlchemy; override with `DATABASE_URL`) for users, campaigns, notes, tavern state, and related records
+- **Filesystem** storage for maps, scenes, sounds, campaign images, and local monster JSON
+- Optional **BYO** Aurora / Fight Club 5e catalogs via env paths (content is never shipped in the repo or default image)
 
 ## Flowchart
 
@@ -10,134 +16,110 @@ The SpellTable backend is built with FastAPI, a modern Python web framework for 
 
 ## Key Components
 
-### 1. Main Application (main.py)
+### 1. Main application (`main.py`)
 
-The entry point that:
+Entry point that:
 
-- Creates the FastAPI application
-- Configures middleware (CORS)
-- Includes routers for different API endpoints
-- Sets up WebSocket functionality
-- Starts the Uvicorn server
+- Creates the FastAPI app and CORS middleware
+- Registers route modules
+- Mounts Socket.IO / Engine.IO for real-time updates
+- Runs under Uvicorn (port **8010** by default)
 
-### 2. Core Configuration (app/core/config.py)
+### 2. Core (`app/core/`)
 
-Handles:
+- `config.py` — app factory, CORS, shared settings
+- `database.py` — SQLAlchemy engine / session
+- `auth.py` — JWT auth and password hashing
+- `logging.py` — loguru setup
+- `connection_manager.py` — live client connection tracking
 
-- FastAPI app creation and configuration
-- WebSocket connection management
-- CORS configuration for frontend access
+### 3. API routes (`app/routes/`)
 
-### 3. API Routes
+| Module | Owns |
+|--------|------|
+| `auth.py` | Login, JWT tokens, user management |
+| `campaigns.py` | Campaign CRUD and membership |
+| `campaign_notes.py` | Per-campaign markdown notes |
+| `campaign_images.py` | Campaign image gallery |
+| `campaign_tavern.py` | Optional tavern / business tracking |
+| `maps.py` | Map upload, folders, ordering, metadata |
+| `scenes.py` | Scene save/load, folders, scene images |
+| `audio.py` | Soundboard files and playback control |
+| `websocket.py` | Socket.IO events; broadcasts scene / board state |
+| `monsters.py` | Local monster library + Aurora/FC5 catalog APIs |
+| `spells.py` | Optional Aurora spell autocomplete |
+| `backup.py` | Admin export / restore of campaign-related data |
 
-The backend is organized into several route modules:
+Prefer `/docs` (OpenAPI) for exact paths and schemas; they change more often than this list.
 
-#### websocket.py
+### 4. Services (`app/services/`)
 
-- Manages real-time communication between clients
-- Handles WebSocket connections, disconnections, and broadcasting
-- Shares scene updates in real-time between connected clients
+| Service | Role |
+|---------|------|
+| `monster_service.py` | Local JSON monster library on disk |
+| `aurora_monster_catalog.py` | Optional Aurora creatures (`AURORA_ELEMENTS_ROOT`) |
+| `aurora_spell_catalog.py` | Optional Aurora spell names/levels |
+| `fc5_monster_catalog.py` | Optional Fight Club 5e XML bestiary (`FC5_ROOT`) |
+| `hit_dice_service.py` | Hit-dice / HP helpers for rolled enemies |
 
-#### scenes.py
+Catalog XML/content is personal/BYO only (gitignored). Public clones run without Aurora or FC5. See the [root README](../README.md) for compose wiring (`docker-compose.aurora.example.yml`, `FC5_ROOT`).
 
-- CRUD operations for game scenes
-- Folder management for organizing scenes
-- Image management for scene assets
-- Endpoints:
-  - `/scenes/save` - Save a scene
-  - `/scenes/list` - List available scenes
-  - `/scenes/load/{scene_id}` - Load a specific scene
-  - `/scenes/{scene_id}` - Update or delete a scene
-  - `/scenes/folder` - Create/manage folders
-  - `/scenes/{scene_id}/image` - Upload/manage scene images
+### 5. Models (`app/models/`)
 
-#### maps.py
+SQLAlchemy models for DB entities (users, campaigns, etc.) and Pydantic models for request/response validation (maps, scenes, folders, API payloads).
 
-- Map file management
-- Folder organization for maps
-- Endpoints:
-  - `/maps/list` - List available maps
-  - `/maps/folders` - List map folders
-  - `/maps/upload` - Upload map images
-  - `/maps/file/{path}` - Retrieve map files
-  - `/maps/rename/{file_name}` - Rename maps
-  - `/maps/move/{file_name}` - Move maps between folders
-  - `/maps/data` - Store and retrieve map metadata
+### 6. File storage
 
-#### audio.py
+Typical directories (also mounted in Docker Compose):
 
-- Audio file management for game sounds
-- Audio playback control
+- **Maps** — map images and per-folder order metadata
+- **Scenes** — JSON scene files and related assets
+- **Sounds** — soundboard audio
+- **Campaign images** — gallery uploads
+- **Monsters** — local monster JSON library
+- **Logs** — rotated application logs
 
-### 4. Data Models (app/models)
+## Data flow
 
-Pydantic models for data validation and structure:
+1. **HTTP API** — frontend calls REST endpoints; backend reads/writes DB and filesystem; JSON responses returned to the client.
+2. **Real-time** — Socket.IO broadcasts board/scene changes so admin and `/viewer` stay in sync; connection lifecycle is handled in `websocket.py` / `connection_manager.py`.
 
-- `MapData` - Map information and settings
-- `SceneData` - Scene structure and properties
-- `SceneImage` - Image information for scenes
-- `FolderItem` - Directory structure representation
+## Technology stack
 
-### 5. File Storage
-
-The backend uses the local file system to store:
-
-- **Maps Directory** - Image files for maps (.png, .jpg, etc.)
-- **Scenes Directory** - JSON files containing scene data
-- **Sounds Directory** - Audio files (.mp3, .ogg, etc.)
-
-## Data Flow
-
-1. **HTTP API Requests**:
-   - Frontend makes HTTP requests to the various API endpoints
-   - Backend processes requests and interacts with the file system
-   - Responses are sent back to the client
-
-2. **WebSocket Communication**:
-   - Real-time updates are broadcast via WebSockets
-   - Scene changes from one client are propagated to all connected clients
-   - Connection management handles client connect/disconnect events
-
-## Technology Stack
-
-- **FastAPI** - Modern, fast web framework for building APIs
-- **Uvicorn** - ASGI server for running the FastAPI application
-- **Pydantic** - Data validation and settings management
-- **WebSockets** - Real-time communication protocol
+- **FastAPI** + **Uvicorn**
+- **Pydantic** v2
+- **SQLAlchemy** + SQLite by default
+- **python-socketio** / Engine.IO for real-time sync
+- **JWT** (`python-jose`) and **passlib** / **bcrypt** for auth
+- **loguru** for logging
+- **uv** for dependency management (`pyproject.toml` / `uv.lock`)
 
 ## Deployment
 
-The application is designed to run as a self-contained service on port 8010, accessible to frontend clients through a combination of REST API endpoints and WebSocket connections.
+Run as a self-contained service on port **8010**. Docker Compose is documented in the [root README](../README.md). For optional Aurora elements, use `docker-compose.aurora.yml` (from the example file) alongside the main compose file.
 
 ## Logging
 
-The application uses [loguru](https://github.com/Delgan/loguru) for logging. The logger is configured in `app/core/logging.py` and is initialized as the first operation when the server starts.
+The application uses [loguru](https://github.com/Delgan/loguru). Configuration lives in `app/core/logging.py` and runs at startup.
 
-### Log Levels
+### Log levels
 
-The following log levels are used:
+- `DEBUG` — detailed diagnostics
+- `INFO` — normal operation
+- `WARNING` — unexpected but recoverable
+- `ERROR` — a function failed
+- `CRITICAL` — process may not continue
 
-- `DEBUG`: Detailed information, typically useful only when diagnosing problems.
-- `INFO`: Confirmation that things are working as expected.
-- `WARNING`: An indication that something unexpected happened, or may happen in the near future.
-- `ERROR`: Due to a more serious problem, the software has not been able to perform a function.
-- `CRITICAL`: A serious error, indicating that the program itself may be unable to continue running.
+### Log destinations
 
-### Log Destinations
-
-Logs are written to:
-
-1. **Console** - Shows INFO level and above with colored formatting
-2. **Log Files** - All logs (DEBUG and above) are written to the `logs/` directory with daily rotation
+1. **Console** — INFO and above, colored
+2. **Log files** — DEBUG and above under `logs/`, with daily rotation
 
 ### Usage
-
-To use the logger in your code:
 
 ```python
 from loguru import logger
 
-# Example usage
 logger.debug("Debug message")
 logger.info("Info message")
 logger.warning("Warning message")
@@ -145,4 +127,4 @@ logger.error("Error message")
 logger.critical("Critical message")
 ```
 
-The logger configuration is performed once at application startup in `app/core/logging.py` and the logs directory is included in `.gitignore`.
+The logs directory is gitignored.

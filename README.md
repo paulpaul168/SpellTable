@@ -81,7 +81,8 @@ A modern, local web-based virtual tabletop for in-person D&D sessions with a phy
 - **Sign-in** with JWT-based API auth; **admin** vs **viewer** roles
 - **Campaigns** with membership; per-campaign **diary**, **markdown notes**, and **image gallery**
 - **Tavern** tab: optional in-world business tracking (valuation, tendays, upgrades, ledger)—see campaign diary
-- **Monster** library with spellcasting / spell slots, add-from-library into initiative, and a DM combat stat block for the current/selected enemy
+- **Monster** library from **local JSON**, optional **Aurora**, and optional **FC5** (filter tabs in initiative and monster management); spellcasting / spell slots; add-from-library into initiative
+- **Enemy combat stat block** for the current/selected enemy, with click-to-**roll attacks** (to-hit and damage parsed from action text)
 - **Backup** endpoints for exporting / restoring campaign-related data (admin)
 
 ### Content licensing (Aurora / game text)
@@ -120,6 +121,8 @@ Public clones work without either. This project is not affiliated with Wizards o
 - [x] SQLite database (configurable via `DATABASE_URL`) for users, campaigns, tavern state, etc.
 - [x] Authentication and user management (admin-created accounts)
 - [x] Campaign diary, notes, images, and tavern mechanics
+- [x] Monster library (local JSON + optional Aurora/FC5 catalogs)
+- [x] Enemy combat stat block with attack rolls
 - [x] Docker Compose layout for local or server deployment
 
 Enhancements in progress or planned include UI polish for touch tables and the items listed under [Planned](#planned--roadmap-ideas).
@@ -226,7 +229,8 @@ spelltable/
 │   ├── app/
 │   │   ├── core/            # config, database, auth, logging
 │   │   ├── models/          # SQLAlchemy / Pydantic models
-│   │   └── routes/          # auth, campaigns, scenes, maps, audio, websocket, …
+│   │   ├── routes/          # auth, campaigns, scenes, maps, audio, websocket, …
+│   │   └── services/        # monsters, Aurora/FC5 catalogs, hit dice
 │   ├── maps/ scenes/ sounds/
 │   ├── pyproject.toml
 │   └── Dockerfile
@@ -254,10 +258,10 @@ Stacking is ordered roughly as: map layers (by list order), then active map boos
 ```bash
 cd backend
 uv sync --extra dev
-ruff check .
-ruff format .
-mypy .
-pytest
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy .
+uv run pytest
 ```
 
 ### Frontend
