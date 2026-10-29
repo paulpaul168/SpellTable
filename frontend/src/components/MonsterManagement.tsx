@@ -38,6 +38,20 @@ import { emptySpellSlotArray, normalizeSpellSlotArray } from '@/utils/spellSlots
 const PAGE_SIZE = 5;
 const FC5_PAGE_SIZE = 40;
 
+const ENVIRONMENT_PRESETS = [
+    'arctic',
+    'coastal',
+    'desert',
+    'forest',
+    'grassland',
+    'hill',
+    'mountain',
+    'swamp',
+    'underdark',
+    'underwater',
+    'urban',
+] as const;
+
 function filterCatalogSummaries<
     T extends { name: string; source?: string; creature_type?: string },
 >(items: T[], query: string): T[] {
@@ -170,6 +184,7 @@ export function MonsterManagement() {
         speed: { walk: 30 },
         ability_scores: { ...emptyAbilityScores },
         challenge: { rating: 1, xp: 200 },
+        environments: [],
         saving_throws: [],
         skills: [],
         damage_resistances: [],
@@ -267,10 +282,21 @@ export function MonsterManagement() {
     const sanitizeImportedMonster = (monster: Monster): Monster => ({
         ...monster,
         languages: (monster.languages || []).filter((l) => knownLanguages.has(l)),
+        environments: monster.environments ?? [],
         damage_resistances: [],
         damage_immunities: [],
         condition_immunities: [],
     });
+
+    const toggleEnvironment = (env: string, checked: boolean) => {
+        const current = formData.environments ?? [];
+        const next = checked
+            ? current.includes(env)
+                ? current
+                : [...current, env]
+            : current.filter((e) => e !== env);
+        setFormData({ ...formData, environments: next });
+    };
 
     const openAuroraView = async (summary: AuroraMonsterSummary) => {
         try {
@@ -630,6 +656,9 @@ export function MonsterManagement() {
                                                 {monster.hp.average} ({monster.hp.hit_dice}) | CR:{' '}
                                                 {monster.challenge.rating}
                                                 {monster.spellcasting ? ' | Caster' : ''}
+                                                {(monster.environments?.length ?? 0) > 0
+                                                    ? ` | ${monster.environments!.join(', ')}`
+                                                    : ''}
                                             </p>
                                         </div>
                                         <div className="flex items-center space-x-2">
@@ -1056,6 +1085,31 @@ export function MonsterManagement() {
                                         })
                                     }
                                 />
+                            </div>
+                            <div className="space-y-2 sm:col-span-2">
+                                <Label>Environments</Label>
+                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                    {ENVIRONMENT_PRESETS.map((env) => {
+                                        const id = `env-${env}`;
+                                        const checked = (formData.environments ?? []).includes(
+                                            env
+                                        );
+                                        return (
+                                            <div key={env} className="flex items-center gap-2">
+                                                <Checkbox
+                                                    id={id}
+                                                    checked={checked}
+                                                    onCheckedChange={(
+                                                        value: boolean | 'indeterminate'
+                                                    ) => toggleEnvironment(env, value === true)}
+                                                />
+                                                <Label htmlFor={id} className="font-normal">
+                                                    {env}
+                                                </Label>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                             <div className="space-y-1">
                                 <Label>Passive Perception</Label>

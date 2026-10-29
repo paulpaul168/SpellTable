@@ -353,6 +353,12 @@ export function MonsterStatBlock({
                     <span className="font-semibold">Challenge</span>{' '}
                     {monster.challenge.rating} ({monster.challenge.xp} XP)
                 </p>
+                {(monster.environments?.length ?? 0) > 0 && (
+                    <p>
+                        <span className="font-semibold">Environments</span>{' '}
+                        {monster.environments!.join(', ')}
+                    </p>
+                )}
             </div>
 
             {sc && (

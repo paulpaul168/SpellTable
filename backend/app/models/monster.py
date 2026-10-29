@@ -110,6 +110,8 @@ class Monster(ModelBase):
     senses: Senses | None = None
     languages: list[Language] = []
     challenge: Challenge
+    # Free-form habitat tags (e.g. forest, underdark) for encounter filtering.
+    environments: list[str] | None = []
 
     descriptions: list[Description] | None = []
     actions: list[Description] | None = []

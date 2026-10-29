@@ -90,6 +90,8 @@ export interface Monster {
     senses?: Senses;
     languages?: string[];
     challenge: Challenge;
+    /** Habitat tags e.g. forest, underdark — used for encounter filtering. */
+    environments?: string[];
 
     descriptions?: Description[];
     actions?: Description[];

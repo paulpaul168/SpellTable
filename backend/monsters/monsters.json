@@ -49,6 +49,12 @@
       "rating": 0.25,
       "xp": 50.0
     },
+    "environments": [
+      "forest",
+      "grassland",
+      "hill",
+      "underdark"
+    ],
     "descriptions": [
       {
         "title": "Nimble Escape",
@@ -119,6 +125,12 @@
       "rating": 1.0,
       "xp": 200.0
     },
+    "environments": [
+      "forest",
+      "grassland",
+      "hill",
+      "underdark"
+    ],
     "descriptions": [
       {
         "title": "Nimble Escape",
@@ -203,6 +215,12 @@
       "rating": 0.25,
       "xp": 50.0
     },
+    "environments": [
+      "arctic",
+      "forest",
+      "grassland",
+      "hill"
+    ],
     "descriptions": [
       {
         "title": "Keen Hearing and Smell",
