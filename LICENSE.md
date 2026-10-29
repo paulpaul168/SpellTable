@@ -1,9 +1,9 @@
-GNU AFFERO GENERAL PUBLIC LICENSE
-Version 3, 19 November 2007
+                    GNU AFFERO GENERAL PUBLIC LICENSE
+                       Version 3, 19 November 2007
 
-Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
-Everyone is permitted to copy and distribute verbatim copies
-of this license document, but changing it is not allowed.
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
 
                             Preamble
 
@@ -354,7 +354,7 @@ that material) supplement the terms of this License with terms:
     terms of sections 15 and 16 of this License; or
 
     b) Requiring preservation of specified reasonable legal notices or
-    author attributions in the material or in the Appropriate Legal
+    author attributions in that material or in the Appropriate Legal
     Notices displayed by works containing it; or
 
     c) Prohibiting misrepresentation of the origin of that material, or
@@ -537,15 +537,26 @@ to collect a royalty for further conveying from those to whom you convey
 the Program, the only way you could satisfy both those terms and this
 License would be to refrain entirely from conveying the Program.
 
-  13. Use with the GNU Affero General Public License.
+  13. Remote Network Interaction; Use with the GNU General Public License.
+
+  Notwithstanding any other provision of this License, if you modify the
+Program, your modified version must prominently offer all users
+interacting with it remotely through a computer network (if your version
+supports such interaction) an opportunity to receive the Corresponding
+Source of your version by providing access to the Corresponding Source
+from a network server at no charge, through some standard or customary
+means of facilitating copying of software.  This Corresponding Source
+shall include the Corresponding Source for any work covered by version 3
+of the GNU General Public License that is incorporated pursuant to the
+following paragraph.
 
   Notwithstanding any other provision of this License, you have
 permission to link or combine any covered work with a work licensed
-under version 3 of the GNU Affero General Public License into a single
+under version 3 of the GNU General Public License into a single
 combined work, and to convey the resulting work.  The terms of this
 License will continue to apply to the part which is the covered work,
 but the work with which it is combined will remain governed by version
-3 of the GNU Affero General Public License.
+3 of the GNU General Public License.
 
   14. Revised Versions of this License.
 
@@ -607,6 +618,7 @@ copy of the Program in return for a fee.
 
                      END OF TERMS AND CONDITIONS
 
+
 Commercial License Notice:
 
 This software is dual-licensed under the GNU Affero General Public License v3 (AGPL v3) and a commercial license.
@@ -623,4 +635,4 @@ To obtain a commercial license for selling the software as a finished product, p
 - Receive additional features and support
 - Customize the software for your needs
 
-All rights not expressly granted under either license are reserved by the copyright holder. 
+All rights not expressly granted under either license are reserved by the copyright holder.
