@@ -239,158 +239,163 @@ export default function ViewerPage() {
                         padding: 0
                     }}
                 >
-                    {(!scene.maps || scene.maps.length === 0) && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
-                            <div className="glass-panel flex max-w-sm flex-col items-center gap-3 rounded-xl p-6">
-                                <div className="rounded-lg bg-muted/50 p-3">
-                                    <div className="h-8 w-8 rounded bg-muted" />
+                    {/* Skip heavy gameboard while screen share covers the display (Pi decode budget). */}
+                    {!isShareActive && (
+                        <>
+                            {(!scene.maps || scene.maps.length === 0) && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+                                    <div className="glass-panel flex max-w-sm flex-col items-center gap-3 rounded-xl p-6">
+                                        <div className="rounded-lg bg-muted/50 p-3">
+                                            <div className="h-8 w-8 rounded bg-muted" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-medium text-foreground">
+                                                Waiting for map...
+                                            </h3>
+                                            <p className="mt-1 text-sm text-muted-foreground">
+                                                The DM will share a map with you shortly
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h3 className="text-sm font-medium text-foreground">
-                                        Waiting for map...
-                                    </h3>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        The DM will share a map with you shortly
-                                    </p>
-                                </div>
+                            )}
+                            {/* Maps container - Allow individual z-indices from the admin's sorting order */}
+                            <div className="absolute inset-0">
+                                {scene.maps && scene.maps
+                                    .filter(map => !map.data.isHidden)
+                                    .map((map, index) => (
+                                        <Map
+                                            key={map.name}
+                                            map={map}
+                                            isActive={map.name === scene.activeMapId}
+                                            onUpdate={() => { }} // No updates in viewer mode
+                                            isViewerMode={true}
+                                            zIndex={(scene.maps?.length || 0) - index} // Match admin's z-index calculation
+                                            scale={displayScale}
+                                            gridSettings={scene.gridSettings} // Pass grid settings to Map component
+                                        />
+                                    ))}
                             </div>
-                        </div>
-                    )}
-                    {/* Maps container - Allow individual z-indices from the admin's sorting order */}
-                    <div className="absolute inset-0">
-                        {scene.maps && scene.maps
-                            .filter(map => !map.data.isHidden)
-                            .map((map, index) => (
-                                <Map
-                                    key={map.name}
-                                    map={map}
-                                    isActive={map.name === scene.activeMapId}
-                                    onUpdate={() => { }} // No updates in viewer mode
-                                    isViewerMode={true}
-                                    zIndex={(scene.maps?.length || 0) - index} // Match admin's z-index calculation
-                                    scale={displayScale}
-                                    gridSettings={scene.gridSettings} // Pass grid settings to Map component
+
+                            <NightModeOverlay
+                                enabled={isDarkMode}
+                                brightness={brightness}
+                                zIndex={playAreaLayerZIndex(scene.maps?.length ?? 0, 'night')}
+                            />
+
+                            {/* AoE Markers - View Only - Ensure they're above maps but below tokens */}
+                            <div
+                                className="absolute inset-0"
+                                style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'aoe') }}
+                            >
+                                {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
+                                    <AoEMarker
+                                        key={marker.id}
+                                        marker={marker}
+                                        gridSize={scene.gridSettings.gridSize}
+                                        isActive={false} // Not interactive in viewer mode
+                                        isAdmin={false}  // Not admin in viewer mode
+                                        onUpdate={() => { }} // No-op in viewer mode
+                                        onDelete={() => { }} // No-op in viewer mode
+                                        scale={displayScale}
+                                        gridSettings={scene.gridSettings}
+                                        isHighlighted={marker.id === highlightedMarkerId}
+                                        containerRef={playAreaRef}
+                                    />
+                                ))}
+                            </div>
+
+                            {/* Fog of War - View Only - Renders as opaque black to hide content */}
+                            <div
+                                className="absolute inset-0"
+                                style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'fog') }}
+                            >
+                                {scene.fogOfWar && scene.fogOfWar.map((fog) => (
+                                    <FogOfWar
+                                        key={fog.id}
+                                        fogOfWar={fog}
+                                        gridSize={scene.gridSettings.gridSize}
+                                        isActive={false} // Not interactive in viewer mode
+                                        isAdmin={false}  // Not admin in viewer mode
+                                        isViewerMode={true} // This makes it render as opaque black
+                                        onUpdate={() => { }} // No-op in viewer mode
+                                        onDelete={() => { }} // No-op in viewer mode
+                                        scale={displayScale}
+                                        gridSettings={scene.gridSettings}
+                                    />
+                                ))}
+                            </div>
+
+                            {/* Combatant tokens */}
+                            <div
+                                className="absolute inset-0 pointer-events-none [&>*]:pointer-events-none"
+                                style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'tokens') }}
+                            >
+                                {scene.initiativeOrder
+                                    .filter((e) => e.mapPosition && !e.isKilled)
+                                    .sort((a, b) => Number(a.isCurrentTurn) - Number(b.isCurrentTurn))
+                                    .map((entry) => (
+                                        <CombatantToken
+                                            key={entry.id}
+                                            entry={entry}
+                                            isAdmin={false}
+                                            onUpdate={() => {}}
+                                            containerRef={playAreaRef}
+                                            gridSettings={scene.gridSettings}
+                                            defaultTokenFootprint={scene.gridSettings.defaultTokenFootprint}
+                                        />
+                                    ))}
+                            </div>
+
+                            {showMovementTrail && currentTurnEntry && (
+                                <div
+                                    className="absolute inset-0 pointer-events-none"
+                                    style={{
+                                        zIndex: playAreaLayerZIndex(
+                                            scene.maps?.length ?? 0,
+                                            'movementTrail'
+                                        ),
+                                    }}
+                                >
+                                    <TokenMovementTrail
+                                        points={movementTrail.measurePoints}
+                                        previewPoint={movementPreviewPoint}
+                                        totalFeet={movementTrail.totalFeet}
+                                        containerRef={playAreaRef}
+                                        tokenRadius={movementTrail.tokenRadius}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Grid Overlay - above maps/markers, below initiative UI */}
+                            {scene.gridSettings?.showGrid && (
+                                <div
+                                    className="absolute inset-0 pointer-events-none"
+                                    style={{
+                                        backgroundImage: `
+                                            linear-gradient(to right, ${scene.gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)'} 1px, transparent 1px),
+                                            linear-gradient(to bottom, ${scene.gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)'} 1px, transparent 1px)
+                                        `,
+                                        backgroundSize: scene.gridSettings.useFixedGrid
+                                            ? `calc(100% / ${scene.gridSettings.gridCellsX || 25}) calc(100% / ${scene.gridSettings.gridCellsY || 13})`
+                                            : `${scene.gridSettings?.gridSize}px ${scene.gridSettings?.gridSize}px`,
+                                        opacity: scene.gridSettings.gridOpacity || 0.5,
+                                        zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'grid'),
+                                    }}
                                 />
-                            ))}
-                    </div>
+                            )}
 
-                    <NightModeOverlay
-                        enabled={isDarkMode}
-                        brightness={brightness}
-                        zIndex={playAreaLayerZIndex(scene.maps?.length ?? 0, 'night')}
-                    />
-
-                    {/* AoE Markers - View Only - Ensure they're above maps but below tokens */}
-                    <div
-                        className="absolute inset-0"
-                        style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'aoe') }}
-                    >
-                        {scene.aoeMarkers && scene.aoeMarkers.map((marker) => (
-                            <AoEMarker
-                                key={marker.id}
-                                marker={marker}
-                                gridSize={scene.gridSettings.gridSize}
-                                isActive={false} // Not interactive in viewer mode
-                                isAdmin={false}  // Not admin in viewer mode
-                                onUpdate={() => { }} // No-op in viewer mode
-                                onDelete={() => { }} // No-op in viewer mode
-                                scale={displayScale}
-                                gridSettings={scene.gridSettings}
-                                isHighlighted={marker.id === highlightedMarkerId}
-                                containerRef={playAreaRef}
+                            {/* Current / next player — after grid so z-[1000] stacks on top */}
+                            <InitiativeIndicator
+                                initiativeOrder={scene.initiativeOrder}
+                                showCurrentPlayer={scene.showCurrentPlayer}
                             />
-                        ))}
-                    </div>
-
-                    {/* Fog of War - View Only - Renders as opaque black to hide content */}
-                    <div
-                        className="absolute inset-0"
-                        style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'fog') }}
-                    >
-                        {scene.fogOfWar && scene.fogOfWar.map((fog) => (
-                            <FogOfWar
-                                key={fog.id}
-                                fogOfWar={fog}
-                                gridSize={scene.gridSettings.gridSize}
-                                isActive={false} // Not interactive in viewer mode
-                                isAdmin={false}  // Not admin in viewer mode
-                                isViewerMode={true} // This makes it render as opaque black
-                                onUpdate={() => { }} // No-op in viewer mode
-                                onDelete={() => { }} // No-op in viewer mode
-                                scale={displayScale}
-                                gridSettings={scene.gridSettings}
-                            />
-                        ))}
-                    </div>
-
-                    {/* Combatant tokens */}
-                    <div
-                        className="absolute inset-0 pointer-events-none [&>*]:pointer-events-none"
-                        style={{ zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'tokens') }}
-                    >
-                        {scene.initiativeOrder
-                            .filter((e) => e.mapPosition && !e.isKilled)
-                            .sort((a, b) => Number(a.isCurrentTurn) - Number(b.isCurrentTurn))
-                            .map((entry) => (
-                                <CombatantToken
-                                    key={entry.id}
-                                    entry={entry}
-                                    isAdmin={false}
-                                    onUpdate={() => {}}
-                                    containerRef={playAreaRef}
-                                    gridSettings={scene.gridSettings}
-                                    defaultTokenFootprint={scene.gridSettings.defaultTokenFootprint}
-                                />
-                            ))}
-                    </div>
-
-                    {showMovementTrail && currentTurnEntry && (
-                        <div
-                            className="absolute inset-0 pointer-events-none"
-                            style={{
-                                zIndex: playAreaLayerZIndex(
-                                    scene.maps?.length ?? 0,
-                                    'movementTrail'
-                                ),
-                            }}
-                        >
-                            <TokenMovementTrail
-                                points={movementTrail.measurePoints}
-                                previewPoint={movementPreviewPoint}
-                                totalFeet={movementTrail.totalFeet}
-                                containerRef={playAreaRef}
-                                tokenRadius={movementTrail.tokenRadius}
-                            />
-                        </div>
+                        </>
                     )}
-
-                    {/* Grid Overlay - above maps/markers, below initiative UI */}
-                    {scene.gridSettings?.showGrid && (
-                        <div
-                            className="absolute inset-0 pointer-events-none"
-                            style={{
-                                backgroundImage: `
-                                    linear-gradient(to right, ${scene.gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)'} 1px, transparent 1px),
-                                    linear-gradient(to bottom, ${scene.gridSettings.gridColor || 'rgba(255, 255, 255, 0.1)'} 1px, transparent 1px)
-                                `,
-                                backgroundSize: scene.gridSettings.useFixedGrid
-                                    ? `calc(100% / ${scene.gridSettings.gridCellsX || 25}) calc(100% / ${scene.gridSettings.gridCellsY || 13})`
-                                    : `${scene.gridSettings?.gridSize}px ${scene.gridSettings?.gridSize}px`,
-                                opacity: scene.gridSettings.gridOpacity || 0.5,
-                                zIndex: playAreaLayerZIndex(scene.maps?.length ?? 0, 'grid'),
-                            }}
-                        />
-                    )}
-
-                    {/* Current / next player — after grid so z-[1000] stacks on top */}
-                    <InitiativeIndicator
-                        initiativeOrder={scene.initiativeOrder}
-                        showCurrentPlayer={scene.showCurrentPlayer}
-                    />
                 </div>
 
                 {/* Display Scale Indicator */}
-                {displayScale !== 1.0 && (
+                {!isShareActive && displayScale !== 1.0 && (
                     <div className="glass-panel absolute bottom-4 right-16 z-50 rounded px-2 py-1 text-xs text-muted-foreground">
                         <div className="flex items-center gap-2">
                             <span>Scaling: {(displayScale * 100).toFixed(1)}%</span>
@@ -399,16 +404,18 @@ export default function ViewerPage() {
                 )}
 
                 {/* Navigation Button */}
-                <div className="absolute top-4 right-4 z-50">
-                    <Button
-                        onClick={() => window.location.href = '/viewer/campaigns'}
-                        variant="outline"
-                        size="sm"
-                        className="glass-panel"
-                    >
-                        Campaign Diary
-                    </Button>
-                </div>
+                {!isShareActive && (
+                    <div className="absolute top-4 right-4 z-50">
+                        <Button
+                            onClick={() => window.location.href = '/viewer/campaigns'}
+                            variant="outline"
+                            size="sm"
+                            className="glass-panel"
+                        >
+                            Campaign Diary
+                        </Button>
+                    </div>
+                )}
 
                 {/* Blank Overlay - Hide all content when admin blanks the viewer */}
                 {isViewerBlanked && !isShareActive && (
@@ -425,12 +432,14 @@ export default function ViewerPage() {
 
                 <ScreenShareOverlay stream={remoteStream} active={isShareActive} />
             </div>
-            <RippleViewer
-                hidden={isViewerBlanked}
-                gridSettings={scene.gridSettings}
-                playAreaRef={playAreaRef}
-                mapCount={scene.maps?.length ?? 0}
-            />
+            {!isShareActive && (
+                <RippleViewer
+                    hidden={isViewerBlanked}
+                    gridSettings={scene.gridSettings}
+                    playAreaRef={playAreaRef}
+                    mapCount={scene.maps?.length ?? 0}
+                />
+            )}
             </>
         </ProtectedRoute>
     );

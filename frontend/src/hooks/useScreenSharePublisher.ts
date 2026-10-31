@@ -8,6 +8,7 @@ import {
     attachLocalStream,
     captureDisplay,
     closePeerConnection,
+    configureScreenShareSender,
     createOffer,
     createPeerConnection,
     stopMediaStream,
@@ -60,6 +61,7 @@ export function useScreenSharePublisher() {
         });
 
         attachLocalStream(pc, stream);
+        await configureScreenShareSender(pc, stream);
 
         const entry: PeerEntry = { pc, pendingCandidates: [] };
         peersRef.current.set(viewerId, entry);

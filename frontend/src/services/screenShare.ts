@@ -4,6 +4,17 @@ const ICE_SERVERS: RTCIceServer[] = [
     { urls: 'stun:stun.l.google.com:19302' },
 ];
 
+/** Pi 5–friendly capture/encode caps (decode happens on the table viewer). */
+const DISPLAY_VIDEO_CONSTRAINTS: MediaTrackConstraints = {
+    width: { max: 1920 },
+    height: { max: 1080 },
+    frameRate: { max: 24 },
+};
+
+const MAX_SHARE_FRAMERATE = 24;
+const MAX_SHARE_BITRATE = 2_500_000;
+const MAX_SHARE_HEIGHT = 1080;
+
 export function createPeerConnection(
     onIceCandidate: (candidate: RTCIceCandidateInit | null) => void,
 ): RTCPeerConnection {
@@ -26,6 +37,45 @@ export function attachLocalStream(
 ): void {
     for (const track of stream.getTracks()) {
         pc.addTrack(track, stream);
+    }
+}
+
+/**
+ * Cap outbound video encode for weaker table viewers (e.g. Raspberry Pi 5).
+ * Best-effort: browsers may ignore some encodings fields.
+ */
+export async function configureScreenShareSender(
+    pc: RTCPeerConnection,
+    stream: MediaStream,
+): Promise<void> {
+    const videoTrack = stream.getVideoTracks()[0];
+    if (!videoTrack) {
+        return;
+    }
+
+    const settings = videoTrack.getSettings();
+    const height = settings.height ?? 0;
+    const scaleResolutionDownBy =
+        height > MAX_SHARE_HEIGHT ? height / MAX_SHARE_HEIGHT : 1;
+
+    for (const sender of pc.getSenders()) {
+        if (sender.track?.kind !== 'video') {
+            continue;
+        }
+        try {
+            const params = sender.getParameters();
+            if (!params.encodings || params.encodings.length === 0) {
+                params.encodings = [{}];
+            }
+            for (const encoding of params.encodings) {
+                encoding.maxFramerate = MAX_SHARE_FRAMERATE;
+                encoding.maxBitrate = MAX_SHARE_BITRATE;
+                encoding.scaleResolutionDownBy = scaleResolutionDownBy;
+            }
+            await sender.setParameters(params);
+        } catch (error) {
+            console.warn('Failed to configure screen-share sender:', error);
+        }
     }
 }
 
@@ -88,6 +138,18 @@ export function stopMediaStream(stream: MediaStream | null): void {
     }
 }
 
+function applyVideoTrackHints(stream: MediaStream): void {
+    const videoTrack = stream.getVideoTracks()[0];
+    if (!videoTrack) {
+        return;
+    }
+    try {
+        videoTrack.contentHint = 'detail';
+    } catch {
+        // contentHint is best-effort
+    }
+}
+
 /**
  * Capture display with audio when possible; fall back to video-only.
  * Returns `{ stream, audioAvailable }`.
@@ -102,9 +164,10 @@ export async function captureDisplay(): Promise<{
 
     try {
         const stream = await navigator.mediaDevices.getDisplayMedia({
-            video: true,
+            video: DISPLAY_VIDEO_CONSTRAINTS,
             audio: true,
         });
+        applyVideoTrackHints(stream);
         const audioAvailable = stream.getAudioTracks().length > 0;
         return { stream, audioAvailable };
     } catch (error) {
@@ -116,9 +179,10 @@ export async function captureDisplay(): Promise<{
         // NotAllowedError is also retried: some desktops reject audio that way.
         try {
             const stream = await navigator.mediaDevices.getDisplayMedia({
-                video: true,
+                video: DISPLAY_VIDEO_CONSTRAINTS,
                 audio: false,
             });
+            applyVideoTrackHints(stream);
             return { stream, audioAvailable: false };
         } catch {
             throw error;
